@@ -23,7 +23,6 @@ Cute Obsidian Workbench 是一个粉色狗狗手绘主题的 Obsidian Community 
    - `main.js`
    - `manifest.json`
    - `styles.css`
-   - 如需保留当前样式拆分文件，也复制 `src/styles/`
 3. 打开 Obsidian 设置。
 4. 关闭安全模式或启用社区插件。
 5. 启用 `Cute Obsidian Workbench`。
@@ -34,6 +33,12 @@ Cute Obsidian Workbench 是一个粉色狗狗手绘主题的 Obsidian Community 
 ```bash
 npm install
 npm run build
+```
+
+发布检查：
+
+```bash
+npm run build:release
 ```
 
 开发监听：
@@ -160,7 +165,7 @@ npm run dev
 ├── main.js
 ├── manifest.json
 ├── package.json
-├── styles.css
+├── styles.css              # 构建生成的完整发布样式，不依赖 src/styles
 ├── tsconfig.json
 └── versions.json
 ```
