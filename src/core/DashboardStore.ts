@@ -150,7 +150,7 @@ function createSection(
 }
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.3.1",
+  dataVersion: "0.3.2",
   currentPage: "overview",
   sections: [
     {
@@ -2054,7 +2054,7 @@ export class DashboardStore {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.1",
+      dataVersion: "0.3.2",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner

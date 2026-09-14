@@ -126,7 +126,7 @@ function createSection(page, type, title, order, width = "md", height = "md") {
   };
 }
 var DEFAULT_DATA = {
-  dataVersion: "0.3.1",
+  dataVersion: "0.3.2",
   currentPage: "overview",
   sections: [
     {
@@ -1831,7 +1831,7 @@ var DashboardStore = class {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.1",
+      dataVersion: "0.3.2",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -4682,11 +4682,13 @@ var FocusSetupModal = class extends import_obsidian21.Modal {
   }
   render() {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cow-focus-setup-modal");
-    this.contentEl.createEl("h2", { text: "\u5F00\u59CB\u4E13\u6CE8" });
-    this.contentEl.createEl("p", { text: "\u9009\u62E9\u65F6\u95F4\u3001\u5199\u4E0B\u4E13\u6CE8\u5185\u5BB9\uFF0C\u518D\u8FDB\u5165\u6C89\u6D78\u5F0F\u7A97\u53E3\u3002" });
-    this.contentEl.createEl("h3", { text: "\u9009\u62E9\u4E13\u6CE8\u65F6\u95F4" });
-    const presets = this.contentEl.createDiv({ cls: "cow-focus-preset-grid" });
+    this.contentEl.addClass("cow-modal", "cute-focus-resizable-modal", "cow-focus-setup-modal");
+    const header = this.contentEl.createDiv({ cls: "cute-focus-modal-header" });
+    header.createEl("h2", { text: "\u5F00\u59CB\u4E13\u6CE8" });
+    header.createEl("p", { text: "\u9009\u62E9\u65F6\u95F4\u3001\u5199\u4E0B\u4E13\u6CE8\u5185\u5BB9\uFF0C\u518D\u8FDB\u5165\u6C89\u6D78\u5F0F\u7A97\u53E3\u3002" });
+    const content = this.contentEl.createDiv({ cls: "cute-focus-modal-content" });
+    content.createEl("h3", { text: "\u9009\u62E9\u4E13\u6CE8\u65F6\u95F4" });
+    const presets = content.createDiv({ cls: "cow-focus-preset-grid" });
     [15, 25, 45, 60, 90].forEach((minutes) => {
       const button = presets.createEl("button", {
         cls: this.duration === minutes && !this.customDuration ? "is-active" : "",
@@ -4700,7 +4702,7 @@ var FocusSetupModal = class extends import_obsidian21.Modal {
         this.render();
       });
     });
-    new import_obsidian21.Setting(this.contentEl).setName("\u81EA\u5B9A\u4E49\u65F6\u95F4").setDesc("\u5355\u4F4D\uFF1A\u5206\u949F\uFF0C\u8303\u56F4 1-180\u3002").addText((text) => text.setValue(this.customDuration).onChange((value) => {
+    new import_obsidian21.Setting(content).setName("\u81EA\u5B9A\u4E49\u65F6\u95F4").setDesc("\u5355\u4F4D\uFF1A\u5206\u949F\uFF0C\u8303\u56F4 1-180\u3002").addText((text) => text.setValue(this.customDuration).onChange((value) => {
       this.customDuration = value.trim();
       const next = Number(this.customDuration);
       if (this.customDuration && (!Number.isFinite(next) || next < 1 || next > 180)) {
@@ -4713,17 +4715,17 @@ var FocusSetupModal = class extends import_obsidian21.Modal {
       this.error = "";
       this.render();
     }));
-    this.contentEl.createDiv({ cls: "cow-focus-selected-duration", text: `\u672C\u6B21\u4E13\u6CE8\uFF1A${this.duration} \u5206\u949F` });
+    content.createDiv({ cls: "cow-focus-selected-duration", text: `\u672C\u6B21\u4E13\u6CE8\uFF1A${this.duration} \u5206\u949F` });
     if (this.error) {
-      this.contentEl.createDiv({ cls: "cow-form-error", text: this.error });
+      content.createDiv({ cls: "cow-form-error", text: this.error });
     }
-    new import_obsidian21.Setting(this.contentEl).setName("\u4E13\u6CE8\u5185\u5BB9").addText((text) => text.setPlaceholder("\u8FD9\u6B21\u51C6\u5907\u4E13\u6CE8\u505A\u4EC0\u4E48\uFF1F").setValue(this.task).onChange((value) => {
+    new import_obsidian21.Setting(content).setName("\u4E13\u6CE8\u5185\u5BB9").addText((text) => text.setPlaceholder("\u8FD9\u6B21\u51C6\u5907\u4E13\u6CE8\u505A\u4EC0\u4E48\uFF1F").setValue(this.task).onChange((value) => {
       this.task = value;
     }));
-    this.contentEl.createEl("h3", { text: "\u9009\u62E9\u4E13\u6CE8\u80CC\u666F" });
-    const backgrounds = this.contentEl.createDiv({ cls: "cow-focus-background-picker" });
+    content.createEl("h3", { text: "\u9009\u62E9\u4E13\u6CE8\u80CC\u666F" });
+    const backgrounds = content.createDiv({ cls: "cow-focus-background-picker" });
     FOCUS_BACKGROUNDS.forEach((background) => this.renderBackgroundButton(backgrounds, background.id, background.label));
-    const fileInput = this.contentEl.createEl("input", {
+    const fileInput = content.createEl("input", {
       cls: "cow-hidden-input",
       attr: { type: "file", accept: "image/*" }
     });
@@ -4743,9 +4745,12 @@ var FocusSetupModal = class extends import_obsidian21.Modal {
       cls: `cow-focus-bg-custom ${this.background === "custom" ? "is-active" : ""}`,
       attr: { type: "button" }
     });
+    if (this.backgroundDataUrl) {
+      custom.style.backgroundImage = `linear-gradient(rgba(255, 248, 253, 0.38), rgba(255, 248, 253, 0.38)), url("${this.backgroundDataUrl}")`;
+    }
     custom.createSpan({ text: "\u81EA\u5B9A\u4E49\u80CC\u666F" });
     custom.addEventListener("click", () => fileInput.click());
-    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions cute-focus-modal-footer" });
     actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
     const start = actions.createEl("button", { cls: "mod-cta", text: "\u5F00\u59CB\u4E13\u6CE8", attr: { type: "button" } });
     start.addEventListener("click", async () => {
@@ -4796,7 +4801,7 @@ var FocusSessionWindow = class extends import_obsidian21.Modal {
   render() {
     var _a;
     this.contentEl.empty();
-    this.contentEl.addClass("cow-focus-session-window", `cow-focus-bg-${(_a = this.store.getFocusState().background) != null ? _a : "pink"}`);
+    this.contentEl.addClass("cute-focus-resizable-modal", "cow-focus-session-window", `cow-focus-bg-${(_a = this.store.getFocusState().background) != null ? _a : "pink"}`);
     if (this.maximized) {
       this.contentEl.addClass("is-maximized");
     }
@@ -4961,15 +4966,17 @@ var FocusRecordsModal = class extends import_obsidian21.Modal {
     const stats = new StatisticsService(this.store).getFocusStats();
     const records = this.getFilteredRecords();
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cow-focus-records-modal");
-    this.contentEl.createEl("h2", { text: "\u4E13\u6CE8\u8BB0\u5F55" });
-    const statGrid = this.contentEl.createDiv({ cls: "cow-stats-card-grid" });
+    this.contentEl.addClass("cow-modal", "cute-focus-resizable-modal", "cow-focus-records-modal");
+    const header = this.contentEl.createDiv({ cls: "cute-focus-modal-header" });
+    header.createEl("h2", { text: "\u4E13\u6CE8\u8BB0\u5F55" });
+    const content = this.contentEl.createDiv({ cls: "cute-focus-modal-content" });
+    const statGrid = content.createDiv({ cls: "cow-stats-card-grid" });
     [["\u4ECA\u65E5\u4E13\u6CE8", `${stats.todayMinutes} min`], ["\u4ECA\u65E5\u756A\u8304", stats.todayPomodoros], ["\u672C\u5468\u4E13\u6CE8", `${stats.weekMinutes} min`], ["\u672C\u6708\u4E13\u6CE8", `${stats.monthMinutes} min`]].forEach(([label, value]) => {
       const card = statGrid.createDiv({ cls: "cow-stats-card" });
       card.createEl("strong", { text: String(value) });
       card.createSpan({ text: String(label) });
     });
-    const filters = this.contentEl.createDiv({ cls: "cow-focus-filter-row" });
+    const filters = content.createDiv({ cls: "cow-focus-filter-row" });
     [
       ["today", "\u4ECA\u5929"],
       ["week", "\u672C\u5468"],
@@ -4985,12 +4992,12 @@ var FocusRecordsModal = class extends import_obsidian21.Modal {
       });
     });
     if (this.filter === "date") {
-      new import_obsidian21.Setting(this.contentEl).setName("\u65E5\u671F").addText((text) => text.setValue(this.dateValue).onChange((value) => {
+      new import_obsidian21.Setting(content).setName("\u65E5\u671F").addText((text) => text.setValue(this.dateValue).onChange((value) => {
         this.dateValue = value.trim();
         this.render();
       }));
     }
-    const list = this.contentEl.createDiv({ cls: "cow-focus-record-list" });
+    const list = content.createDiv({ cls: "cow-focus-record-list" });
     if (records.length === 0) {
       list.createEl("p", { cls: "cow-empty-state", text: "\u6CA1\u6709\u5339\u914D\u7684\u4E13\u6CE8\u8BB0\u5F55\u3002" });
       return;
@@ -5048,22 +5055,24 @@ var EditFocusRecordModal = class extends import_obsidian21.Modal {
   }
   onOpen() {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal");
-    this.contentEl.createEl("h2", { text: "\u7F16\u8F91\u4E13\u6CE8\u8BB0\u5F55" });
-    new import_obsidian21.Setting(this.contentEl).setName("\u65E5\u671F").addText((text) => text.setValue(this.date).onChange((value) => {
+    this.contentEl.addClass("cow-modal", "cute-focus-resizable-modal", "cow-edit-focus-record-modal");
+    const header = this.contentEl.createDiv({ cls: "cute-focus-modal-header" });
+    header.createEl("h2", { text: "\u7F16\u8F91\u4E13\u6CE8\u8BB0\u5F55" });
+    const content = this.contentEl.createDiv({ cls: "cute-focus-modal-content" });
+    new import_obsidian21.Setting(content).setName("\u65E5\u671F").addText((text) => text.setValue(this.date).onChange((value) => {
       this.date = value.trim();
     }));
-    new import_obsidian21.Setting(this.contentEl).setName("\u4E13\u6CE8\u5185\u5BB9").addText((text) => text.setValue(this.task).onChange((value) => {
+    new import_obsidian21.Setting(content).setName("\u4E13\u6CE8\u5185\u5BB9").addText((text) => text.setValue(this.task).onChange((value) => {
       this.task = value;
     }));
-    new import_obsidian21.Setting(this.contentEl).setName("\u5B9E\u9645\u4E13\u6CE8\u65F6\u957F").setDesc("\u5355\u4F4D\uFF1A\u5206\u949F").addText((text) => {
+    new import_obsidian21.Setting(content).setName("\u5B9E\u9645\u4E13\u6CE8\u65F6\u957F").setDesc("\u5355\u4F4D\uFF1A\u5206\u949F").addText((text) => {
       text.inputEl.type = "number";
       text.setValue(String(this.duration));
       text.onChange((value) => {
         this.duration = Math.max(0, Number(value) || 0);
       });
     });
-    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions cute-focus-modal-footer" });
     actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
     actions.createEl("button", { text: "\u4FDD\u5B58", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
       await this.store.updateFocusRecord(this.record.id, {

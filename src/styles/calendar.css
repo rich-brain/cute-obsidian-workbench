@@ -1223,9 +1223,67 @@
   gap: 6px;
 }
 
-.cow-focus-setup-modal,
+.cute-focus-resizable-modal {
+  box-sizing: border-box;
+  resize: both;
+  overflow: auto;
+  max-width: 96vw;
+  max-height: 94vh;
+}
+
+.cute-focus-modal-header {
+  min-width: 0;
+}
+
+.cute-focus-modal-header h2 {
+  margin: 0 0 6px;
+}
+
+.cute-focus-modal-header p {
+  margin: 0;
+  color: var(--cow-muted);
+}
+
+.cute-focus-modal-content {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.cute-focus-modal-footer {
+  align-self: end;
+  margin-top: 0;
+  padding-top: 10px;
+}
+
+.cow-focus-setup-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  width: min(900px, 88vw);
+  height: min(506px, 78vh);
+  min-width: min(620px, 88vw);
+  min-height: min(350px, 78vh);
+}
+
 .cow-focus-records-modal {
-  width: min(820px, 92vw);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  width: min(1000px, 90vw);
+  height: min(700px, 82vh);
+  min-width: min(680px, 90vw);
+  min-height: min(420px, 82vh);
+}
+
+.cow-edit-focus-record-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  width: min(640px, 88vw);
+  height: min(420px, 72vh);
+  min-width: min(420px, 88vw);
+  min-height: min(300px, 72vh);
 }
 
 .cow-focus-selected-duration {
@@ -1274,7 +1332,7 @@
 .cow-focus-background-grid,
 .cow-focus-background-picker {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 8px;
   margin: 10px 0 14px;
 }
@@ -1289,8 +1347,15 @@
   border: 1px solid var(--cow-border);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.6);
+  background-position: center;
+  background-size: cover;
   color: var(--cow-ink);
   font-weight: 800;
+}
+
+.cow-focus-background-grid button,
+.cow-focus-background-picker button {
+  aspect-ratio: 16 / 9;
 }
 
 .cow-focus-preset-grid button.is-active,
@@ -1306,13 +1371,16 @@
   place-items: center;
   width: min(1100px, 92vw);
   height: min(720px, 88vh);
-  max-height: 88vh;
+  min-width: min(640px, 92vw);
+  min-height: min(400px, 88vh);
+  max-width: 96vw;
+  max-height: 94vh;
   padding: 24px !important;
   border-radius: 26px;
   background-size: cover;
   background-position: center;
   box-shadow: 0 24px 60px rgba(110, 45, 76, 0.28);
-  overflow: hidden;
+  overflow: auto;
 }
 
 .cow-focus-session-window::before {
@@ -1333,6 +1401,7 @@
   width: 96vw;
   height: 92vh;
   max-height: 92vh;
+  resize: none;
 }
 
 .cow-focus-window-controls {
@@ -1362,6 +1431,7 @@
   justify-items: center;
   gap: 14px;
   width: min(760px, 100%);
+  min-width: 0;
   text-align: center;
 }
 
@@ -1483,7 +1553,7 @@
 .cow-focus-record-list {
   display: grid;
   gap: 8px;
-  max-height: min(48vh, 480px);
+  min-height: 0;
   overflow: auto;
   padding-right: 4px;
 }
@@ -1497,6 +1567,10 @@
   border: 1px solid rgba(242, 59, 141, 0.18);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.5);
+}
+
+.cow-focus-records-modal .cow-stats-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .cow-focus-record-row > div:first-child {
@@ -1514,6 +1588,48 @@
 .cow-focus-record-row span {
   color: var(--cow-muted);
   font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .cow-focus-setup-modal,
+  .cow-focus-records-modal,
+  .cow-edit-focus-record-modal {
+    width: min(94vw, 420px);
+    height: min(82vh, 680px);
+    min-width: min(320px, 94vw);
+    min-height: min(360px, 82vh);
+  }
+
+  .cow-focus-session-window {
+    width: min(94vw, 520px);
+    height: min(82vh, 680px);
+    min-width: min(320px, 94vw);
+    min-height: min(360px, 82vh);
+    padding: 18px !important;
+  }
+
+  .cow-focus-preset-grid,
+  .cow-focus-background-grid,
+  .cow-focus-background-picker {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .cow-focus-records-modal .cow-stats-card-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .cow-focus-record-row {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .cow-focus-record-row .cow-list-item-actions {
+    justify-content: flex-start;
+  }
+
+  .cow-focus-session-countdown {
+    font-size: clamp(56px, 18vw, 120px);
+  }
 }
 
 .cow-feature-card {

@@ -87,12 +87,15 @@ class FocusSetupModal extends Modal {
 
   private render(): void {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cow-focus-setup-modal");
-    this.contentEl.createEl("h2", { text: "开始专注" });
-    this.contentEl.createEl("p", { text: "选择时间、写下专注内容，再进入沉浸式窗口。" });
+    this.contentEl.addClass("cow-modal", "cute-focus-resizable-modal", "cow-focus-setup-modal");
 
-    this.contentEl.createEl("h3", { text: "选择专注时间" });
-    const presets = this.contentEl.createDiv({ cls: "cow-focus-preset-grid" });
+    const header = this.contentEl.createDiv({ cls: "cute-focus-modal-header" });
+    header.createEl("h2", { text: "开始专注" });
+    header.createEl("p", { text: "选择时间、写下专注内容，再进入沉浸式窗口。" });
+
+    const content = this.contentEl.createDiv({ cls: "cute-focus-modal-content" });
+    content.createEl("h3", { text: "选择专注时间" });
+    const presets = content.createDiv({ cls: "cow-focus-preset-grid" });
     [15, 25, 45, 60, 90].forEach((minutes) => {
       const button = presets.createEl("button", {
         cls: this.duration === minutes && !this.customDuration ? "is-active" : "",
@@ -107,7 +110,7 @@ class FocusSetupModal extends Modal {
       });
     });
 
-    new Setting(this.contentEl)
+    new Setting(content)
       .setName("自定义时间")
       .setDesc("单位：分钟，范围 1-180。")
       .addText((text) => text.setValue(this.customDuration).onChange((value) => {
@@ -124,12 +127,12 @@ class FocusSetupModal extends Modal {
         this.render();
       }));
 
-    this.contentEl.createDiv({ cls: "cow-focus-selected-duration", text: `本次专注：${this.duration} 分钟` });
+    content.createDiv({ cls: "cow-focus-selected-duration", text: `本次专注：${this.duration} 分钟` });
     if (this.error) {
-      this.contentEl.createDiv({ cls: "cow-form-error", text: this.error });
+      content.createDiv({ cls: "cow-form-error", text: this.error });
     }
 
-    new Setting(this.contentEl)
+    new Setting(content)
       .setName("专注内容")
       .addText((text) => text
         .setPlaceholder("这次准备专注做什么？")
@@ -138,11 +141,11 @@ class FocusSetupModal extends Modal {
           this.task = value;
         }));
 
-    this.contentEl.createEl("h3", { text: "选择专注背景" });
-    const backgrounds = this.contentEl.createDiv({ cls: "cow-focus-background-picker" });
+    content.createEl("h3", { text: "选择专注背景" });
+    const backgrounds = content.createDiv({ cls: "cow-focus-background-picker" });
     FOCUS_BACKGROUNDS.forEach((background) => this.renderBackgroundButton(backgrounds, background.id, background.label));
 
-    const fileInput = this.contentEl.createEl("input", {
+    const fileInput = content.createEl("input", {
       cls: "cow-hidden-input",
       attr: { type: "file", accept: "image/*" }
     });
@@ -162,10 +165,13 @@ class FocusSetupModal extends Modal {
       cls: `cow-focus-bg-custom ${this.background === "custom" ? "is-active" : ""}`,
       attr: { type: "button" }
     });
+    if (this.backgroundDataUrl) {
+      custom.style.backgroundImage = `linear-gradient(rgba(255, 248, 253, 0.38), rgba(255, 248, 253, 0.38)), url("${this.backgroundDataUrl}")`;
+    }
     custom.createSpan({ text: "自定义背景" });
     custom.addEventListener("click", () => fileInput.click());
 
-    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions cute-focus-modal-footer" });
     actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
     const start = actions.createEl("button", { cls: "mod-cta", text: "开始专注", attr: { type: "button" } });
     start.addEventListener("click", async () => {
@@ -224,7 +230,7 @@ class FocusSessionWindow extends Modal {
 
   private render(): void {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-focus-session-window", `cow-focus-bg-${this.store.getFocusState().background ?? "pink"}`);
+    this.contentEl.addClass("cute-focus-resizable-modal", "cow-focus-session-window", `cow-focus-bg-${this.store.getFocusState().background ?? "pink"}`);
     if (this.maximized) {
       this.contentEl.addClass("is-maximized");
     }
@@ -414,17 +420,20 @@ class FocusRecordsModal extends Modal {
     const stats = new StatisticsService(this.store).getFocusStats();
     const records = this.getFilteredRecords();
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cow-focus-records-modal");
-    this.contentEl.createEl("h2", { text: "专注记录" });
+    this.contentEl.addClass("cow-modal", "cute-focus-resizable-modal", "cow-focus-records-modal");
 
-    const statGrid = this.contentEl.createDiv({ cls: "cow-stats-card-grid" });
+    const header = this.contentEl.createDiv({ cls: "cute-focus-modal-header" });
+    header.createEl("h2", { text: "专注记录" });
+
+    const content = this.contentEl.createDiv({ cls: "cute-focus-modal-content" });
+    const statGrid = content.createDiv({ cls: "cow-stats-card-grid" });
     [["今日专注", `${stats.todayMinutes} min`], ["今日番茄", stats.todayPomodoros], ["本周专注", `${stats.weekMinutes} min`], ["本月专注", `${stats.monthMinutes} min`]].forEach(([label, value]) => {
       const card = statGrid.createDiv({ cls: "cow-stats-card" });
       card.createEl("strong", { text: String(value) });
       card.createSpan({ text: String(label) });
     });
 
-    const filters = this.contentEl.createDiv({ cls: "cow-focus-filter-row" });
+    const filters = content.createDiv({ cls: "cow-focus-filter-row" });
     [
       ["today", "今天"],
       ["week", "本周"],
@@ -440,13 +449,13 @@ class FocusRecordsModal extends Modal {
       });
     });
     if (this.filter === "date") {
-      new Setting(this.contentEl).setName("日期").addText((text) => text.setValue(this.dateValue).onChange((value) => {
+      new Setting(content).setName("日期").addText((text) => text.setValue(this.dateValue).onChange((value) => {
         this.dateValue = value.trim();
         this.render();
       }));
     }
 
-    const list = this.contentEl.createDiv({ cls: "cow-focus-record-list" });
+    const list = content.createDiv({ cls: "cow-focus-record-list" });
     if (records.length === 0) {
       list.createEl("p", { cls: "cow-empty-state", text: "没有匹配的专注记录。" });
       return;
@@ -513,22 +522,24 @@ class EditFocusRecordModal extends Modal {
 
   onOpen(): void {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal");
-    this.contentEl.createEl("h2", { text: "编辑专注记录" });
-    new Setting(this.contentEl).setName("日期").addText((text) => text.setValue(this.date).onChange((value) => {
+    this.contentEl.addClass("cow-modal", "cute-focus-resizable-modal", "cow-edit-focus-record-modal");
+    const header = this.contentEl.createDiv({ cls: "cute-focus-modal-header" });
+    header.createEl("h2", { text: "编辑专注记录" });
+    const content = this.contentEl.createDiv({ cls: "cute-focus-modal-content" });
+    new Setting(content).setName("日期").addText((text) => text.setValue(this.date).onChange((value) => {
       this.date = value.trim();
     }));
-    new Setting(this.contentEl).setName("专注内容").addText((text) => text.setValue(this.task).onChange((value) => {
+    new Setting(content).setName("专注内容").addText((text) => text.setValue(this.task).onChange((value) => {
       this.task = value;
     }));
-    new Setting(this.contentEl).setName("实际专注时长").setDesc("单位：分钟").addText((text) => {
+    new Setting(content).setName("实际专注时长").setDesc("单位：分钟").addText((text) => {
       text.inputEl.type = "number";
       text.setValue(String(this.duration));
       text.onChange((value) => {
         this.duration = Math.max(0, Number(value) || 0);
       });
     });
-    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions cute-focus-modal-footer" });
     actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
     actions.createEl("button", { text: "保存", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
       await this.store.updateFocusRecord(this.record.id, {
