@@ -126,7 +126,7 @@ function createSection(page, type, title, order, width = "md", height = "md") {
   };
 }
 var DEFAULT_DATA = {
-  dataVersion: "0.3.0",
+  dataVersion: "0.3.1",
   currentPage: "overview",
   sections: [
     {
@@ -1041,7 +1041,7 @@ var DashboardStore = class {
     }
     await this.save();
   }
-  async startFocusSession(task = "", durationMinutes = this.data.focusSettings.focusDuration, background = ((_a) => (_a = this.data.focusSettings.defaultBackground) != null ? _a : "pink")()) {
+  async startFocusSession(task = "", durationMinutes = this.data.focusSettings.focusDuration, background = ((_a) => (_a = this.data.focusSettings.defaultBackground) != null ? _a : "pink")(), backgroundDataUrl) {
     const plannedDuration = Math.max(1, Math.round(durationMinutes));
     this.data.focusSettings.focusDuration = plannedDuration;
     this.data.focusSettings.defaultBackground = background;
@@ -1053,6 +1053,7 @@ var DashboardStore = class {
       remainingSeconds: plannedDuration * 60,
       currentTask: task.trim(),
       background,
+      backgroundDataUrl,
       plannedDuration
     };
     await this.save();
@@ -1079,27 +1080,10 @@ var DashboardStore = class {
     };
     await this.save();
   }
-  async endFocusSession(completed = false) {
-    var _a, _b, _c;
+  async endFocusSession(completed = false, saveRecord = true) {
     const state = this.resolveFocusState();
-    if (state.mode === "focus") {
-      const totalSeconds = this.data.focusSettings.focusDuration * 60;
-      const duration = Math.max(0, Math.round((totalSeconds - state.remainingSeconds) / 60));
-      if (duration > 0 || completed) {
-        const endedAt = (/* @__PURE__ */ new Date()).toISOString();
-        this.data.focusRecords.push({
-          id: `focus-record-${Date.now()}`,
-          date: formatDateKey(/* @__PURE__ */ new Date()),
-          task: ((_a = state.currentTask) == null ? void 0 : _a.trim()) || "\u4E13\u6CE8",
-          duration: completed ? (_b = state.plannedDuration) != null ? _b : this.data.focusSettings.focusDuration : duration,
-          completed,
-          createdAt: endedAt,
-          startedAt: state.startedAt,
-          endedAt,
-          plannedDuration: (_c = state.plannedDuration) != null ? _c : this.data.focusSettings.focusDuration,
-          background: state.background
-        });
-      }
+    if (saveRecord && state.mode === "focus") {
+      this.pushFocusRecord(state, completed);
     }
     this.data.focusState = {
       isRunning: false,
@@ -1109,23 +1093,25 @@ var DashboardStore = class {
     };
     await this.save();
   }
+  async updateFocusRecord(recordId, updates) {
+    var _a, _b, _c, _d, _e;
+    const record = this.data.focusRecords.find((item) => item.id === recordId);
+    if (!record) return;
+    Object.assign(record, updates);
+    record.duration = (_c = (_b = (_a = updates.actualDurationMinutes) != null ? _a : updates.duration) != null ? _b : record.actualDurationMinutes) != null ? _c : record.duration;
+    record.actualDurationMinutes = record.duration;
+    record.plannedDuration = (_e = (_d = updates.plannedDurationMinutes) != null ? _d : updates.plannedDuration) != null ? _e : record.plannedDuration;
+    record.plannedDurationMinutes = record.plannedDuration;
+    await this.save();
+  }
+  async deleteFocusRecord(recordId) {
+    this.data.focusRecords = this.data.focusRecords.filter((record) => record.id !== recordId);
+    await this.save();
+  }
   async completeCurrentFocusPhase() {
-    var _a, _b, _c;
     const state = this.resolveFocusState();
     if (state.mode === "focus") {
-      const endedAt = (/* @__PURE__ */ new Date()).toISOString();
-      this.data.focusRecords.push({
-        id: `focus-record-${Date.now()}`,
-        date: formatDateKey(/* @__PURE__ */ new Date()),
-        task: ((_a = state.currentTask) == null ? void 0 : _a.trim()) || "\u4E13\u6CE8",
-        duration: (_b = state.plannedDuration) != null ? _b : this.data.focusSettings.focusDuration,
-        completed: true,
-        createdAt: endedAt,
-        startedAt: state.startedAt,
-        endedAt,
-        plannedDuration: (_c = state.plannedDuration) != null ? _c : this.data.focusSettings.focusDuration,
-        background: state.background
-      });
+      this.pushFocusRecord(state, true);
       this.data.focusState = {
         isRunning: this.data.focusSettings.autoStartBreak,
         isPaused: !this.data.focusSettings.autoStartBreak,
@@ -1134,6 +1120,7 @@ var DashboardStore = class {
         remainingSeconds: this.data.focusSettings.breakDuration * 60,
         currentTask: state.currentTask,
         background: state.background,
+        backgroundDataUrl: state.backgroundDataUrl,
         plannedDuration: this.data.focusSettings.breakDuration
       };
     } else {
@@ -1145,6 +1132,7 @@ var DashboardStore = class {
         remainingSeconds: this.data.focusSettings.focusDuration * 60,
         currentTask: state.currentTask,
         background: state.background,
+        backgroundDataUrl: state.backgroundDataUrl,
         plannedDuration: this.data.focusSettings.focusDuration
       };
     }
@@ -1155,6 +1143,29 @@ var DashboardStore = class {
   }
   getTodayPomodoroCount() {
     return this.getTodayFocusRecords().filter((record) => record.completed).length;
+  }
+  pushFocusRecord(state, completed) {
+    var _a, _b;
+    const plannedDuration = (_a = state.plannedDuration) != null ? _a : this.data.focusSettings.focusDuration;
+    const elapsedMinutes = Math.max(0, Math.ceil((plannedDuration * 60 - state.remainingSeconds) / 60));
+    const actualDuration = completed ? plannedDuration : elapsedMinutes;
+    if (actualDuration <= 0) return;
+    const endedAt = (/* @__PURE__ */ new Date()).toISOString();
+    this.data.focusRecords.push({
+      id: `focus-record-${Date.now()}`,
+      date: formatDateKey(/* @__PURE__ */ new Date()),
+      task: ((_b = state.currentTask) == null ? void 0 : _b.trim()) || "\u4E13\u6CE8",
+      duration: actualDuration,
+      actualDurationMinutes: actualDuration,
+      completed,
+      createdAt: endedAt,
+      startedAt: state.startedAt,
+      endedAt,
+      plannedDuration,
+      plannedDurationMinutes: plannedDuration,
+      background: state.background,
+      backgroundDataUrl: state.backgroundDataUrl
+    });
   }
   exportData() {
     return JSON.stringify(this.data, null, 2);
@@ -1820,7 +1831,7 @@ var DashboardStore = class {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.0",
+      dataVersion: "0.3.1",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -1875,7 +1886,7 @@ var DashboardStore = class {
         ...DEFAULT_DATA.focusState,
         ...partial.focusState
       },
-      focusRecords: Array.isArray(partial.focusRecords) ? partial.focusRecords : structuredClone(DEFAULT_DATA.focusRecords),
+      focusRecords: Array.isArray(partial.focusRecords) ? partial.focusRecords.map((record) => this.normalizeFocusRecord(record)) : structuredClone(DEFAULT_DATA.focusRecords),
       fitnessDailyRecords: Array.isArray(partial.fitnessDailyRecords) ? partial.fitnessDailyRecords : structuredClone(DEFAULT_DATA.fitnessDailyRecords),
       investmentWatchItems: Array.isArray(partial.investmentWatchItems) ? partial.investmentWatchItems : structuredClone(DEFAULT_DATA.investmentWatchItems),
       priorityMatrixItems: Array.isArray(partial.priorityMatrixItems) ? partial.priorityMatrixItems : structuredClone(DEFAULT_DATA.priorityMatrixItems),
@@ -1901,6 +1912,22 @@ var DashboardStore = class {
       ]);
     }
     return this.withRequiredSections(migrated);
+  }
+  normalizeFocusRecord(record) {
+    var _a, _b, _c, _d, _e, _f, _g;
+    const createdAt = (_b = (_a = record.createdAt) != null ? _a : record.endedAt) != null ? _b : (/* @__PURE__ */ new Date()).toISOString();
+    const date = (_c = record.date) != null ? _c : createdAt.slice(0, 10);
+    const actualDuration = (_e = (_d = record.actualDurationMinutes) != null ? _d : record.duration) != null ? _e : 0;
+    const plannedDuration = (_g = (_f = record.plannedDurationMinutes) != null ? _f : record.plannedDuration) != null ? _g : actualDuration;
+    return {
+      ...record,
+      date,
+      createdAt,
+      duration: actualDuration,
+      actualDurationMinutes: actualDuration,
+      plannedDuration,
+      plannedDurationMinutes: plannedDuration
+    };
   }
   withRequiredSections(sections) {
     const migrated = [...sections];
@@ -3528,11 +3555,22 @@ var StatisticsService = class {
   getFocusStats() {
     const today = this.calendar.getDateKey(/* @__PURE__ */ new Date());
     const weekKeys = new Set(this.store.getCurrentWeekDates());
+    const monthPrefix = today.slice(0, 7);
     const records = this.store.getFocusRecords();
     return {
-      todayMinutes: records.filter((record) => record.date === today).reduce((sum, record) => sum + record.duration, 0),
+      todayMinutes: records.filter((record) => record.date === today).reduce((sum, record) => {
+        var _a;
+        return sum + ((_a = record.actualDurationMinutes) != null ? _a : record.duration);
+      }, 0),
       todayPomodoros: records.filter((record) => record.date === today && record.completed).length,
-      weekMinutes: records.filter((record) => weekKeys.has(record.date)).reduce((sum, record) => sum + record.duration, 0),
+      weekMinutes: records.filter((record) => weekKeys.has(record.date)).reduce((sum, record) => {
+        var _a;
+        return sum + ((_a = record.actualDurationMinutes) != null ? _a : record.duration);
+      }, 0),
+      monthMinutes: records.filter((record) => record.date.startsWith(monthPrefix)).reduce((sum, record) => {
+        var _a;
+        return sum + ((_a = record.actualDurationMinutes) != null ? _a : record.duration);
+      }, 0),
       recentRecords: records.slice(0, 5)
     };
   }
@@ -4576,13 +4614,13 @@ var TodayFocusSection = class {
 // src/components/overview/FocusStatSection.ts
 var import_obsidian21 = require("obsidian");
 var FOCUS_BACKGROUNDS = [
-  { id: "solid", label: "\u7EAF\u8272" },
-  { id: "pink", label: "\u7C89\u8272\u6E10\u53D8" },
-  { id: "forest", label: "\u68EE\u6797" },
+  { id: "pink", label: "\u9ED8\u8BA4\u7C89\u8272" },
+  { id: "cream", label: "\u5976\u6CB9\u6E10\u53D8" },
   { id: "sky", label: "\u5929\u7A7A" },
+  { id: "forest", label: "\u68EE\u6797" },
   { id: "night", label: "\u591C\u665A" },
   { id: "desk", label: "\u4E66\u684C" },
-  { id: "minimal", label: "\u6781\u7B80" }
+  { id: "minimal-dark", label: "\u6781\u7B80\u6DF1\u8272" }
 ];
 var FocusStatSection = class {
   constructor(app, store, onDataChanged) {
@@ -4593,50 +4631,37 @@ var FocusStatSection = class {
   render(container) {
     const stats = new StatisticsService(this.store).getFocusStats();
     const state = this.store.getFocusState();
-    const root = container.createDiv({ cls: "cow-focus-stat-card" });
-    const top = root.createDiv({ cls: "cow-focus-stat-top" });
+    const root = container.createDiv({ cls: "cow-focus-summary-card" });
+    const top = root.createDiv({ cls: "cow-focus-summary-top" });
     const art = top.createDiv({ cls: "cow-stat-art is-blue" });
-    (0, import_obsidian21.setIcon)(art.createSpan(), state.mode === "break" ? "coffee" : "headphones");
-    const summary = top.createDiv();
+    (0, import_obsidian21.setIcon)(art.createSpan(), "headphones");
+    const summary = top.createDiv({ cls: "cow-focus-summary-copy" });
     summary.createEl("strong", { text: this.formatMinutes(stats.todayMinutes) });
     summary.createSpan({ text: `\u4ECA\u65E5 ${stats.todayPomodoros} \u4E2A\u756A\u8304 \xB7 \u672C\u5468 ${this.formatMinutes(stats.weekMinutes)}` });
-    root.createDiv({ cls: "cow-focus-timer", text: this.formatSeconds(state.remainingSeconds) });
-    root.createDiv({
-      cls: "cow-focus-status",
-      text: `${state.isRunning ? state.isPaused ? "\u5DF2\u6682\u505C" : "\u8FDB\u884C\u4E2D" : "\u672A\u5F00\u59CB"} \xB7 ${state.mode === "focus" ? "\u4E13\u6CE8" : "\u4F11\u606F"}${state.currentTask ? ` \xB7 ${state.currentTask}` : ""}`
-    });
-    const actions = root.createDiv({ cls: "cow-focus-actions" });
+    if (state.isRunning) {
+      root.createDiv({
+        cls: "cow-focus-summary-status",
+        text: `\u4E13\u6CE8\u4E2D${state.currentTask ? `\uFF1A${state.currentTask}` : ""}`
+      });
+    }
+    const actions = root.createDiv({ cls: "cow-focus-summary-actions" });
     const primary = actions.createEl("button", { cls: "mod-cta", attr: { type: "button" } });
-    (0, import_obsidian21.setIcon)(primary.createSpan(), state.isRunning ? state.isPaused ? "play" : "pause" : "play");
-    primary.createSpan({ text: state.isRunning ? state.isPaused ? "\u7EE7\u7EED" : "\u6682\u505C" : "\u5F00\u59CB\u4E13\u6CE8" });
-    primary.addEventListener("click", async () => {
-      if (!state.isRunning) {
-        new FocusSetupModal(this.app, this.store, this.onDataChanged).open();
+    (0, import_obsidian21.setIcon)(primary.createSpan(), state.isRunning ? "maximize-2" : "play");
+    primary.createSpan({ text: state.isRunning ? "\u8FD4\u56DE\u4E13\u6CE8" : "\u5F00\u59CB\u4E13\u6CE8" });
+    primary.addEventListener("click", () => {
+      if (state.isRunning) {
+        new FocusSessionWindow(this.app, this.store, this.onDataChanged).open();
         return;
       }
-      if (state.isPaused) {
-        await this.store.resumeFocusSession();
-      } else {
-        await this.store.pauseFocusSession();
-      }
-      this.onDataChanged();
+      new FocusSetupModal(this.app, this.store, this.onDataChanged).open();
     });
-    const detail = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian21.setIcon)(detail.createSpan(), "timer");
-    detail.createSpan({ text: "\u67E5\u770B\u8BB0\u5F55" });
-    detail.addEventListener("click", () => new FocusSessionModal(this.app, this.store, this.onDataChanged).open());
+    const records = actions.createEl("button", { attr: { type: "button" } });
+    (0, import_obsidian21.setIcon)(records.createSpan(), "list-checks");
+    records.createSpan({ text: "\u67E5\u770B\u8BB0\u5F55" });
+    records.addEventListener("click", () => new FocusRecordsModal(this.app, this.store, this.onDataChanged).open());
   }
   formatMinutes(minutes) {
-    if (minutes < 60) return `${minutes}min`;
-    const hours = Math.floor(minutes / 60);
-    const rest = minutes % 60;
-    return rest === 0 ? `${hours}h` : `${hours}h ${rest}min`;
-  }
-  formatSeconds(seconds) {
-    const safe = Math.max(0, seconds);
-    const mins = Math.floor(safe / 60);
-    const secs = safe % 60;
-    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    return `${minutes} min`;
   }
 };
 var FocusSetupModal = class extends import_obsidian21.Modal {
@@ -4645,65 +4670,122 @@ var FocusSetupModal = class extends import_obsidian21.Modal {
     super(app);
     this.store = store;
     this.onDataChanged = onDataChanged;
+    this.duration = 25;
     this.customDuration = "";
     this.task = "";
-    const settings = store.getFocusSettings();
-    this.duration = settings.focusDuration;
-    this.background = (_a = settings.defaultBackground) != null ? _a : "pink";
+    this.background = "pink";
+    this.error = "";
+    this.background = (_a = store.getFocusSettings().defaultBackground) != null ? _a : "pink";
   }
   onOpen() {
+    this.render();
+  }
+  render() {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal");
+    this.contentEl.addClass("cow-modal", "cow-focus-setup-modal");
     this.contentEl.createEl("h2", { text: "\u5F00\u59CB\u4E13\u6CE8" });
-    this.contentEl.createEl("p", { text: "\u5148\u9009\u4E00\u4E2A\u5408\u9002\u7684\u756A\u8304\u957F\u5EA6\uFF0C\u518D\u8FDB\u5165\u6C89\u6D78\u5F0F\u4E13\u6CE8\u3002" });
+    this.contentEl.createEl("p", { text: "\u9009\u62E9\u65F6\u95F4\u3001\u5199\u4E0B\u4E13\u6CE8\u5185\u5BB9\uFF0C\u518D\u8FDB\u5165\u6C89\u6D78\u5F0F\u7A97\u53E3\u3002" });
+    this.contentEl.createEl("h3", { text: "\u9009\u62E9\u4E13\u6CE8\u65F6\u95F4" });
     const presets = this.contentEl.createDiv({ cls: "cow-focus-preset-grid" });
-    [25, 45, 60, 90].forEach((minutes) => {
-      const button = presets.createEl("button", { cls: this.duration === minutes ? "is-active" : "", attr: { type: "button" } });
+    [15, 25, 45, 60, 90].forEach((minutes) => {
+      const button = presets.createEl("button", {
+        cls: this.duration === minutes && !this.customDuration ? "is-active" : "",
+        attr: { type: "button" }
+      });
       button.createSpan({ text: `${minutes} \u5206\u949F` });
       button.addEventListener("click", () => {
         this.duration = minutes;
         this.customDuration = "";
-        this.onOpen();
+        this.error = "";
+        this.render();
       });
     });
-    new import_obsidian21.Setting(this.contentEl).setName("\u81EA\u5B9A\u4E49\u5206\u949F\u6570").addText((text) => text.setValue(this.customDuration).onChange((value) => {
-      this.customDuration = value;
-      const next = Number(value);
-      if (Number.isFinite(next) && next > 0) this.duration = Math.round(next);
+    new import_obsidian21.Setting(this.contentEl).setName("\u81EA\u5B9A\u4E49\u65F6\u95F4").setDesc("\u5355\u4F4D\uFF1A\u5206\u949F\uFF0C\u8303\u56F4 1-180\u3002").addText((text) => text.setValue(this.customDuration).onChange((value) => {
+      this.customDuration = value.trim();
+      const next = Number(this.customDuration);
+      if (this.customDuration && (!Number.isFinite(next) || next < 1 || next > 180)) {
+        this.error = "\u8BF7\u8F93\u5165 1 \u5230 180 \u4E4B\u95F4\u7684\u5206\u949F\u6570\u3002";
+        return;
+      }
+      if (this.customDuration) {
+        this.duration = Math.round(next);
+      }
+      this.error = "";
+      this.render();
     }));
-    new import_obsidian21.Setting(this.contentEl).setName("\u4E13\u6CE8\u4E8B\u9879").addText((text) => text.setPlaceholder("\u8FD9\u6B21\u51C6\u5907\u4E13\u6CE8\u505A\u4EC0\u4E48\uFF1F").setValue(this.task).onChange((value) => {
+    this.contentEl.createDiv({ cls: "cow-focus-selected-duration", text: `\u672C\u6B21\u4E13\u6CE8\uFF1A${this.duration} \u5206\u949F` });
+    if (this.error) {
+      this.contentEl.createDiv({ cls: "cow-form-error", text: this.error });
+    }
+    new import_obsidian21.Setting(this.contentEl).setName("\u4E13\u6CE8\u5185\u5BB9").addText((text) => text.setPlaceholder("\u8FD9\u6B21\u51C6\u5907\u4E13\u6CE8\u505A\u4EC0\u4E48\uFF1F").setValue(this.task).onChange((value) => {
       this.task = value;
     }));
     this.contentEl.createEl("h3", { text: "\u9009\u62E9\u4E13\u6CE8\u80CC\u666F" });
-    const backgrounds = this.contentEl.createDiv({ cls: "cow-focus-background-grid" });
-    FOCUS_BACKGROUNDS.forEach((background) => {
-      const button = backgrounds.createEl("button", { cls: `cow-focus-bg-${background.id} ${this.background === background.id ? "is-active" : ""}`, attr: { type: "button" } });
-      button.createSpan({ text: background.label });
-      button.addEventListener("click", () => {
-        this.background = background.id;
-        this.onOpen();
-      });
+    const backgrounds = this.contentEl.createDiv({ cls: "cow-focus-background-picker" });
+    FOCUS_BACKGROUNDS.forEach((background) => this.renderBackgroundButton(backgrounds, background.id, background.label));
+    const fileInput = this.contentEl.createEl("input", {
+      cls: "cow-hidden-input",
+      attr: { type: "file", accept: "image/*" }
     });
+    fileInput.addEventListener("change", () => {
+      var _a;
+      const file = (_a = fileInput.files) == null ? void 0 : _a[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.background = "custom";
+        this.backgroundDataUrl = String(reader.result);
+        this.render();
+      };
+      reader.readAsDataURL(file);
+    });
+    const custom = backgrounds.createEl("button", {
+      cls: `cow-focus-bg-custom ${this.background === "custom" ? "is-active" : ""}`,
+      attr: { type: "button" }
+    });
+    custom.createSpan({ text: "\u81EA\u5B9A\u4E49\u80CC\u666F" });
+    custom.addEventListener("click", () => fileInput.click());
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
     const start = actions.createEl("button", { cls: "mod-cta", text: "\u5F00\u59CB\u4E13\u6CE8", attr: { type: "button" } });
     start.addEventListener("click", async () => {
-      await this.store.startFocusSession(this.task, this.duration, this.background);
+      if (this.duration < 1 || this.duration > 180) {
+        this.error = "\u8BF7\u8F93\u5165 1 \u5230 180 \u4E4B\u95F4\u7684\u5206\u949F\u6570\u3002";
+        this.render();
+        return;
+      }
+      await this.store.startFocusSession(this.task, this.duration, this.background, this.backgroundDataUrl);
       this.onDataChanged();
       this.close();
-      new FocusSessionModal(this.app, this.store, this.onDataChanged).open();
+      new FocusSessionWindow(this.app, this.store, this.onDataChanged).open();
+    });
+  }
+  renderBackgroundButton(container, id, label) {
+    const button = container.createEl("button", {
+      cls: `cow-focus-bg-${id} ${this.background === id ? "is-active" : ""}`,
+      attr: { type: "button" }
+    });
+    button.createSpan({ text: label });
+    button.addEventListener("click", () => {
+      this.background = id;
+      this.backgroundDataUrl = void 0;
+      this.render();
     });
   }
 };
-var FocusSessionModal = class extends import_obsidian21.Modal {
+var FocusSessionWindow = class extends import_obsidian21.Modal {
   constructor(app, store, onDataChanged) {
     super(app);
     this.store = store;
     this.onDataChanged = onDataChanged;
+    this.maximized = false;
+    this.completed = false;
+    this.completionTask = "";
+    this.completionDuration = 0;
   }
   onOpen() {
     this.render();
-    this.timer = window.setInterval(() => this.tick(), 1e3);
+    this.timer = window.setInterval(() => void this.tick(), 1e3);
   }
   onClose() {
     if (this.timer) {
@@ -4714,77 +4796,306 @@ var FocusSessionModal = class extends import_obsidian21.Modal {
   render() {
     var _a;
     this.contentEl.empty();
-    const settings = this.store.getFocusSettings();
+    this.contentEl.addClass("cow-focus-session-window", `cow-focus-bg-${(_a = this.store.getFocusState().background) != null ? _a : "pink"}`);
+    if (this.maximized) {
+      this.contentEl.addClass("is-maximized");
+    }
     const state = this.store.getFocusState();
-    const stats = new StatisticsService(this.store).getFocusStats();
-    this.contentEl.addClass("cow-modal", "cow-focus-session-modal", `cow-focus-bg-${(_a = state.background) != null ? _a : "pink"}`);
-    this.contentEl.createEl("h2", { text: state.currentTask || "\u4ECA\u65E5\u4E13\u6CE8" });
-    this.contentEl.createEl("p", {
-      text: `\u9ED8\u8BA4 ${settings.focusDuration} \u5206\u949F\u4E13\u6CE8 / ${settings.breakDuration} \u5206\u949F\u4F11\u606F\uFF0C\u4ECA\u65E5\u7D2F\u8BA1 ${stats.todayMinutes} \u5206\u949F\u3002`
-    });
-    const timer = this.contentEl.createDiv({ cls: "cow-focus-modal-timer" });
-    timer.createSpan({ text: state.mode === "focus" ? "\u4E13\u6CE8\u4E2D" : "\u4F11\u606F\u4E2D" });
-    timer.createEl("strong", { text: this.formatSeconds(state.remainingSeconds) });
-    timer.createSpan({ text: this.getStateLabel(state) });
-    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions cow-focus-modal-actions" });
-    this.renderAction(actions, state.isRunning ? state.isPaused ? "\u7EE7\u7EED" : "\u6682\u505C" : "\u5F00\u59CB", state.isRunning && !state.isPaused ? "pause" : "play", async () => {
-      if (!state.isRunning) {
-        new FocusSetupModal(this.app, this.store, this.onDataChanged).open();
-        this.close();
-        return;
-      } else if (state.isPaused) {
+    if (state.backgroundDataUrl) {
+      this.contentEl.style.backgroundImage = `linear-gradient(rgba(255, 248, 253, 0.62), rgba(255, 248, 253, 0.62)), url("${state.backgroundDataUrl}")`;
+    }
+    this.renderWindowControls();
+    if (this.completed) {
+      this.renderCompleted();
+      return;
+    }
+    const body = this.contentEl.createDiv({ cls: "cow-focus-window-body" });
+    body.createSpan({ cls: "cow-focus-window-label", text: state.currentTask ? "\u6B63\u5728\u4E13\u6CE8\uFF1A" : "\u4E13\u6CE8\u65F6\u95F4" });
+    body.createEl("h2", { text: state.currentTask || "\u4FDD\u6301\u5F53\u4E0B\u8FD9\u4E00\u8F6E" });
+    body.createDiv({ cls: "cow-focus-session-countdown", text: this.formatSeconds(state.remainingSeconds) });
+    body.createDiv({ cls: "cow-focus-session-status", text: state.isPaused ? "\u5DF2\u6682\u505C" : "\u4E13\u6CE8\u4E2D" });
+    const actions = body.createDiv({ cls: "cow-focus-window-actions" });
+    const toggle = actions.createEl("button", { cls: "mod-cta", attr: { type: "button" } });
+    (0, import_obsidian21.setIcon)(toggle.createSpan(), state.isPaused ? "play" : "pause");
+    toggle.createSpan({ text: state.isPaused ? "\u7EE7\u7EED" : "\u6682\u505C" });
+    toggle.addEventListener("click", async () => {
+      if (state.isPaused) {
         await this.store.resumeFocusSession();
       } else {
         await this.store.pauseFocusSession();
       }
       this.onDataChanged();
       this.render();
-    }, true);
-    this.renderAction(actions, "\u63D0\u524D\u7ED3\u675F", "square", async () => {
-      var _a2;
-      const savePartial = this.store.getFocusState().remainingSeconds < ((_a2 = this.store.getFocusState().plannedDuration) != null ? _a2 : settings.focusDuration) * 60 - 60;
-      await this.store.endFocusSession(savePartial);
+    });
+    const end = actions.createEl("button", { attr: { type: "button" } });
+    (0, import_obsidian21.setIcon)(end.createSpan(), "square");
+    end.createSpan({ text: "\u7ED3\u675F" });
+    end.addEventListener("click", () => new EndFocusConfirmModal(this.app, this.store, async () => {
       this.onDataChanged();
+      this.close();
+    }).open());
+  }
+  renderWindowControls() {
+    const controls = this.contentEl.createDiv({ cls: "cow-focus-window-controls" });
+    controls.createEl("button", { text: "\u2014", attr: { type: "button", "aria-label": "\u6700\u5C0F\u5316" } }).addEventListener("click", () => {
+      this.onDataChanged();
+      this.close();
+    });
+    controls.createEl("button", { text: this.maximized ? "\u25A3" : "\u25A1", attr: { type: "button", "aria-label": this.maximized ? "\u6062\u590D\u7A97\u53E3" : "\u6700\u5927\u5316" } }).addEventListener("click", () => {
+      this.maximized = !this.maximized;
       this.render();
     });
-    this.renderAction(actions, "\u5173\u95ED", "x", async () => this.close());
-    const records = this.contentEl.createDiv({ cls: "cow-focus-records" });
-    records.createEl("h3", { text: "\u6700\u8FD1\u8BB0\u5F55" });
-    const recent = stats.recentRecords;
-    if (recent.length === 0) {
-      records.createEl("p", { cls: "cow-empty-state", text: "\u8FD8\u6CA1\u6709\u4E13\u6CE8\u8BB0\u5F55\u3002" });
-    } else {
-      recent.forEach((record) => {
-        const row = records.createDiv({ cls: "cow-focus-record-item" });
-        row.createEl("strong", { text: record.task });
-        row.createSpan({ text: `${record.date} \xB7 ${record.duration} \u5206\u949F${record.completed ? " \xB7 \u5DF2\u5B8C\u6210" : ""}` });
-      });
-    }
+    controls.createEl("button", { text: "\xD7", attr: { type: "button", "aria-label": "\u5173\u95ED" } }).addEventListener("click", () => {
+      if (this.store.getFocusState().isRunning) {
+        new CloseFocusWindowModal(this.app, this.store, async () => {
+          this.onDataChanged();
+          this.close();
+        }).open();
+        return;
+      }
+      this.close();
+    });
+  }
+  renderCompleted() {
+    const stats = new StatisticsService(this.store).getFocusStats();
+    const body = this.contentEl.createDiv({ cls: "cow-focus-window-body cow-focus-complete-body" });
+    body.createEl("h2", { text: "\u{1F389} \u4E13\u6CE8\u5B8C\u6210" });
+    body.createDiv({ cls: "cow-focus-session-countdown", text: `${this.completionDuration} min` });
+    body.createSpan({ text: `\u5185\u5BB9\uFF1A${this.completionTask || "\u4E13\u6CE8"}` });
+    body.createSpan({ text: `\u4ECA\u65E5\u7D2F\u8BA1\uFF1A${stats.todayMinutes} min \xB7 \u4ECA\u65E5\u756A\u8304\uFF1A${stats.todayPomodoros} \u4E2A` });
+    const actions = body.createDiv({ cls: "cow-focus-window-actions" });
+    actions.createEl("button", { text: "\u5B8C\u6210", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "\u518D\u6765\u4E00\u6B21", attr: { type: "button" } }).addEventListener("click", () => {
+      this.close();
+      new FocusSetupModal(this.app, this.store, this.onDataChanged).open();
+    });
   }
   async tick() {
+    var _a, _b;
     const state = this.store.getFocusState();
     if (state.isRunning && !state.isPaused && state.remainingSeconds <= 0) {
+      this.completionTask = (_a = state.currentTask) != null ? _a : "\u4E13\u6CE8";
+      this.completionDuration = (_b = state.plannedDuration) != null ? _b : this.store.getFocusSettings().focusDuration;
       await this.store.completeCurrentFocusPhase();
+      this.completed = true;
       this.onDataChanged();
-      new import_obsidian21.Notice(state.mode === "focus" ? "\u4E13\u6CE8\u5B8C\u6210\uFF0C\u4F11\u606F\u4E00\u4E0B\u5427\u3002" : "\u4F11\u606F\u5B8C\u6210\uFF0C\u53EF\u4EE5\u5F00\u59CB\u4E0B\u4E00\u8F6E\u5566\u3002");
+      new import_obsidian21.Notice("\u4E13\u6CE8\u5B8C\u6210");
     }
     this.render();
-  }
-  renderAction(container, label, icon, onClick, primary = false) {
-    const button = container.createEl("button", { cls: primary ? "mod-cta" : "", attr: { type: "button" } });
-    (0, import_obsidian21.setIcon)(button.createSpan(), icon);
-    button.createSpan({ text: label });
-    button.addEventListener("click", () => void onClick());
-  }
-  getStateLabel(state) {
-    if (!state.isRunning) return "\u51C6\u5907\u5F00\u59CB";
-    return state.isPaused ? "\u5DF2\u6682\u505C" : "\u6B63\u5728\u8BA1\u65F6";
   }
   formatSeconds(seconds) {
     const safe = Math.max(0, seconds);
     const mins = Math.floor(safe / 60);
     const secs = safe % 60;
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+};
+var CloseFocusWindowModal = class extends import_obsidian21.Modal {
+  constructor(app, store, onDone) {
+    super(app);
+    this.store = store;
+    this.onDone = onDone;
+  }
+  onOpen() {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal");
+    this.contentEl.createEl("h2", { text: "\u5F53\u524D\u4E13\u6CE8\u5C1A\u672A\u7ED3\u675F" });
+    this.contentEl.createEl("p", { text: "\u8BF7\u9009\u62E9\u7EE7\u7EED\u540E\u53F0\u4E13\u6CE8\uFF0C\u6216\u7ED3\u675F\u672C\u6B21\u4E13\u6CE8\u3002" });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "\u7EE7\u7EED\u540E\u53F0\u4E13\u6CE8", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
+      await this.onDone();
+      this.close();
+    });
+    actions.createEl("button", { text: "\u7ED3\u675F\u672C\u6B21\u4E13\u6CE8", cls: "mod-warning", attr: { type: "button" } }).addEventListener("click", () => {
+      this.close();
+      new EndFocusConfirmModal(this.app, this.store, this.onDone).open();
+    });
+  }
+};
+var EndFocusConfirmModal = class extends import_obsidian21.Modal {
+  constructor(app, store, onDone) {
+    super(app);
+    this.store = store;
+    this.onDone = onDone;
+  }
+  onOpen() {
+    const elapsed = this.getElapsedText();
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal");
+    this.contentEl.createEl("h2", { text: "\u7ED3\u675F\u672C\u6B21\u4E13\u6CE8\uFF1F" });
+    this.contentEl.createEl("p", { text: `\u5DF2\u4E13\u6CE8\uFF1A${elapsed}` });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "\u7ED3\u675F\u5E76\u4FDD\u5B58", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
+      await this.store.endFocusSession(false, true);
+      await this.onDone();
+      this.close();
+    });
+    actions.createEl("button", { text: "\u7ED3\u675F\u4F46\u4E0D\u4FDD\u5B58", cls: "mod-warning", attr: { type: "button" } }).addEventListener("click", async () => {
+      await this.store.endFocusSession(false, false);
+      await this.onDone();
+      this.close();
+    });
+  }
+  getElapsedText() {
+    var _a;
+    const state = this.store.getFocusState();
+    const planned = ((_a = state.plannedDuration) != null ? _a : this.store.getFocusSettings().focusDuration) * 60;
+    const elapsed = Math.max(0, planned - state.remainingSeconds);
+    return `${Math.floor(elapsed / 60)} \u5206 ${String(elapsed % 60).padStart(2, "0")} \u79D2`;
+  }
+};
+var FocusRecordsModal = class extends import_obsidian21.Modal {
+  constructor(app, store, onDataChanged) {
+    super(app);
+    this.store = store;
+    this.onDataChanged = onDataChanged;
+    this.filter = "today";
+    this.dateValue = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  }
+  onOpen() {
+    this.render();
+  }
+  render() {
+    const stats = new StatisticsService(this.store).getFocusStats();
+    const records = this.getFilteredRecords();
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-focus-records-modal");
+    this.contentEl.createEl("h2", { text: "\u4E13\u6CE8\u8BB0\u5F55" });
+    const statGrid = this.contentEl.createDiv({ cls: "cow-stats-card-grid" });
+    [["\u4ECA\u65E5\u4E13\u6CE8", `${stats.todayMinutes} min`], ["\u4ECA\u65E5\u756A\u8304", stats.todayPomodoros], ["\u672C\u5468\u4E13\u6CE8", `${stats.weekMinutes} min`], ["\u672C\u6708\u4E13\u6CE8", `${stats.monthMinutes} min`]].forEach(([label, value]) => {
+      const card = statGrid.createDiv({ cls: "cow-stats-card" });
+      card.createEl("strong", { text: String(value) });
+      card.createSpan({ text: String(label) });
+    });
+    const filters = this.contentEl.createDiv({ cls: "cow-focus-filter-row" });
+    [
+      ["today", "\u4ECA\u5929"],
+      ["week", "\u672C\u5468"],
+      ["month", "\u672C\u6708"],
+      ["all", "\u5168\u90E8"],
+      ["date", "\u65E5\u671F"]
+    ].forEach(([id, label]) => {
+      const button = filters.createEl("button", { cls: this.filter === id ? "is-active" : "", attr: { type: "button" } });
+      button.createSpan({ text: label });
+      button.addEventListener("click", () => {
+        this.filter = id;
+        this.render();
+      });
+    });
+    if (this.filter === "date") {
+      new import_obsidian21.Setting(this.contentEl).setName("\u65E5\u671F").addText((text) => text.setValue(this.dateValue).onChange((value) => {
+        this.dateValue = value.trim();
+        this.render();
+      }));
+    }
+    const list = this.contentEl.createDiv({ cls: "cow-focus-record-list" });
+    if (records.length === 0) {
+      list.createEl("p", { cls: "cow-empty-state", text: "\u6CA1\u6709\u5339\u914D\u7684\u4E13\u6CE8\u8BB0\u5F55\u3002" });
+      return;
+    }
+    records.forEach((record) => this.renderRecord(list, record));
+  }
+  renderRecord(container, record) {
+    var _a, _b, _c;
+    const row = container.createDiv({ cls: "cow-focus-record-row" });
+    const body = row.createDiv();
+    body.createEl("strong", { text: record.date });
+    body.createSpan({ text: `${this.formatTime(record.startedAt)} - ${this.formatTime(record.endedAt)} \xB7 ${record.task || "\u4E13\u6CE8"}` });
+    body.createSpan({ text: `${(_a = record.actualDurationMinutes) != null ? _a : record.duration} min / \u8BA1\u5212 ${(_c = (_b = record.plannedDurationMinutes) != null ? _b : record.plannedDuration) != null ? _c : record.duration} min \xB7 ${record.completed ? "\u5DF2\u5B8C\u6210" : "\u63D0\u524D\u7ED3\u675F"}` });
+    const actions = row.createDiv({ cls: "cow-list-item-actions" });
+    const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u8BB0\u5F55" } });
+    (0, import_obsidian21.setIcon)(edit, "pencil");
+    edit.addEventListener("click", () => new EditFocusRecordModal(this.app, this.store, record, () => {
+      this.onDataChanged();
+      this.render();
+    }).open());
+    const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u8BB0\u5F55" } });
+    (0, import_obsidian21.setIcon)(remove, "trash-2");
+    remove.addEventListener("click", () => new DeleteFocusRecordModal(this.app, this.store, record, async () => {
+      this.onDataChanged();
+      this.render();
+    }).open());
+  }
+  getFilteredRecords() {
+    const records = this.store.getFocusRecords();
+    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    if (this.filter === "today") return records.filter((record) => record.date === today);
+    if (this.filter === "date") return records.filter((record) => record.date === this.dateValue);
+    if (this.filter === "month") return records.filter((record) => record.date.startsWith(today.slice(0, 7)));
+    if (this.filter === "week") {
+      const week = new Set(this.store.getCurrentWeekDates());
+      return records.filter((record) => week.has(record.date));
+    }
+    return records;
+  }
+  formatTime(value) {
+    if (!value) return "--:--";
+    return new Date(value).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  }
+};
+var EditFocusRecordModal = class extends import_obsidian21.Modal {
+  constructor(app, store, record, onDone) {
+    var _a;
+    super(app);
+    this.store = store;
+    this.record = record;
+    this.onDone = onDone;
+    this.date = record.date;
+    this.task = record.task;
+    this.duration = (_a = record.actualDurationMinutes) != null ? _a : record.duration;
+  }
+  onOpen() {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal");
+    this.contentEl.createEl("h2", { text: "\u7F16\u8F91\u4E13\u6CE8\u8BB0\u5F55" });
+    new import_obsidian21.Setting(this.contentEl).setName("\u65E5\u671F").addText((text) => text.setValue(this.date).onChange((value) => {
+      this.date = value.trim();
+    }));
+    new import_obsidian21.Setting(this.contentEl).setName("\u4E13\u6CE8\u5185\u5BB9").addText((text) => text.setValue(this.task).onChange((value) => {
+      this.task = value;
+    }));
+    new import_obsidian21.Setting(this.contentEl).setName("\u5B9E\u9645\u4E13\u6CE8\u65F6\u957F").setDesc("\u5355\u4F4D\uFF1A\u5206\u949F").addText((text) => {
+      text.inputEl.type = "number";
+      text.setValue(String(this.duration));
+      text.onChange((value) => {
+        this.duration = Math.max(0, Number(value) || 0);
+      });
+    });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "\u4FDD\u5B58", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
+      await this.store.updateFocusRecord(this.record.id, {
+        date: this.date,
+        task: this.task.trim() || "\u4E13\u6CE8",
+        duration: this.duration,
+        actualDurationMinutes: this.duration
+      });
+      this.onDone();
+      this.close();
+    });
+  }
+};
+var DeleteFocusRecordModal = class extends import_obsidian21.Modal {
+  constructor(app, store, record, onDone) {
+    super(app);
+    this.store = store;
+    this.record = record;
+    this.onDone = onDone;
+  }
+  onOpen() {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal");
+    this.contentEl.createEl("h2", { text: "\u5220\u9664\u8FD9\u6761\u4E13\u6CE8\u8BB0\u5F55\uFF1F" });
+    this.contentEl.createEl("p", { text: `${this.record.date} \xB7 ${this.record.task || "\u4E13\u6CE8"}` });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "\u5220\u9664", cls: "mod-warning", attr: { type: "button" } }).addEventListener("click", async () => {
+      await this.store.deleteFocusRecord(this.record.id);
+      await this.onDone();
+      this.close();
+    });
   }
 };
 

@@ -1151,6 +1151,7 @@
   align-content: start;
 }
 
+.cow-focus-summary-card,
 .cow-focus-stat-card,
 .cow-focus-records,
 .cow-focus-modal-timer {
@@ -1158,6 +1159,7 @@
   gap: 10px;
 }
 
+.cow-focus-summary-top,
 .cow-focus-stat-top {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -1165,16 +1167,32 @@
   gap: 10px;
 }
 
+.cow-focus-summary-top strong,
 .cow-focus-stat-top strong {
   display: block;
   font-size: 24px;
 }
 
+.cow-focus-summary-top span,
 .cow-focus-stat-top span,
 .cow-focus-status,
 .cow-focus-record-item span {
   color: var(--cow-muted);
   font-size: 12px;
+}
+
+.cow-focus-summary-copy {
+  min-width: 0;
+}
+
+.cow-focus-summary-status {
+  padding: 8px 10px;
+  border: 1px solid rgba(74, 167, 255, 0.24);
+  border-radius: 12px;
+  background: rgba(225, 243, 255, 0.48);
+  color: var(--cow-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .cow-focus-timer {
@@ -1190,6 +1208,7 @@
 }
 
 .cow-focus-actions,
+.cow-focus-summary-actions,
 .cow-focus-modal-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1197,10 +1216,31 @@
 }
 
 .cow-focus-actions button,
+.cow-focus-summary-actions button,
 .cow-focus-modal-actions button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.cow-focus-setup-modal,
+.cow-focus-records-modal {
+  width: min(820px, 92vw);
+}
+
+.cow-focus-selected-duration {
+  margin: 6px 0 12px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 224, 237, 0.52);
+  color: var(--cow-pink-strong);
+  font-weight: 800;
+}
+
+.cow-form-error {
+  margin: -4px 0 10px;
+  color: var(--text-error);
+  font-size: 12px;
 }
 
 .cow-focus-modal-timer {
@@ -1231,7 +1271,8 @@
 }
 
 .cow-focus-preset-grid,
-.cow-focus-background-grid {
+.cow-focus-background-grid,
+.cow-focus-background-picker {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   gap: 8px;
@@ -1239,8 +1280,12 @@
 }
 
 .cow-focus-preset-grid button,
-.cow-focus-background-grid button {
+.cow-focus-background-grid button,
+.cow-focus-background-picker button {
+  display: grid;
+  place-items: end start;
   min-height: 46px;
+  padding: 10px;
   border: 1px solid var(--cow-border);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.6);
@@ -1249,22 +1294,28 @@
 }
 
 .cow-focus-preset-grid button.is-active,
-.cow-focus-background-grid button.is-active {
+.cow-focus-background-grid button.is-active,
+.cow-focus-background-picker button.is-active {
   border-color: var(--cow-pink-strong);
   box-shadow: inset 0 -3px 0 var(--cow-pink-strong);
 }
 
-.cow-focus-session-modal {
-  width: min(860px, 92vw);
-  min-height: min(620px, 82vh);
+.cow-focus-session-window {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(1100px, 92vw);
+  height: min(720px, 88vh);
+  max-height: 88vh;
   padding: 24px !important;
   border-radius: 26px;
   background-size: cover;
   background-position: center;
   box-shadow: 0 24px 60px rgba(110, 45, 76, 0.28);
+  overflow: hidden;
 }
 
-.cow-focus-session-modal::before {
+.cow-focus-session-window::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -1273,9 +1324,98 @@
   pointer-events: none;
 }
 
-.cow-focus-session-modal > * {
+.cow-focus-session-window > * {
   position: relative;
   z-index: 1;
+}
+
+.cow-focus-session-window.is-maximized {
+  width: 96vw;
+  height: 92vh;
+  max-height: 92vh;
+}
+
+.cow-focus-window-controls {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+}
+
+.cow-focus-window-controls button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--cow-ink);
+  font-weight: 900;
+}
+
+.cow-focus-window-body {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: min(760px, 100%);
+  text-align: center;
+}
+
+.cow-focus-window-label,
+.cow-focus-window-body > span {
+  color: var(--cow-muted);
+  font-weight: 800;
+}
+
+.cow-focus-window-body h2 {
+  margin: 0;
+  max-width: 100%;
+  color: var(--cow-ink);
+  font-size: clamp(22px, 3vw, 42px);
+  overflow-wrap: anywhere;
+}
+
+.cow-focus-session-countdown {
+  color: var(--cow-ink);
+  font-size: clamp(72px, 10vw, 150px);
+  font-weight: 950;
+  line-height: 0.95;
+  text-shadow: 0 8px 28px rgba(255, 255, 255, 0.48);
+}
+
+.cow-focus-session-status {
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--cow-pink-strong);
+  font-weight: 900;
+}
+
+.cow-focus-window-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.cow-focus-window-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  font-weight: 900;
+}
+
+.cow-focus-complete-body {
+  padding: 22px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.52);
 }
 
 .cow-focus-bg-solid {
@@ -1284,6 +1424,10 @@
 
 .cow-focus-bg-pink {
   background: linear-gradient(135deg, #ffd1e2, #fff7df 52%, #ffc1db);
+}
+
+.cow-focus-bg-cream {
+  background: linear-gradient(135deg, #fff7df, #ffe0ed);
 }
 
 .cow-focus-bg-forest {
@@ -1304,6 +1448,72 @@
 
 .cow-focus-bg-minimal {
   background: linear-gradient(135deg, #fffaf2, #f6f0ff);
+}
+
+.cow-focus-bg-minimal-dark {
+  background: linear-gradient(135deg, #272033, #5f4e72);
+}
+
+.cow-focus-bg-custom {
+  background:
+    radial-gradient(circle at 25% 22%, rgba(255, 209, 102, 0.7), transparent 24%),
+    linear-gradient(135deg, #fff7df, #ffe0ed);
+}
+
+.cow-focus-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.cow-focus-filter-row button {
+  border: 1px solid var(--cow-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--cow-ink);
+  font-weight: 800;
+}
+
+.cow-focus-filter-row button.is-active {
+  background: rgba(255, 127, 180, 0.24);
+  color: var(--cow-pink-strong);
+}
+
+.cow-focus-record-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(48vh, 480px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.cow-focus-record-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.cow-focus-record-row > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cow-focus-record-row strong,
+.cow-focus-record-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-focus-record-row span {
+  color: var(--cow-muted);
+  font-size: 12px;
 }
 
 .cow-feature-card {

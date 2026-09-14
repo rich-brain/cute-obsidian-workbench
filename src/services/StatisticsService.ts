@@ -41,6 +41,7 @@ export interface FocusStats {
   todayMinutes: number;
   todayPomodoros: number;
   weekMinutes: number;
+  monthMinutes: number;
   recentRecords: Array<{
     id: string;
     task: string;
@@ -58,15 +59,19 @@ export class StatisticsService {
   getFocusStats(): FocusStats {
     const today = this.calendar.getDateKey(new Date());
     const weekKeys = new Set(this.store.getCurrentWeekDates());
+    const monthPrefix = today.slice(0, 7);
     const records = this.store.getFocusRecords();
     return {
       todayMinutes: records
         .filter((record) => record.date === today)
-        .reduce((sum, record) => sum + record.duration, 0),
+        .reduce((sum, record) => sum + (record.actualDurationMinutes ?? record.duration), 0),
       todayPomodoros: records.filter((record) => record.date === today && record.completed).length,
       weekMinutes: records
         .filter((record) => weekKeys.has(record.date))
-        .reduce((sum, record) => sum + record.duration, 0),
+        .reduce((sum, record) => sum + (record.actualDurationMinutes ?? record.duration), 0),
+      monthMinutes: records
+        .filter((record) => record.date.startsWith(monthPrefix))
+        .reduce((sum, record) => sum + (record.actualDurationMinutes ?? record.duration), 0),
       recentRecords: records.slice(0, 5)
     };
   }

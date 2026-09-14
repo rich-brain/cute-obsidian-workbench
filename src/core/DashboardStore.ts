@@ -150,7 +150,7 @@ function createSection(
 }
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.3.0",
+  dataVersion: "0.3.1",
   currentPage: "overview",
   sections: [
     {
@@ -1113,7 +1113,12 @@ export class DashboardStore {
     await this.save();
   }
 
-  async startFocusSession(task = "", durationMinutes = this.data.focusSettings.focusDuration, background = this.data.focusSettings.defaultBackground ?? "pink"): Promise<void> {
+  async startFocusSession(
+    task = "",
+    durationMinutes = this.data.focusSettings.focusDuration,
+    background = this.data.focusSettings.defaultBackground ?? "pink",
+    backgroundDataUrl?: string
+  ): Promise<void> {
     const plannedDuration = Math.max(1, Math.round(durationMinutes));
     this.data.focusSettings.focusDuration = plannedDuration;
     this.data.focusSettings.defaultBackground = background;
@@ -1125,6 +1130,7 @@ export class DashboardStore {
       remainingSeconds: plannedDuration * 60,
       currentTask: task.trim(),
       background,
+      backgroundDataUrl,
       plannedDuration
     };
     await this.save();
@@ -1154,26 +1160,10 @@ export class DashboardStore {
     await this.save();
   }
 
-  async endFocusSession(completed = false): Promise<void> {
+  async endFocusSession(completed = false, saveRecord = true): Promise<void> {
     const state = this.resolveFocusState();
-    if (state.mode === "focus") {
-      const totalSeconds = this.data.focusSettings.focusDuration * 60;
-      const duration = Math.max(0, Math.round((totalSeconds - state.remainingSeconds) / 60));
-      if (duration > 0 || completed) {
-        const endedAt = new Date().toISOString();
-        this.data.focusRecords.push({
-          id: `focus-record-${Date.now()}`,
-          date: formatDateKey(new Date()),
-          task: state.currentTask?.trim() || "专注",
-          duration: completed ? (state.plannedDuration ?? this.data.focusSettings.focusDuration) : duration,
-          completed,
-          createdAt: endedAt,
-          startedAt: state.startedAt,
-          endedAt,
-          plannedDuration: state.plannedDuration ?? this.data.focusSettings.focusDuration,
-          background: state.background
-        });
-      }
+    if (saveRecord && state.mode === "focus") {
+      this.pushFocusRecord(state, completed);
     }
     this.data.focusState = {
       isRunning: false,
@@ -1184,22 +1174,26 @@ export class DashboardStore {
     await this.save();
   }
 
+  async updateFocusRecord(recordId: string, updates: Partial<FocusRecord>): Promise<void> {
+    const record = this.data.focusRecords.find((item) => item.id === recordId);
+    if (!record) return;
+    Object.assign(record, updates);
+    record.duration = updates.actualDurationMinutes ?? updates.duration ?? record.actualDurationMinutes ?? record.duration;
+    record.actualDurationMinutes = record.duration;
+    record.plannedDuration = updates.plannedDurationMinutes ?? updates.plannedDuration ?? record.plannedDuration;
+    record.plannedDurationMinutes = record.plannedDuration;
+    await this.save();
+  }
+
+  async deleteFocusRecord(recordId: string): Promise<void> {
+    this.data.focusRecords = this.data.focusRecords.filter((record) => record.id !== recordId);
+    await this.save();
+  }
+
   async completeCurrentFocusPhase(): Promise<void> {
     const state = this.resolveFocusState();
     if (state.mode === "focus") {
-      const endedAt = new Date().toISOString();
-      this.data.focusRecords.push({
-        id: `focus-record-${Date.now()}`,
-        date: formatDateKey(new Date()),
-        task: state.currentTask?.trim() || "专注",
-        duration: state.plannedDuration ?? this.data.focusSettings.focusDuration,
-        completed: true,
-        createdAt: endedAt,
-        startedAt: state.startedAt,
-        endedAt,
-        plannedDuration: state.plannedDuration ?? this.data.focusSettings.focusDuration,
-        background: state.background
-      });
+      this.pushFocusRecord(state, true);
       this.data.focusState = {
         isRunning: this.data.focusSettings.autoStartBreak,
         isPaused: !this.data.focusSettings.autoStartBreak,
@@ -1208,6 +1202,7 @@ export class DashboardStore {
         remainingSeconds: this.data.focusSettings.breakDuration * 60,
         currentTask: state.currentTask,
         background: state.background,
+        backgroundDataUrl: state.backgroundDataUrl,
         plannedDuration: this.data.focusSettings.breakDuration
       };
     } else {
@@ -1219,6 +1214,7 @@ export class DashboardStore {
         remainingSeconds: this.data.focusSettings.focusDuration * 60,
         currentTask: state.currentTask,
         background: state.background,
+        backgroundDataUrl: state.backgroundDataUrl,
         plannedDuration: this.data.focusSettings.focusDuration
       };
     }
@@ -1231,6 +1227,29 @@ export class DashboardStore {
 
   getTodayPomodoroCount(): number {
     return this.getTodayFocusRecords().filter((record) => record.completed).length;
+  }
+
+  private pushFocusRecord(state: FocusState, completed: boolean): void {
+    const plannedDuration = state.plannedDuration ?? this.data.focusSettings.focusDuration;
+    const elapsedMinutes = Math.max(0, Math.ceil(((plannedDuration * 60) - state.remainingSeconds) / 60));
+    const actualDuration = completed ? plannedDuration : elapsedMinutes;
+    if (actualDuration <= 0) return;
+    const endedAt = new Date().toISOString();
+    this.data.focusRecords.push({
+      id: `focus-record-${Date.now()}`,
+      date: formatDateKey(new Date()),
+      task: state.currentTask?.trim() || "专注",
+      duration: actualDuration,
+      actualDurationMinutes: actualDuration,
+      completed,
+      createdAt: endedAt,
+      startedAt: state.startedAt,
+      endedAt,
+      plannedDuration,
+      plannedDurationMinutes: plannedDuration,
+      background: state.background,
+      backgroundDataUrl: state.backgroundDataUrl
+    });
   }
 
   exportData(): string {
@@ -2035,7 +2054,7 @@ export class DashboardStore {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.0",
+      dataVersion: "0.3.1",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2133,7 +2152,7 @@ export class DashboardStore {
         ...partial.focusState
       },
       focusRecords: Array.isArray(partial.focusRecords)
-        ? partial.focusRecords
+        ? partial.focusRecords.map((record) => this.normalizeFocusRecord(record))
         : structuredClone(DEFAULT_DATA.focusRecords),
       fitnessDailyRecords: Array.isArray(partial.fitnessDailyRecords)
         ? partial.fitnessDailyRecords
@@ -2170,6 +2189,22 @@ export class DashboardStore {
     }
 
     return this.withRequiredSections(migrated);
+  }
+
+  private normalizeFocusRecord(record: FocusRecord): FocusRecord {
+    const createdAt = record.createdAt ?? record.endedAt ?? new Date().toISOString();
+    const date = record.date ?? createdAt.slice(0, 10);
+    const actualDuration = record.actualDurationMinutes ?? record.duration ?? 0;
+    const plannedDuration = record.plannedDurationMinutes ?? record.plannedDuration ?? actualDuration;
+    return {
+      ...record,
+      date,
+      createdAt,
+      duration: actualDuration,
+      actualDurationMinutes: actualDuration,
+      plannedDuration,
+      plannedDurationMinutes: plannedDuration
+    };
   }
 
   private withRequiredSections(sections: DashboardSectionConfig[]): DashboardSectionConfig[] {

@@ -305,6 +305,7 @@ export interface FocusState {
   remainingSeconds: number;
   currentTask?: string;
   background?: string;
+  backgroundDataUrl?: string;
   plannedDuration?: number;
 }
 
@@ -319,6 +320,9 @@ export interface FocusRecord {
   endedAt?: string;
   plannedDuration?: number;
   background?: string;
+  backgroundDataUrl?: string;
+  plannedDurationMinutes?: number;
+  actualDurationMinutes?: number;
 }
 
 export interface FitnessDailyRecord {
