@@ -1,0 +1,1391 @@
+import type {
+  AvailableModuleDefinition,
+  Account,
+  ApexHabitSettings,
+  Bill,
+  BookItem,
+  BodyMeasurement,
+  Budget,
+  DashboardPage,
+  DashboardPageDefinition,
+  DashboardSectionConfig,
+  ExperimentPlan,
+  FitnessGoal,
+  Goal,
+  KeyResult,
+  Milestone,
+  Objective,
+  QuickActionConfig,
+  ReadingQuote,
+  ResearchDeadline,
+  ResearchPaper,
+  ResearchProject,
+  Risk,
+  SavingGoal,
+  TodayFocusTask,
+  Transaction,
+  Workout,
+  ThemeSettings,
+  WorkbenchData
+} from "../types/dashboard";
+
+export const DASHBOARD_PAGES: DashboardPageDefinition[] = [
+  { id: "overview", label: "总览", icon: "home", description: "今日概览与快捷入口" },
+  { id: "research", label: "科研", icon: "flask-conical", description: "论文、实验和科研记录" },
+  { id: "reading", label: "阅读", icon: "book-open", description: "读书队列与摘录进度" },
+  { id: "fitness", label: "健身", icon: "dumbbell", description: "训练、恢复和习惯打卡" },
+  { id: "finance", label: "理财", icon: "coins", description: "预算、资产和投资观察" },
+  { id: "goals", label: "目标管理", icon: "target", description: "长期目标与阶段计划" },
+  { id: "modules", label: "模块管理", icon: "layout-grid", description: "模块启用、布局和数据绑定" }
+];
+
+export const AVAILABLE_MODULES: AvailableModuleDefinition[] = [
+  { type: "weekly-completion", title: "本周完成率", description: "统计今日焦点和习惯的本周完成率。", page: "overview", icon: "badge-percent", defaultWidth: "sm" },
+  { type: "pending-tasks", title: "待办任务", description: "显示未完成的今日焦点任务。", page: "overview", icon: "clipboard-list", defaultWidth: "sm" },
+  { type: "today-focus-stat", title: "今日专注", description: "记录今日专注时长。", page: "overview", icon: "headphones", defaultWidth: "sm" },
+  { type: "checkin-streak", title: "连续打卡", description: "显示连续完成习惯的天数。", page: "overview", icon: "flame", defaultWidth: "sm" },
+  { type: "today-focus", title: "今日焦点", description: "科研、阅读、健身、理财和个人任务。", page: "overview", icon: "target", defaultWidth: "md", defaultHeight: "md" },
+  { type: "habit-overview", title: "打卡总览", description: "查看并切换本周习惯打卡状态。", page: "overview", icon: "calendar-check", defaultWidth: "md", defaultHeight: "md" },
+  { type: "monthly-progress", title: "本月进度", description: "按页面追踪本月完成率。", page: "overview", icon: "bar-chart-3", defaultWidth: "md" },
+  { type: "monthly-calendar", title: "月度日历", description: "独立月历，预留笔记、任务和事件标记。", page: "overview", icon: "calendar-days", defaultWidth: "md", defaultHeight: "md" },
+  { type: "recent-notes", title: "最近笔记", description: "为后续 NoteService 预留的最近文件列表。", page: "overview", icon: "file-text", defaultWidth: "md" },
+  { type: "quick-actions", title: "快捷操作", description: "新建笔记、添加任务、打开日历等动作入口。", page: "overview", icon: "zap", defaultWidth: "md" },
+  { type: "contribution-heatmap", title: "年度贡献图", description: "按月份展示 Markdown 创建数量热力图。", page: "overview", icon: "activity", defaultWidth: "full", defaultHeight: "sm" },
+  { type: "memo", title: "Memo", description: "随手记录灵感和想法。", page: "overview", icon: "sticky-note", defaultWidth: "md" },
+  { type: "todo", title: "Todo", description: "轻量清单模块。", page: "overview", icon: "list-checks", defaultWidth: "md" },
+  { type: "projects", title: "Projects", description: "项目卡片和关联笔记。", page: "overview", icon: "folder-kanban", defaultWidth: "md" },
+  { type: "notes", title: "Notes", description: "笔记入口集合。", page: "overview", icon: "notebook-tabs", defaultWidth: "md" },
+  { type: "research-projects", title: "研究项目总览", description: "科研项目与阶段状态。", page: "research", icon: "layers", defaultWidth: "md" },
+  { type: "reading-queue", title: "论文阅读队列", description: "论文阅读状态和优先级。", page: "research", icon: "book-marked", defaultWidth: "md" },
+  { type: "research-checkin", title: "本周科研打卡", description: "论文、实验、写作和组会准备。", page: "research", icon: "calendar-check", defaultWidth: "md" },
+  { type: "experiment-plan", title: "实验计划", description: "计划中的实验任务。", page: "research", icon: "clipboard-check", defaultWidth: "md" },
+  { type: "experiment-records", title: "实验记录", description: "最近实验记录与笔记入口。", page: "research", icon: "file-clock", defaultWidth: "md" },
+  { type: "data-analysis-tasks", title: "数据分析任务", description: "数据处理、分析和图表任务。", page: "research", icon: "bar-chart-3", defaultWidth: "md" },
+  { type: "literature-notes", title: "文献笔记", description: "已绑定的论文阅读笔记。", page: "research", icon: "notebook-text", defaultWidth: "md" },
+  { type: "research-timeline", title: "会议 / DDL 时间线", description: "重要会议、截止日期和汇报安排。", page: "research", icon: "calendar-clock", defaultWidth: "md" },
+  { type: "research-memo", title: "科研灵感 Memo", description: "记录突然冒出来的科研想法。", page: "research", icon: "lightbulb", defaultWidth: "md" },
+  { type: "current-reading", title: "当前阅读", description: "当前正在读的书和进度。", page: "reading", icon: "book-open-check", defaultWidth: "md" },
+  { type: "bookshelf", title: "书架 Bookshelf", description: "书籍卡片和阅读状态。", page: "reading", icon: "library", defaultWidth: "md" },
+  { type: "reading-plan", title: "阅读计划", description: "近期阅读安排。", page: "reading", icon: "calendar-range", defaultWidth: "md" },
+  { type: "reading-checkin", title: "本周阅读打卡", description: "本周阅读习惯打卡。", page: "reading", icon: "calendar-check", defaultWidth: "md" },
+  { type: "reading-notes", title: "阅读笔记", description: "阅读笔记入口。", page: "reading", icon: "notebook-tabs", defaultWidth: "md" },
+  { type: "reading-quotes", title: "金句摘录", description: "值得反复看的句子。", page: "reading", icon: "quote", defaultWidth: "md" },
+  { type: "finished-books", title: "已读清单", description: "已经读完的书。", page: "reading", icon: "badge-check", defaultWidth: "md" },
+  { type: "wishlist-books", title: "想读清单", description: "准备开始的书。", page: "reading", icon: "bookmark-plus", defaultWidth: "md" },
+  { type: "reading-stats", title: "阅读进度统计", description: "页数、完成率和阅读数量。", page: "reading", icon: "pie-chart", defaultWidth: "md" },
+  { type: "reading-heatmap", title: "月度阅读热力图", description: "按日展示本月阅读活动。", page: "reading", icon: "activity", defaultWidth: "md" },
+  { type: "ai-reading-review", title: "AI 阅读复盘", description: "AI 复盘能力占位卡。", page: "reading", icon: "sparkles", defaultWidth: "md" },
+  { type: "today-workout", title: "今日训练", description: "今天的训练安排和完成状态。", page: "fitness", icon: "dumbbell", defaultWidth: "md" },
+  { type: "workout-plan", title: "训练计划", description: "近期训练计划。", page: "fitness", icon: "clipboard-list", defaultWidth: "md" },
+  { type: "fitness-checkin", title: "本周健身打卡", description: "训练、饮水、睡眠和恢复打卡。", page: "fitness", icon: "calendar-check", defaultWidth: "md" },
+  { type: "body-measurements", title: "体重与围度记录", description: "体重、BMI 和身体围度变化。", page: "fitness", icon: "ruler", defaultWidth: "md" },
+  { type: "cardio-strength-plan", title: "有氧 / 力量安排", description: "平衡有氧和力量训练。", page: "fitness", icon: "heart-pulse", defaultWidth: "md" },
+  { type: "water-sleep-habits", title: "饮水与睡眠习惯", description: "恢复相关习惯记录。", page: "fitness", icon: "moon", defaultWidth: "md" },
+  { type: "fitness-stats", title: "热量消耗与运动时长", description: "统计本周运动量。", page: "fitness", icon: "flame", defaultWidth: "md" },
+  { type: "workout-log", title: "运动日志", description: "最近完成的训练记录。", page: "fitness", icon: "notebook-text", defaultWidth: "md" },
+  { type: "fitness-goals", title: "健身目标进度", description: "追踪健身目标完成度。", page: "fitness", icon: "target", defaultWidth: "md" },
+  { type: "health-reminders", title: "健康提醒", description: "恢复、热身和休息提醒。", page: "fitness", icon: "bell-ring", defaultWidth: "md" },
+  { type: "fitness-heatmap", title: "月度运动热力图", description: "按日展示运动活跃度。", page: "fitness", icon: "activity", defaultWidth: "md" },
+  { type: "monthly-budget", title: "本月预算", description: "预算、支出和剩余额度。", page: "finance", icon: "wallet-cards", defaultWidth: "md" },
+  { type: "expense-categories", title: "支出分类", description: "本月分类支出占比。", page: "finance", icon: "chart-pie", defaultWidth: "md" },
+  { type: "account-overview", title: "账户总览", description: "个人账户余额概览。", page: "finance", icon: "landmark", defaultWidth: "md" },
+  { type: "saving-goals", title: "储蓄目标", description: "储蓄目标进度。", page: "finance", icon: "piggy-bank", defaultWidth: "md" },
+  { type: "bill-reminders", title: "账单提醒", description: "即将到期的账单。", page: "finance", icon: "receipt", defaultWidth: "md" },
+  { type: "finance-checkin", title: "本周理财打卡", description: "记账、复盘和预算检查。", page: "finance", icon: "calendar-check", defaultWidth: "md" },
+  { type: "income-expense-trend", title: "收支趋势", description: "本月收入和支出走势。", page: "finance", icon: "line-chart", defaultWidth: "md" },
+  { type: "finance-todos", title: "本月记账待办", description: "本月财务待办事项。", page: "finance", icon: "list-checks", defaultWidth: "md" },
+  { type: "investment-watch", title: "投资观察", description: "个人投资观察，不执行交易。", page: "finance", icon: "candlestick-chart", defaultWidth: "md" },
+  { type: "expense-heatmap", title: "月度支出热力图", description: "按日展示支出密度。", page: "finance", icon: "activity", defaultWidth: "md" },
+  { type: "yearly-goals", title: "年度目标", description: "全年目标和完成进度。", page: "goals", icon: "flag", defaultWidth: "md" },
+  { type: "quarterly-okr", title: "季度 OKR", description: "季度 Objective 与 KR。", page: "goals", icon: "target", defaultWidth: "md" },
+  { type: "monthly-key-results", title: "月度关键结果", description: "本月需要推进的 KR。", page: "goals", icon: "list-checks", defaultWidth: "md" },
+  { type: "goal-breakdown", title: "目标拆解", description: "把目标拆到行动层。", page: "goals", icon: "git-branch", defaultWidth: "md" },
+  { type: "milestone-timeline", title: "里程碑时间线", description: "目标里程碑和日期。", page: "goals", icon: "milestone", defaultWidth: "md" },
+  { type: "priority-matrix", title: "优先级矩阵", description: "重要紧急四象限。", page: "goals", icon: "layout-dashboard", defaultWidth: "md" },
+  { type: "goals-checkin", title: "本周目标打卡", description: "目标推进习惯打卡。", page: "goals", icon: "calendar-check", defaultWidth: "md" },
+  { type: "review-checklist", title: "复盘清单", description: "周复盘和月复盘事项。", page: "goals", icon: "clipboard-check", defaultWidth: "md" },
+  { type: "risks-blockers", title: "风险与阻碍", description: "识别风险并记录解决方案。", page: "goals", icon: "triangle-alert", defaultWidth: "md" },
+  { type: "long-term-progress", title: "长期进展", description: "目标长期趋势和完成率。", page: "goals", icon: "trending-up", defaultWidth: "md" },
+  { type: "enabled-modules-overview", title: "已启用模块概览", description: "统计当前页面和整个工作台启用模块。", page: "modules", icon: "panel-top", defaultWidth: "md" },
+  { type: "home-layout-manager", title: "首页布局管理", description: "切换默认、紧凑或极简布局。", page: "modules", icon: "layout-template", defaultWidth: "md" },
+  { type: "module-settings", title: "模块开关与排序", description: "管理模块启用状态和拖动排序。", page: "modules", icon: "sliders-horizontal", defaultWidth: "full" },
+  { type: "banner-background-settings", title: "Banner 背景设置", description: "设置推荐壁纸、本地图片、纯色背景和遮罩。", page: "modules", icon: "image", defaultWidth: "md" },
+  { type: "calendar-widget-settings", title: "日历组件设置", description: "控制日期标记、周起始日和高亮颜色。", page: "modules", icon: "calendar-days", defaultWidth: "md" },
+  { type: "apex-habit-settings", title: "Apex 打卡模块设置", description: "管理首页打卡展示和自定义打卡项目。", page: "modules", icon: "calendar-check", defaultWidth: "md" },
+  { type: "quick-action-settings", title: "快捷操作配置", description: "控制内置快捷操作和自定义入口。", page: "modules", icon: "zap", defaultWidth: "md" },
+  { type: "theme-color-settings", title: "主题与配色", description: "调整 CSS variables、圆角和字体大小。", page: "modules", icon: "palette", defaultWidth: "md" },
+  { type: "data-source-status", title: "数据源", description: "查看笔记、任务、日历、习惯、阅读和科研是否启用。", page: "modules", icon: "database", defaultWidth: "md" }
+];
+
+function createSection(
+  page: DashboardPage,
+  type: string,
+  title: string,
+  order: number,
+  width: DashboardSectionConfig["width"] = "md",
+  height: DashboardSectionConfig["height"] = "md"
+): DashboardSectionConfig {
+  return {
+    id: `${page}-${type}`,
+    page,
+    type,
+    title,
+    order,
+    enabled: true,
+    width,
+    height
+  };
+}
+
+const DEFAULT_DATA: WorkbenchData = {
+  currentPage: "overview",
+  sections: [
+    {
+      id: "overview-weekly-completion",
+      page: "overview",
+      type: "weekly-completion",
+      title: "本周完成率",
+      order: 10,
+      enabled: true,
+      width: "sm",
+      height: "sm"
+    },
+    {
+      id: "overview-pending-tasks",
+      page: "overview",
+      type: "pending-tasks",
+      title: "待办任务",
+      order: 20,
+      enabled: true,
+      width: "sm",
+      height: "sm"
+    },
+    {
+      id: "overview-today-focus-stat",
+      page: "overview",
+      type: "today-focus-stat",
+      title: "今日专注",
+      order: 30,
+      enabled: true,
+      width: "sm",
+      height: "sm"
+    },
+    {
+      id: "overview-checkin-streak",
+      page: "overview",
+      type: "checkin-streak",
+      title: "连续打卡",
+      order: 40,
+      enabled: true,
+      width: "sm",
+      height: "sm"
+    },
+    {
+      id: "overview-today-focus",
+      page: "overview",
+      type: "today-focus",
+      title: "今日焦点",
+      order: 50,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "overview-habit-overview",
+      page: "overview",
+      type: "habit-overview",
+      title: "打卡总览",
+      order: 60,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "overview-monthly-progress",
+      page: "overview",
+      type: "monthly-progress",
+      title: "本月进度",
+      order: 70,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "overview-monthly-calendar",
+      page: "overview",
+      type: "monthly-calendar",
+      title: "月度日历",
+      order: 80,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "overview-recent-notes",
+      page: "overview",
+      type: "recent-notes",
+      title: "最近笔记",
+      order: 90,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "overview-quick-actions",
+      page: "overview",
+      type: "quick-actions",
+      title: "快捷操作",
+      order: 100,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "overview-contribution-heatmap",
+      page: "overview",
+      type: "contribution-heatmap",
+      title: "年度贡献图",
+      order: 110,
+      enabled: true,
+      width: "full",
+      height: "sm"
+    },
+    {
+      id: "research-projects",
+      page: "research",
+      type: "research-projects",
+      title: "研究项目总览",
+      order: 10,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "research-reading-queue",
+      page: "research",
+      type: "reading-queue",
+      title: "论文阅读队列",
+      order: 20,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "research-checkin",
+      page: "research",
+      type: "research-checkin",
+      title: "本周科研打卡",
+      order: 30,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "research-experiment-plan",
+      page: "research",
+      type: "experiment-plan",
+      title: "实验计划",
+      order: 40,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "research-experiment-records",
+      page: "research",
+      type: "experiment-records",
+      title: "实验记录",
+      order: 50,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "research-data-analysis",
+      page: "research",
+      type: "data-analysis-tasks",
+      title: "数据分析任务",
+      order: 60,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "research-literature-notes",
+      page: "research",
+      type: "literature-notes",
+      title: "文献笔记",
+      order: 70,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "research-timeline",
+      page: "research",
+      type: "research-timeline",
+      title: "会议 / DDL 时间线",
+      order: 80,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "research-memo",
+      page: "research",
+      type: "research-memo",
+      title: "科研灵感 Memo",
+      order: 90,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "reading-current",
+      page: "reading",
+      type: "current-reading",
+      title: "当前阅读",
+      order: 10,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "reading-bookshelf",
+      page: "reading",
+      type: "bookshelf",
+      title: "书架 Bookshelf",
+      order: 20,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "reading-plan",
+      page: "reading",
+      type: "reading-plan",
+      title: "阅读计划",
+      order: 30,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "reading-checkin",
+      page: "reading",
+      type: "reading-checkin",
+      title: "本周阅读打卡",
+      order: 40,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "reading-notes",
+      page: "reading",
+      type: "reading-notes",
+      title: "阅读笔记",
+      order: 50,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "reading-quotes",
+      page: "reading",
+      type: "reading-quotes",
+      title: "金句摘录",
+      order: 60,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "reading-finished",
+      page: "reading",
+      type: "finished-books",
+      title: "已读清单",
+      order: 70,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "reading-wishlist",
+      page: "reading",
+      type: "wishlist-books",
+      title: "想读清单",
+      order: 80,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "reading-stats",
+      page: "reading",
+      type: "reading-stats",
+      title: "阅读进度统计",
+      order: 90,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "reading-heatmap",
+      page: "reading",
+      type: "reading-heatmap",
+      title: "月度阅读热力图",
+      order: 100,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "reading-ai-review",
+      page: "reading",
+      type: "ai-reading-review",
+      title: "AI 阅读复盘",
+      order: 110,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    createSection("fitness", "today-workout", "今日训练", 10),
+    createSection("fitness", "workout-plan", "训练计划", 20),
+    createSection("fitness", "fitness-checkin", "本周健身打卡", 30),
+    createSection("fitness", "body-measurements", "体重与围度记录", 40),
+    createSection("fitness", "cardio-strength-plan", "有氧 / 力量安排", 50),
+    createSection("fitness", "water-sleep-habits", "饮水与睡眠习惯", 60),
+    createSection("fitness", "fitness-stats", "热量消耗与运动时长", 70),
+    createSection("fitness", "workout-log", "运动日志", 80),
+    createSection("fitness", "fitness-goals", "健身目标进度", 90),
+    createSection("fitness", "health-reminders", "健康提醒", 100),
+    createSection("fitness", "fitness-heatmap", "月度运动热力图", 110),
+    createSection("finance", "monthly-budget", "本月预算", 10),
+    createSection("finance", "expense-categories", "支出分类", 20),
+    createSection("finance", "account-overview", "账户总览", 30),
+    createSection("finance", "saving-goals", "储蓄目标", 40),
+    createSection("finance", "bill-reminders", "账单提醒", 50),
+    createSection("finance", "finance-checkin", "本周理财打卡", 60),
+    createSection("finance", "income-expense-trend", "收支趋势", 70),
+    createSection("finance", "finance-todos", "本月记账待办", 80),
+    createSection("finance", "investment-watch", "投资观察", 90),
+    createSection("finance", "expense-heatmap", "月度支出热力图", 100),
+    createSection("goals", "yearly-goals", "年度目标", 10),
+    createSection("goals", "quarterly-okr", "季度 OKR", 20),
+    createSection("goals", "monthly-key-results", "月度关键结果", 30),
+    createSection("goals", "goal-breakdown", "目标拆解", 40),
+    createSection("goals", "milestone-timeline", "里程碑时间线", 50),
+    createSection("goals", "priority-matrix", "优先级矩阵", 60),
+    createSection("goals", "goals-checkin", "本周目标打卡", 70),
+    createSection("goals", "review-checklist", "复盘清单", 80),
+    createSection("goals", "risks-blockers", "风险与阻碍", 90),
+    createSection("goals", "long-term-progress", "长期进展", 100),
+    createSection("modules", "enabled-modules-overview", "已启用模块概览", 10),
+    createSection("modules", "home-layout-manager", "首页布局管理", 20),
+    createSection("modules", "module-settings", "模块开关与排序", 30, "full", "lg"),
+    createSection("modules", "banner-background-settings", "Banner 背景设置", 40),
+    createSection("modules", "calendar-widget-settings", "日历组件设置", 50),
+    createSection("modules", "apex-habit-settings", "Apex 打卡模块设置", 60),
+    createSection("modules", "quick-action-settings", "快捷操作配置", 70),
+    createSection("modules", "theme-color-settings", "主题与配色", 80),
+    createSection("modules", "data-source-status", "数据源", 90)
+  ],
+  banner: {
+    message: "要成功，先发疯，不顾一切向前冲。",
+    background: "pink-paper",
+    backgroundPosition: "center",
+    overlay: true,
+    opacity: 0.88
+  },
+  habits: {},
+  todayFocusTasks: [
+    { id: "focus-research", label: "推进论文或实验记录", category: "科研", completed: true },
+    { id: "focus-reading", label: "阅读并整理一条笔记", category: "阅读", completed: true },
+    { id: "focus-fitness", label: "完成今日训练或拉伸", category: "健身", completed: false },
+    { id: "focus-finance", label: "检查预算与账单", category: "理财", completed: false },
+    { id: "focus-personal", label: "复盘今天的计划", category: "个人", completed: false }
+  ],
+  researchProjects: [
+    {
+      id: "project-medical-vlm",
+      title: "多模态大模型在医学影像中的应用",
+      status: "进行中",
+      progress: 70,
+      startDate: "2026-08-01",
+      deadline: "2026-10-30",
+      tags: ["VLM", "医学影像"]
+    },
+    {
+      id: "project-graph-drug",
+      title: "基于图神经网络的药物重定位研究",
+      status: "撰写中",
+      progress: 40,
+      startDate: "2026-07-15",
+      deadline: "2026-11-15",
+      tags: ["GNN", "Drug"]
+    },
+    {
+      id: "project-single-cell",
+      title: "单细胞时空转录组数据分析方法",
+      status: "已完成",
+      progress: 100,
+      startDate: "2026-06-10",
+      deadline: "2026-09-01",
+      tags: ["scRNA-seq"]
+    }
+  ],
+  researchPapers: [
+    { id: "paper-survey-llm", title: "A Survey on Multimodal LLMs", venue: "CVPR", year: 2024, status: "进行中", readingProgress: 62 },
+    { id: "paper-single-cell", title: "Single-cell foundation models", venue: "Nature", year: 2024, status: "未开始", readingProgress: 0 },
+    { id: "paper-gnn-drug", title: "Graph Neural Networks for Drug Discovery", venue: "ICLR", year: 2024, status: "进行中", readingProgress: 45 }
+  ],
+  experimentPlans: [
+    { id: "exp-cell-drug", title: "细胞系传代与药物处理", date: "2026-09-14", status: "进行中" },
+    { id: "exp-western", title: "Western Blot 实验", date: "2026-09-16", status: "未开始" },
+    { id: "exp-flow", title: "流式细胞术 FACS", date: "2026-09-18", status: "计划中" }
+  ],
+  experimentRecords: [
+    { id: "record-drug", title: "细胞药物处理记录", date: "2026-09-13", status: "已完成" },
+    { id: "record-wb", title: "WB 条带结果", date: "2026-09-12", status: "已完成" },
+    { id: "record-flow", title: "流式数据分析", date: "2026-09-10", status: "进行中" }
+  ],
+  researchDeadlines: [
+    { id: "ddl-report", title: "组会实验进展汇报", date: "2026-09-18", type: "组会", priority: "medium" },
+    { id: "ddl-dataset", title: "蓝金申请书提交", date: "2026-10-05", type: "DDL", priority: "high" },
+    { id: "ddl-neurips", title: "NeurIPS 投稿截止", date: "2026-10-09", type: "DDL", priority: "high" }
+  ],
+  researchMemos: [
+    "把图神经网络和医学影像预训练结合，看看能否改善小样本场景。",
+    "对比学习框架也许可以作为论文方法部分的主线。",
+    "组会前整理一次失败实验，可能比只展示成功结果更有价值。"
+  ],
+  books: [
+    {
+      id: "book-deep-work",
+      title: "深度工作",
+      author: "Cal Newport",
+      totalPages: 304,
+      currentPage: 188,
+      status: "在读",
+      rating: 4,
+      startDate: "2026-09-01",
+      tags: ["效率", "专注"]
+    },
+    {
+      id: "book-atomic-habits",
+      title: "Atomic Habits",
+      author: "James Clear",
+      totalPages: 320,
+      currentPage: 320,
+      status: "已读",
+      rating: 5,
+      startDate: "2026-08-01",
+      finishDate: "2026-08-21",
+      tags: ["习惯"]
+    },
+    {
+      id: "book-thinking",
+      title: "Thinking, Fast and Slow",
+      author: "Daniel Kahneman",
+      totalPages: 499,
+      currentPage: 0,
+      status: "想读",
+      tags: ["心理学"]
+    }
+  ],
+  readingQuotes: [
+    { id: "quote-1", text: "专注不是拒绝世界，而是选择此刻真正重要的事。", source: "深度工作" },
+    { id: "quote-2", text: "微小习惯会在时间里复利。", source: "Atomic Habits" }
+  ],
+  workouts: [
+    { id: "workout-1", date: "2026-09-14", type: "力量", duration: 45, calories: 320, completed: false, note: "下肢力量 + 核心" },
+    { id: "workout-2", date: "2026-09-12", type: "有氧", duration: 35, calories: 260, completed: true, note: "椭圆机中等强度" },
+    { id: "workout-3", date: "2026-09-10", type: "拉伸", duration: 20, calories: 80, completed: true, note: "肩颈和髋部放松" }
+  ],
+  bodyMeasurements: [
+    { date: "2026-09-01", weight: 58.8, bmi: 21.6, waist: 70, chest: 84, hip: 91 },
+    { date: "2026-09-08", weight: 58.2, bmi: 21.4, waist: 69, chest: 84, hip: 90 },
+    { date: "2026-09-14", weight: 57.9, bmi: 21.3, waist: 68, chest: 84, hip: 90 }
+  ],
+  fitnessGoals: [
+    { id: "fitness-goal-weight", title: "稳定体重", current: 57.9, target: 56.5, unit: "kg", deadline: "2026-12-31" },
+    { id: "fitness-goal-cardio", title: "本月有氧", current: 210, target: 600, unit: "min", deadline: "2026-09-30" },
+    { id: "fitness-goal-strength", title: "力量训练", current: 6, target: 12, unit: "次", deadline: "2026-09-30" }
+  ],
+  transactions: [
+    { id: "tx-1", type: "income", category: "工资", amount: 12000, date: "2026-09-01", note: "月收入" },
+    { id: "tx-2", type: "expense", category: "餐饮", amount: 860, date: "2026-09-03", note: "外食与咖啡" },
+    { id: "tx-3", type: "expense", category: "交通", amount: 220, date: "2026-09-05", note: "通勤" },
+    { id: "tx-4", type: "expense", category: "学习", amount: 399, date: "2026-09-08", note: "课程订阅" },
+    { id: "tx-5", type: "expense", category: "购物", amount: 520, date: "2026-09-12", note: "日用品" }
+  ],
+  budgets: [
+    { id: "budget-food", category: "餐饮", amount: 1800, spent: 860 },
+    { id: "budget-transport", category: "交通", amount: 500, spent: 220 },
+    { id: "budget-study", category: "学习", amount: 800, spent: 399 },
+    { id: "budget-shopping", category: "购物", amount: 1200, spent: 520 }
+  ],
+  accounts: [
+    { id: "account-cash", name: "现金钱包", type: "现金", balance: 800 },
+    { id: "account-card", name: "储蓄卡", type: "储蓄卡", balance: 32600 },
+    { id: "account-invest", name: "基金账户", type: "投资账户", balance: 18800 }
+  ],
+  savingGoals: [
+    { id: "saving-emergency", title: "应急金", current: 18000, target: 30000, deadline: "2026-12-31" },
+    { id: "saving-travel", title: "旅行基金", current: 3600, target: 8000, deadline: "2026-10-31" }
+  ],
+  bills: [
+    { id: "bill-rent", title: "房租", amount: 3000, dueDate: "2026-09-20", paid: false },
+    { id: "bill-phone", title: "手机套餐", amount: 89, dueDate: "2026-09-18", paid: false },
+    { id: "bill-card", title: "信用卡还款", amount: 1260, dueDate: "2026-09-25", paid: false }
+  ],
+  goals: [
+    {
+      id: "goal-research",
+      title: "完成一篇高质量科研论文",
+      description: "完成实验、撰写初稿并进入投稿准备。",
+      category: "科研",
+      progress: 62,
+      deadline: "2026-12-20",
+      status: "进行中"
+    },
+    {
+      id: "goal-health",
+      title: "建立稳定健康节奏",
+      description: "每周训练、规律睡眠、保持能量。",
+      category: "健康",
+      progress: 48,
+      deadline: "2026-12-31",
+      status: "进行中"
+    },
+    {
+      id: "goal-finance",
+      title: "完成年度储蓄计划",
+      description: "控制预算，提高储蓄率。",
+      category: "理财",
+      progress: 55,
+      deadline: "2026-12-31",
+      status: "进行中"
+    }
+  ],
+  objectives: [
+    { id: "obj-q3-research", title: "Q3 完成论文方法和实验闭环", quarter: "2026 Q3", progress: 72 },
+    { id: "obj-q4-life", title: "Q4 建立可持续工作生活系统", quarter: "2026 Q4", progress: 35 }
+  ],
+  keyResults: [
+    { id: "kr-exp", objectiveId: "obj-q3-research", title: "完成 3 组关键实验", progress: 80, completed: false },
+    { id: "kr-draft", objectiveId: "obj-q3-research", title: "论文初稿达到可内审状态", progress: 60, completed: false },
+    { id: "kr-training", objectiveId: "obj-q4-life", title: "连续 8 周训练不少于 3 次", progress: 45, completed: false }
+  ],
+  milestones: [
+    { id: "mile-exp", goalId: "goal-research", title: "完成核心实验", date: "2026-09-30", status: "进行中" },
+    { id: "mile-draft", goalId: "goal-research", title: "完成论文初稿", date: "2026-10-20", status: "未开始" },
+    { id: "mile-review", goalId: "goal-research", title: "完成组内反馈修改", date: "2026-11-10", status: "未开始" }
+  ],
+  risks: [
+    { id: "risk-time", title: "实验排期被压缩", level: "high", solution: "提前预约设备，准备替代实验方案。" },
+    { id: "risk-energy", title: "睡眠不足影响执行", level: "medium", solution: "晚间固定收尾，减少临睡前输入。" }
+  ],
+  calendarSettings: {
+    showNoteMarkers: true,
+    showTaskMarkers: true,
+    showEventMarkers: true,
+    weekStartsOn: "monday",
+    highlightColor: "#f23b8d"
+  },
+  apexHabitSettings: {
+    showOnOverview: true,
+    showStreak: true,
+    showWeeklyProgress: true,
+    customHabits: [
+      { id: "custom-reading", label: "阅读", enabled: true, order: 10 },
+      { id: "custom-fitness", label: "健身", enabled: true, order: 20 },
+      { id: "custom-finance", label: "理财", enabled: true, order: 30 },
+      { id: "custom-writing", label: "写作", enabled: true, order: 40 },
+      { id: "custom-study", label: "学习", enabled: true, order: 50 }
+    ]
+  },
+  quickActions: [
+    { id: "quick-new-note", label: "新建笔记", enabled: true, order: 10, type: "new-note" },
+    { id: "quick-daily-note", label: "打开今日笔记", enabled: true, order: 20, type: "daily-note" },
+    { id: "quick-search", label: "搜索", enabled: true, order: 30, type: "search" },
+    { id: "quick-templates", label: "打开模板", enabled: true, order: 40, type: "templates" },
+    { id: "quick-graph", label: "打开图谱", enabled: true, order: 50, type: "graph" }
+  ],
+  theme: {
+    cuteBg: "#ffd1e2",
+    cuteCard: "#fff7df",
+    cutePrimary: "#f23b8d",
+    cuteSecondary: "#ffd166",
+    cuteText: "#4a1f19",
+    cuteBorder: "rgba(242, 59, 141, 0.26)",
+    cuteRadius: 18,
+    cuteShadow: "0 10px 28px rgba(190, 66, 120, 0.16)",
+    cardOpacity: 0.86,
+    textureStrength: 0.5,
+    fontSize: 14
+  },
+  userSettings: {
+    showLeftSidebar: true,
+    weekStartsOn: "monday",
+    dateFormat: "YYYY-MM-DD",
+    overviewLayout: "default"
+  }
+};
+
+export class DashboardStore {
+  private data: WorkbenchData = structuredClone(DEFAULT_DATA);
+
+  constructor(
+    private readonly loadPluginData: () => Promise<unknown>,
+    private readonly savePluginData: (data: WorkbenchData) => Promise<void>
+  ) {}
+
+  async load(): Promise<void> {
+    const savedData = await this.loadPluginData();
+    this.data = this.mergeWithDefaults(savedData);
+  }
+
+  async save(): Promise<void> {
+    await this.savePluginData(this.data);
+  }
+
+  getData(): WorkbenchData {
+    return this.data;
+  }
+
+  getPages(): DashboardPageDefinition[] {
+    return DASHBOARD_PAGES;
+  }
+
+  getAvailableModules(page: DashboardPage): AvailableModuleDefinition[] {
+    return AVAILABLE_MODULES.filter((module) => module.page === "all" || module.page === page);
+  }
+
+  getAllSections(): DashboardSectionConfig[] {
+    return [...this.data.sections].sort((left, right) => {
+      if (left.page === right.page) return left.order - right.order;
+      return left.page.localeCompare(right.page);
+    });
+  }
+
+  getSectionsForPage(page: DashboardPage): DashboardSectionConfig[] {
+    return this.data.sections
+      .filter((section) => section.page === page && section.enabled)
+      .sort((left, right) => left.order - right.order);
+  }
+
+  async setCurrentPage(page: DashboardPage): Promise<void> {
+    this.data.currentPage = page;
+    await this.save();
+  }
+
+  async addSection(page: DashboardPage, moduleType: string): Promise<DashboardSectionConfig> {
+    const moduleDefinition = this.getAvailableModules(page).find((module) => module.type === moduleType);
+    const existingSections = this.data.sections.filter((section) => section.page === page);
+    const nextOrder = existingSections.reduce((max, section) => Math.max(max, section.order), 0) + 10;
+    const section: DashboardSectionConfig = {
+      id: `${page}-${moduleType}-${Date.now()}`,
+      page,
+      type: moduleType,
+      title: moduleDefinition?.title ?? moduleType,
+      order: nextOrder,
+      enabled: true,
+      width: moduleDefinition?.defaultWidth ?? "md",
+      height: moduleDefinition?.defaultHeight ?? "sm",
+      config: {}
+    };
+
+    this.data.sections.push(section);
+    await this.save();
+    return section;
+  }
+
+  async removeSection(sectionId: string): Promise<void> {
+    this.data.sections = this.data.sections.filter((section) => section.id !== sectionId);
+    await this.save();
+  }
+
+  async setSectionEnabled(sectionId: string, enabled: boolean): Promise<void> {
+    const section = this.data.sections.find((item) => item.id === sectionId);
+    if (!section) return;
+    section.enabled = enabled;
+    await this.save();
+  }
+
+  async reorderSections(page: DashboardPage, orderedIds: string[]): Promise<void> {
+    const orderMap = new Map(orderedIds.map((id, index) => [id, (index + 1) * 10]));
+    this.data.sections.forEach((section) => {
+      const order = orderMap.get(section.id);
+      if (section.page === page && order !== undefined) {
+        section.order = order;
+      }
+    });
+    await this.save();
+  }
+
+  async setOverviewLayout(layout: WorkbenchData["userSettings"]["overviewLayout"]): Promise<void> {
+    this.data.userSettings.overviewLayout = layout;
+    await this.save();
+  }
+
+  async updateBanner(updates: Partial<WorkbenchData["banner"]>): Promise<void> {
+    this.data.banner = { ...this.data.banner, ...updates };
+    await this.save();
+  }
+
+  async updateBannerMessage(message: string): Promise<void> {
+    this.data.banner.message = message;
+    await this.save();
+  }
+
+  async updateCalendarSettings(updates: Partial<WorkbenchData["calendarSettings"]>): Promise<void> {
+    this.data.calendarSettings = { ...this.data.calendarSettings, ...updates };
+    this.data.userSettings.weekStartsOn = this.data.calendarSettings.weekStartsOn;
+    await this.save();
+  }
+
+  async updateTheme(updates: Partial<ThemeSettings>): Promise<void> {
+    this.data.theme = { ...this.data.theme, ...updates };
+    await this.save();
+  }
+
+  async updateApexHabitSettings(updates: Partial<ApexHabitSettings>): Promise<void> {
+    this.data.apexHabitSettings = { ...this.data.apexHabitSettings, ...updates };
+    if (updates.showOnOverview !== undefined) {
+      this.setSectionEnabledInMemory("overview-habit-overview", updates.showOnOverview);
+    }
+    if (updates.showStreak !== undefined) {
+      this.setSectionEnabledInMemory("overview-checkin-streak", updates.showStreak);
+    }
+    if (updates.showWeeklyProgress !== undefined) {
+      this.setSectionEnabledInMemory("overview-weekly-completion", updates.showWeeklyProgress);
+    }
+    await this.save();
+  }
+
+  async addCustomHabit(label: string): Promise<void> {
+    const nextOrder = this.data.apexHabitSettings.customHabits.reduce((max, habit) => Math.max(max, habit.order), 0) + 10;
+    this.data.apexHabitSettings.customHabits.push({
+      id: `habit-${Date.now()}`,
+      label,
+      enabled: true,
+      order: nextOrder
+    });
+    await this.save();
+  }
+
+  async updateCustomHabit(habitId: string, updates: Partial<WorkbenchData["apexHabitSettings"]["customHabits"][number]>): Promise<void> {
+    const habit = this.data.apexHabitSettings.customHabits.find((item) => item.id === habitId);
+    if (!habit) return;
+    Object.assign(habit, updates);
+    await this.save();
+  }
+
+  async deleteCustomHabit(habitId: string): Promise<void> {
+    this.data.apexHabitSettings.customHabits = this.data.apexHabitSettings.customHabits.filter((item) => item.id !== habitId);
+    await this.save();
+  }
+
+  async reorderCustomHabits(orderedIds: string[]): Promise<void> {
+    const orderMap = new Map(orderedIds.map((id, index) => [id, (index + 1) * 10]));
+    this.data.apexHabitSettings.customHabits.forEach((habit) => {
+      const order = orderMap.get(habit.id);
+      if (order !== undefined) habit.order = order;
+    });
+    await this.save();
+  }
+
+  async updateQuickAction(actionId: string, updates: Partial<QuickActionConfig>): Promise<void> {
+    const action = this.data.quickActions.find((item) => item.id === actionId);
+    if (!action) return;
+    Object.assign(action, updates);
+    await this.save();
+  }
+
+  async addQuickAction(label: string, target: string): Promise<void> {
+    const nextOrder = this.data.quickActions.reduce((max, action) => Math.max(max, action.order), 0) + 10;
+    this.data.quickActions.push({
+      id: `quick-${Date.now()}`,
+      label,
+      enabled: true,
+      order: nextOrder,
+      type: "custom",
+      target
+    });
+    await this.save();
+  }
+
+  exportData(): string {
+    return JSON.stringify(this.data, null, 2);
+  }
+
+  async importData(data: unknown): Promise<void> {
+    this.data = this.mergeWithDefaults(data);
+    await this.save();
+  }
+
+  async resetToDefaults(): Promise<void> {
+    this.data = structuredClone(DEFAULT_DATA);
+    await this.save();
+  }
+
+  getTodayFocusTasks(): TodayFocusTask[] {
+    return this.data.todayFocusTasks;
+  }
+
+  async toggleTodayFocusTask(taskId: string): Promise<void> {
+    const task = this.data.todayFocusTasks.find((item) => item.id === taskId);
+    if (!task) {
+      return;
+    }
+
+    task.completed = !task.completed;
+    await this.save();
+  }
+
+  async addTodayFocusTask(label: string, category: TodayFocusTask["category"] = "个人"): Promise<void> {
+    this.data.todayFocusTasks.push({
+      id: `focus-${Date.now()}`,
+      label,
+      category,
+      completed: false
+    });
+    await this.save();
+  }
+
+  getResearchProjects(): ResearchProject[] {
+    return this.data.researchProjects;
+  }
+
+  getResearchPapers(): ResearchPaper[] {
+    return this.data.researchPapers;
+  }
+
+  getExperimentPlans(): ExperimentPlan[] {
+    return this.data.experimentPlans;
+  }
+
+  getExperimentRecords(): ExperimentPlan[] {
+    return this.data.experimentRecords;
+  }
+
+  getResearchDeadlines(): ResearchDeadline[] {
+    return this.data.researchDeadlines;
+  }
+
+  getResearchMemos(): string[] {
+    return this.data.researchMemos;
+  }
+
+  getBooks(): BookItem[] {
+    return this.data.books;
+  }
+
+  getReadingQuotes(): ReadingQuote[] {
+    return this.data.readingQuotes;
+  }
+
+  async addBook(book: BookItem): Promise<void> {
+    this.data.books.push(book);
+    await this.save();
+  }
+
+  async updateBookPage(bookId: string, currentPage: number): Promise<void> {
+    const book = this.data.books.find((item) => item.id === bookId);
+    if (!book) {
+      return;
+    }
+
+    book.currentPage = Math.max(0, Math.min(currentPage, book.totalPages));
+    await this.save();
+  }
+
+  async completeBook(bookId: string): Promise<void> {
+    const book = this.data.books.find((item) => item.id === bookId);
+    if (!book) {
+      return;
+    }
+
+    book.status = "已读";
+    book.currentPage = book.totalPages;
+    book.finishDate = formatDateKey(new Date());
+    await this.save();
+  }
+
+  getWorkouts(): Workout[] {
+    return this.data.workouts;
+  }
+
+  getBodyMeasurements(): BodyMeasurement[] {
+    return this.data.bodyMeasurements;
+  }
+
+  getFitnessGoals(): FitnessGoal[] {
+    return this.data.fitnessGoals;
+  }
+
+  getTransactions(): Transaction[] {
+    return this.data.transactions;
+  }
+
+  getBudgets(): Budget[] {
+    return this.data.budgets;
+  }
+
+  getAccounts(): Account[] {
+    return this.data.accounts;
+  }
+
+  getSavingGoals(): SavingGoal[] {
+    return this.data.savingGoals;
+  }
+
+  getBills(): Bill[] {
+    return this.data.bills;
+  }
+
+  getGoals(): Goal[] {
+    return this.data.goals;
+  }
+
+  getObjectives(): Objective[] {
+    return this.data.objectives;
+  }
+
+  getKeyResults(): KeyResult[] {
+    return this.data.keyResults;
+  }
+
+  getMilestones(): Milestone[] {
+    return this.data.milestones;
+  }
+
+  getRisks(): Risk[] {
+    return this.data.risks;
+  }
+
+  async addGoal(goal: Goal): Promise<void> {
+    this.data.goals.push(goal);
+    await this.save();
+  }
+
+  async updateGoal(goalId: string, updates: Partial<Goal>): Promise<void> {
+    const goal = this.data.goals.find((item) => item.id === goalId);
+    if (!goal) {
+      return;
+    }
+    Object.assign(goal, updates);
+    goal.progress = Math.max(0, Math.min(100, goal.progress));
+    await this.save();
+  }
+
+  async updateGoalProgress(goalId: string, progress: number): Promise<void> {
+    await this.updateGoal(goalId, { progress });
+  }
+
+  async addKeyResult(keyResult: KeyResult): Promise<void> {
+    this.data.keyResults.push(keyResult);
+    await this.save();
+  }
+
+  async toggleKeyResult(keyResultId: string): Promise<void> {
+    const keyResult = this.data.keyResults.find((item) => item.id === keyResultId);
+    if (!keyResult) {
+      return;
+    }
+    keyResult.completed = !keyResult.completed;
+    keyResult.progress = keyResult.completed ? 100 : Math.min(keyResult.progress, 90);
+    await this.save();
+  }
+
+  async addMilestone(milestone: Milestone): Promise<void> {
+    this.data.milestones.push(milestone);
+    await this.save();
+  }
+
+  async addRisk(risk: Risk): Promise<void> {
+    this.data.risks.push(risk);
+    await this.save();
+  }
+
+  async addTransaction(transaction: Transaction): Promise<void> {
+    this.data.transactions.push(transaction);
+    if (transaction.type === "expense") {
+      const budget = this.data.budgets.find((item) => item.category === transaction.category);
+      if (budget) {
+        budget.spent += transaction.amount;
+      }
+    }
+    await this.save();
+  }
+
+  getMonthlyIncome(): number {
+    return this.getCurrentMonthTransactions()
+      .filter((transaction) => transaction.type === "income")
+      .reduce((sum, transaction) => sum + transaction.amount, 0);
+  }
+
+  getMonthlyExpense(): number {
+    return this.getCurrentMonthTransactions()
+      .filter((transaction) => transaction.type === "expense")
+      .reduce((sum, transaction) => sum + transaction.amount, 0);
+  }
+
+  getBudgetRemaining(): number {
+    return this.data.budgets.reduce((sum, budget) => sum + Math.max(0, budget.amount - budget.spent), 0);
+  }
+
+  getSavingRate(): number {
+    const income = this.getMonthlyIncome();
+    if (income <= 0) {
+      return 0;
+    }
+    return Math.round(((income - this.getMonthlyExpense()) / income) * 100);
+  }
+
+  private getCurrentMonthTransactions(): Transaction[] {
+    const now = new Date();
+    const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return this.data.transactions.filter((transaction) => transaction.date.startsWith(prefix));
+  }
+
+  private setSectionEnabledInMemory(sectionId: string, enabled: boolean): void {
+    const section = this.data.sections.find((item) => item.id === sectionId);
+    if (section) {
+      section.enabled = enabled;
+    }
+  }
+
+  isHabitCompleted(habitId: string, date: string): boolean {
+    return Boolean(this.data.habits[habitId]?.[date]);
+  }
+
+  async toggleHabit(habitId: string, date: string): Promise<void> {
+    this.data.habits[habitId] = this.data.habits[habitId] ?? {};
+    this.data.habits[habitId][date] = !this.data.habits[habitId][date];
+    await this.save();
+  }
+
+  getWeeklyCompletionRate(): number {
+    const habitCompletion: boolean[] = [];
+    this.getCurrentWeekDates().forEach((date) => {
+      DEFAULT_HABITS.forEach((habit) => {
+        habitCompletion.push(this.isHabitCompleted(habit.id, date));
+      });
+    });
+    const focusCompletion = this.data.todayFocusTasks.map((task) => task.completed);
+    const items = [...habitCompletion, ...focusCompletion];
+    const done = items.filter(Boolean).length;
+    return items.length === 0 ? 0 : Math.round((done / items.length) * 100);
+  }
+
+  getPendingTaskCount(): number {
+    return this.data.todayFocusTasks.filter((task) => !task.completed).length;
+  }
+
+  getCheckinStreakDays(): number {
+    const today = new Date();
+    let streak = 0;
+
+    for (let offset = 0; offset < 366; offset += 1) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - offset);
+      const key = formatDateKey(date);
+      const allDone = DEFAULT_HABITS.every((habit) => this.isHabitCompleted(habit.id, key));
+      if (!allDone) {
+        break;
+      }
+      streak += 1;
+    }
+
+    return streak;
+  }
+
+  getCurrentWeekDates(): string[] {
+    const today = new Date();
+    const day = today.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + mondayOffset);
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + index);
+      return formatDateKey(date);
+    });
+  }
+
+  private mergeWithDefaults(savedData: unknown): WorkbenchData {
+    if (!savedData || typeof savedData !== "object") {
+      return structuredClone(DEFAULT_DATA);
+    }
+
+    const partial = savedData as Partial<WorkbenchData>;
+    const sections = Array.isArray(partial.sections)
+      ? this.migrateSections(partial.sections)
+      : structuredClone(DEFAULT_DATA.sections);
+
+    return {
+      ...structuredClone(DEFAULT_DATA),
+      ...partial,
+      banner: {
+        ...DEFAULT_DATA.banner,
+        ...partial.banner
+      },
+      userSettings: {
+        ...DEFAULT_DATA.userSettings,
+        ...partial.userSettings
+      },
+      sections,
+      habits: partial.habits ?? {},
+      todayFocusTasks: Array.isArray(partial.todayFocusTasks)
+        ? partial.todayFocusTasks
+        : structuredClone(DEFAULT_DATA.todayFocusTasks),
+      researchProjects: Array.isArray(partial.researchProjects)
+        ? partial.researchProjects
+        : structuredClone(DEFAULT_DATA.researchProjects),
+      researchPapers: Array.isArray(partial.researchPapers)
+        ? partial.researchPapers
+        : structuredClone(DEFAULT_DATA.researchPapers),
+      experimentPlans: Array.isArray(partial.experimentPlans)
+        ? partial.experimentPlans
+        : structuredClone(DEFAULT_DATA.experimentPlans),
+      experimentRecords: Array.isArray(partial.experimentRecords)
+        ? partial.experimentRecords
+        : structuredClone(DEFAULT_DATA.experimentRecords),
+      researchDeadlines: Array.isArray(partial.researchDeadlines)
+        ? partial.researchDeadlines
+        : structuredClone(DEFAULT_DATA.researchDeadlines),
+      researchMemos: Array.isArray(partial.researchMemos)
+        ? partial.researchMemos
+        : structuredClone(DEFAULT_DATA.researchMemos),
+      books: Array.isArray(partial.books) ? partial.books : structuredClone(DEFAULT_DATA.books),
+      readingQuotes: Array.isArray(partial.readingQuotes)
+        ? partial.readingQuotes
+        : structuredClone(DEFAULT_DATA.readingQuotes),
+      workouts: Array.isArray(partial.workouts) ? partial.workouts : structuredClone(DEFAULT_DATA.workouts),
+      bodyMeasurements: Array.isArray(partial.bodyMeasurements)
+        ? partial.bodyMeasurements
+        : structuredClone(DEFAULT_DATA.bodyMeasurements),
+      fitnessGoals: Array.isArray(partial.fitnessGoals)
+        ? partial.fitnessGoals
+        : structuredClone(DEFAULT_DATA.fitnessGoals),
+      transactions: Array.isArray(partial.transactions)
+        ? partial.transactions
+        : structuredClone(DEFAULT_DATA.transactions),
+      budgets: Array.isArray(partial.budgets) ? partial.budgets : structuredClone(DEFAULT_DATA.budgets),
+      accounts: Array.isArray(partial.accounts) ? partial.accounts : structuredClone(DEFAULT_DATA.accounts),
+      savingGoals: Array.isArray(partial.savingGoals)
+        ? partial.savingGoals
+        : structuredClone(DEFAULT_DATA.savingGoals),
+      bills: Array.isArray(partial.bills) ? partial.bills : structuredClone(DEFAULT_DATA.bills),
+      goals: Array.isArray(partial.goals) ? partial.goals : structuredClone(DEFAULT_DATA.goals),
+      objectives: Array.isArray(partial.objectives)
+        ? partial.objectives
+        : structuredClone(DEFAULT_DATA.objectives),
+      keyResults: Array.isArray(partial.keyResults)
+        ? partial.keyResults
+        : structuredClone(DEFAULT_DATA.keyResults),
+      milestones: Array.isArray(partial.milestones)
+        ? partial.milestones
+        : structuredClone(DEFAULT_DATA.milestones),
+      risks: Array.isArray(partial.risks) ? partial.risks : structuredClone(DEFAULT_DATA.risks),
+      calendarSettings: {
+        ...DEFAULT_DATA.calendarSettings,
+        ...partial.calendarSettings
+      },
+      apexHabitSettings: {
+        ...DEFAULT_DATA.apexHabitSettings,
+        ...partial.apexHabitSettings,
+        customHabits: Array.isArray(partial.apexHabitSettings?.customHabits)
+          ? partial.apexHabitSettings.customHabits
+          : structuredClone(DEFAULT_DATA.apexHabitSettings.customHabits)
+      },
+      quickActions: Array.isArray(partial.quickActions)
+        ? partial.quickActions
+        : structuredClone(DEFAULT_DATA.quickActions),
+      theme: {
+        ...DEFAULT_DATA.theme,
+        ...partial.theme
+      }
+    };
+  }
+
+  private migrateSections(sections: DashboardSectionConfig[]): DashboardSectionConfig[] {
+    const pages: DashboardPage[] = ["overview", "research", "reading", "fitness", "finance", "goals", "modules"];
+    const migrated = [...sections];
+
+    pages.forEach((page) => {
+      if (!sections.some((section) => section.page === page)) {
+        migrated.push(...structuredClone(DEFAULT_DATA.sections.filter((section) => section.page === page)));
+      }
+    });
+
+    const hasNewOverviewLayout = migrated.some((section) => section.type === "weekly-completion");
+    if (!hasNewOverviewLayout) {
+      return [
+        ...structuredClone(DEFAULT_DATA.sections.filter((section) => section.page === "overview")),
+        ...migrated.filter((section) => section.page !== "overview")
+      ];
+    }
+
+    return migrated;
+  }
+}
+
+export const DEFAULT_HABITS = [
+  { id: "reading", label: "阅读" },
+  { id: "fitness", label: "健身" },
+  { id: "finance", label: "理财" },
+  { id: "writing", label: "写作" },
+  { id: "study", label: "学习" }
+];
+
+export const RESEARCH_HABITS = [
+  { id: "research-reading-paper", label: "阅读论文" },
+  { id: "research-experiment", label: "实验" },
+  { id: "research-writing", label: "写作" },
+  { id: "research-data", label: "整理数据" },
+  { id: "research-meeting", label: "组会准备" }
+];
+
+export const READING_HABITS = [
+  { id: "reading-pages", label: "读书" },
+  { id: "reading-note", label: "写笔记" },
+  { id: "reading-quote", label: "摘录" },
+  { id: "reading-review", label: "复盘" },
+  { id: "reading-plan", label: "计划" }
+];
+
+export const FITNESS_HABITS = [
+  { id: "fitness-workout", label: "训练" },
+  { id: "fitness-water", label: "饮水" },
+  { id: "fitness-sleep", label: "睡眠" },
+  { id: "fitness-stretch", label: "拉伸" },
+  { id: "fitness-recovery", label: "恢复" }
+];
+
+export const FINANCE_HABITS = [
+  { id: "finance-record", label: "记账" },
+  { id: "finance-budget", label: "预算" },
+  { id: "finance-review", label: "复盘" },
+  { id: "finance-save", label: "储蓄" },
+  { id: "finance-invest", label: "观察" }
+];
+
+export const GOAL_HABITS = [
+  { id: "goals-plan", label: "计划" },
+  { id: "goals-action", label: "行动" },
+  { id: "goals-review", label: "复盘" },
+  { id: "goals-focus", label: "聚焦" },
+  { id: "goals-adjust", label: "调整" }
+];
+
+export function formatDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}

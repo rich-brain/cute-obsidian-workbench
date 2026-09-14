@@ -1,0 +1,244 @@
+.cow-sidebar {
+  position: relative;
+  overflow: auto;
+  border-radius: 20px;
+  padding: 14px;
+}
+
+.cow-profile {
+  text-align: center;
+}
+
+.cow-profile h2 {
+  margin: 8px 0 4px;
+  font-size: 18px;
+}
+
+.cow-profile p {
+  margin: 0;
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-profile-avatar,
+.cow-banner-dog {
+  display: grid;
+  place-items: center;
+}
+
+.cow-profile-avatar {
+  width: 84px;
+  height: 84px;
+  margin: 0 auto;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #ffe7a8, #ffb5d2);
+}
+
+.cow-mini-dog,
+.cow-dog-face {
+  width: 58px;
+  height: 46px;
+  border: 4px solid #5b281c;
+  border-radius: 48% 48% 42% 42%;
+  background: #ffd991;
+  position: relative;
+}
+
+.cow-mini-dog::before,
+.cow-mini-dog::after,
+.cow-dog-face::before,
+.cow-dog-face::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  width: 24px;
+  height: 24px;
+  border: 4px solid #5b281c;
+  background: #bb7a46;
+  border-radius: 50%;
+  z-index: -1;
+}
+
+.cow-mini-dog::before,
+.cow-dog-face::before {
+  left: -15px;
+}
+
+.cow-mini-dog::after,
+.cow-dog-face::after {
+  right: -15px;
+}
+
+.cow-clock {
+  margin: 14px 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 226, 238, 0.72);
+  text-align: center;
+}
+
+.cow-clock p,
+.cow-clock span {
+  margin: 0;
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-clock strong {
+  display: block;
+  font-size: 32px;
+  line-height: 1.2;
+}
+
+.cow-sidebar-actions {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.cow-sidebar-action,
+.cow-file-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--cow-ink);
+  font-size: 13px;
+  text-align: left;
+}
+
+.cow-sidebar-action:hover {
+  background: rgba(255, 127, 180, 0.2);
+}
+
+.cow-file-shortcut {
+  margin-top: 12px;
+  background: rgba(255, 247, 223, 0.72);
+  color: var(--cow-muted);
+}
+
+.cow-top-banner {
+  position: relative;
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  min-height: 132px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  overflow: hidden;
+}
+
+.cow-top-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(35deg, rgba(255, 255, 255, 0.24) 0 2px, transparent 2px 9px),
+    radial-gradient(circle at 72% 24%, rgba(255, 209, 102, 0.48), transparent 18%);
+  pointer-events: none;
+}
+
+.cow-banner-bg-cream-stars {
+  background:
+    radial-gradient(circle at 20% 18%, rgba(255, 209, 102, 0.62), transparent 20%),
+    linear-gradient(135deg, #fff8df, #ffe0ed);
+}
+
+.cow-banner-bg-soft-hearts {
+  background:
+    radial-gradient(circle at 75% 22%, rgba(178, 140, 255, 0.35), transparent 19%),
+    linear-gradient(135deg, #ffe0ed, #fff4f8);
+}
+
+.cow-banner-dog {
+  position: relative;
+  width: 132px;
+  height: 98px;
+}
+
+.cow-dog-face {
+  width: 96px;
+  height: 72px;
+}
+
+.cow-banner-copy {
+  position: relative;
+}
+
+.cow-banner-copy h2 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.18;
+}
+
+.cow-banner-copy p {
+  margin: 4px 0 0;
+  color: var(--cow-muted);
+}
+
+.cow-banner-kicker {
+  color: var(--cow-pink-strong) !important;
+  font-weight: 800;
+}
+
+.cow-banner-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--cow-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--cow-ink);
+  font-weight: 700;
+}
+
+.cow-top-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 6px;
+  border-radius: 16px;
+  overflow-x: auto;
+}
+
+.cow-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 100px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--cow-ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cow-nav-button.is-active {
+  background: rgba(255, 127, 180, 0.28);
+  color: #2f1511;
+  box-shadow: inset 0 -3px 0 var(--cow-pink-strong);
+}
+
+@media (max-width: 900px) {
+  .cow-top-banner {
+    grid-template-columns: 1fr;
+  }
+
+  .cow-banner-dog {
+    display: none;
+  }
+
+  .cow-banner-copy h2 {
+    font-size: 24px;
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "cute-obsidian-workbench",
+  "name": "Cute Obsidian Workbench",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "A cute dog-themed dashboard workbench for Obsidian.",
+  "author": "gaogao",
+  "authorUrl": "https://github.com/rich-brain",
+  "isDesktopOnly": false
+}

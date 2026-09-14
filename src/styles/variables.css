@@ -1,0 +1,29 @@
+.cute-obsidian-workbench {
+  --cute-bg: #ffd1e2;
+  --cute-card: #fff7df;
+  --cute-primary: #f23b8d;
+  --cute-secondary: #ffd166;
+  --cute-text: #4a1f19;
+  --cute-border: rgba(242, 59, 141, 0.26);
+  --cute-radius: 18px;
+  --cute-shadow: 0 10px 28px rgba(190, 66, 120, 0.16);
+  --cute-card-opacity: 0.86;
+  --cute-texture-strength: 0.5;
+  --cute-font-size: 14px;
+  --cow-pink: #ff7fb4;
+  --cow-pink-strong: var(--cute-primary);
+  --cow-pink-soft: #ffe0ed;
+  --cow-cream: var(--cute-card);
+  --cow-paper: rgba(255, 252, 244, var(--cute-card-opacity));
+  --cow-ink: var(--cute-text);
+  --cow-muted: #8a6766;
+  --cow-green: #43c77a;
+  --cow-blue: #4aa7ff;
+  --cow-yellow: var(--cute-secondary);
+  --cow-purple: #b28cff;
+  --cow-border: var(--cute-border);
+  --cow-shadow: var(--cute-shadow);
+  --cow-radius: var(--cute-radius);
+  color: var(--cow-ink);
+  font-size: var(--cute-font-size);
+}
