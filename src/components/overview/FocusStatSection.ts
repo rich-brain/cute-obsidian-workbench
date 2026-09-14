@@ -3,6 +3,16 @@ import type { DashboardStore } from "../../core/DashboardStore";
 import { StatisticsService } from "../../services/StatisticsService";
 import type { FocusState } from "../../types/dashboard";
 
+const FOCUS_BACKGROUNDS = [
+  { id: "solid", label: "纯色" },
+  { id: "pink", label: "粉色渐变" },
+  { id: "forest", label: "森林" },
+  { id: "sky", label: "天空" },
+  { id: "night", label: "夜晚" },
+  { id: "desk", label: "书桌" },
+  { id: "minimal", label: "极简" }
+];
+
 export class FocusStatSection {
   constructor(
     private readonly app: App,
@@ -34,8 +44,7 @@ export class FocusStatSection {
     primary.createSpan({ text: state.isRunning ? (state.isPaused ? "继续" : "暂停") : "开始专注" });
     primary.addEventListener("click", async () => {
       if (!state.isRunning) {
-        await this.store.startFocusSession("");
-        this.onDataChanged();
+        new FocusSetupModal(this.app, this.store, this.onDataChanged).open();
         return;
       }
       if (state.isPaused) {
@@ -67,8 +76,73 @@ export class FocusStatSection {
   }
 }
 
+class FocusSetupModal extends Modal {
+  private duration: number;
+  private customDuration = "";
+  private task = "";
+  private background: string;
+
+  constructor(
+    app: App,
+    private readonly store: DashboardStore,
+    private readonly onDataChanged: () => void
+  ) {
+    super(app);
+    const settings = store.getFocusSettings();
+    this.duration = settings.focusDuration;
+    this.background = settings.defaultBackground ?? "pink";
+  }
+
+  onOpen(): void {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal");
+    this.contentEl.createEl("h2", { text: "开始专注" });
+    this.contentEl.createEl("p", { text: "先选一个合适的番茄长度，再进入沉浸式专注。" });
+
+    const presets = this.contentEl.createDiv({ cls: "cow-focus-preset-grid" });
+    [25, 45, 60, 90].forEach((minutes) => {
+      const button = presets.createEl("button", { cls: this.duration === minutes ? "is-active" : "", attr: { type: "button" } });
+      button.createSpan({ text: `${minutes} 分钟` });
+      button.addEventListener("click", () => {
+        this.duration = minutes;
+        this.customDuration = "";
+        this.onOpen();
+      });
+    });
+
+    new Setting(this.contentEl).setName("自定义分钟数").addText((text) => text.setValue(this.customDuration).onChange((value) => {
+      this.customDuration = value;
+      const next = Number(value);
+      if (Number.isFinite(next) && next > 0) this.duration = Math.round(next);
+    }));
+    new Setting(this.contentEl).setName("专注事项").addText((text) => text.setPlaceholder("这次准备专注做什么？").setValue(this.task).onChange((value) => {
+      this.task = value;
+    }));
+
+    this.contentEl.createEl("h3", { text: "选择专注背景" });
+    const backgrounds = this.contentEl.createDiv({ cls: "cow-focus-background-grid" });
+    FOCUS_BACKGROUNDS.forEach((background) => {
+      const button = backgrounds.createEl("button", { cls: `cow-focus-bg-${background.id} ${this.background === background.id ? "is-active" : ""}`, attr: { type: "button" } });
+      button.createSpan({ text: background.label });
+      button.addEventListener("click", () => {
+        this.background = background.id;
+        this.onOpen();
+      });
+    });
+
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    const start = actions.createEl("button", { cls: "mod-cta", text: "开始专注", attr: { type: "button" } });
+    start.addEventListener("click", async () => {
+      await this.store.startFocusSession(this.task, this.duration, this.background);
+      this.onDataChanged();
+      this.close();
+      new FocusSessionModal(this.app, this.store, this.onDataChanged).open();
+    });
+  }
+}
+
 class FocusSessionModal extends Modal {
-  private taskValue = "";
   private timer?: number;
 
   constructor(
@@ -77,7 +151,6 @@ class FocusSessionModal extends Modal {
     private readonly onDataChanged: () => void
   ) {
     super(app);
-    this.taskValue = store.getFocusState().currentTask ?? "";
   }
 
   onOpen(): void {
@@ -94,12 +167,12 @@ class FocusSessionModal extends Modal {
 
   private render(): void {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal");
     const settings = this.store.getFocusSettings();
     const state = this.store.getFocusState();
     const stats = new StatisticsService(this.store).getFocusStats();
+    this.contentEl.addClass("cow-modal", "cow-focus-session-modal", `cow-focus-bg-${state.background ?? "pink"}`);
 
-    this.contentEl.createEl("h2", { text: "今日专注" });
+    this.contentEl.createEl("h2", { text: state.currentTask || "今日专注" });
     this.contentEl.createEl("p", {
       text: `默认 ${settings.focusDuration} 分钟专注 / ${settings.breakDuration} 分钟休息，今日累计 ${stats.todayMinutes} 分钟。`
     });
@@ -109,36 +182,12 @@ class FocusSessionModal extends Modal {
     timer.createEl("strong", { text: this.formatSeconds(state.remainingSeconds) });
     timer.createSpan({ text: this.getStateLabel(state) });
 
-    new Setting(this.contentEl)
-      .setName("本次任务")
-      .addText((text) => text.setValue(this.taskValue).setPlaceholder("例如：整理论文笔记").onChange((value) => {
-        this.taskValue = value;
-      }));
-
-    new Setting(this.contentEl)
-      .setName("专注时长")
-      .setDesc("单位：分钟")
-      .addText((text) => text.setValue(String(settings.focusDuration)).onChange((value) => {
-        const next = Number(value);
-        if (Number.isFinite(next) && next > 0) {
-          void this.store.updateFocusSettings({ focusDuration: next });
-        }
-      }));
-
-    new Setting(this.contentEl)
-      .setName("休息时长")
-      .setDesc("单位：分钟")
-      .addText((text) => text.setValue(String(settings.breakDuration)).onChange((value) => {
-        const next = Number(value);
-        if (Number.isFinite(next) && next > 0) {
-          void this.store.updateFocusSettings({ breakDuration: next });
-        }
-      }));
-
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions cow-focus-modal-actions" });
     this.renderAction(actions, state.isRunning ? (state.isPaused ? "继续" : "暂停") : "开始", state.isRunning && !state.isPaused ? "pause" : "play", async () => {
       if (!state.isRunning) {
-        await this.store.startFocusSession(this.taskValue);
+        new FocusSetupModal(this.app, this.store, this.onDataChanged).open();
+        this.close();
+        return;
       } else if (state.isPaused) {
         await this.store.resumeFocusSession();
       } else {
@@ -147,8 +196,9 @@ class FocusSessionModal extends Modal {
       this.onDataChanged();
       this.render();
     }, true);
-    this.renderAction(actions, "结束", "square", async () => {
-      await this.store.endFocusSession(false);
+    this.renderAction(actions, "提前结束", "square", async () => {
+      const savePartial = this.store.getFocusState().remainingSeconds < (this.store.getFocusState().plannedDuration ?? settings.focusDuration) * 60 - 60;
+      await this.store.endFocusSession(savePartial);
       this.onDataChanged();
       this.render();
     });

@@ -17,6 +17,14 @@ const ADDABLE_SECTION_TYPES = new Set([
   "workout-plan",
   "workout-log",
   "health-reminders",
+  "body-measurements",
+  "water-sleep-habits",
+  "fitness-goals",
+  "monthly-budget",
+  "expense-categories",
+  "account-overview",
+  "income-expense-trend",
+  "investment-watch",
   "saving-goals",
   "bill-reminders",
   "finance-todos",
@@ -34,6 +42,7 @@ export function getSectionCapabilities(sectionType: string): SectionCapabilities
     canAdd,
     canEdit: canAdd,
     canDeleteItems: canAdd,
-    canOpenStats: sectionType === "habit-overview" || sectionType === "monthly-progress"
+    canOpenStats: sectionType === "habit-overview" || sectionType === "monthly-progress" || sectionType === "today-focus",
+    canManage: canAdd
   };
 }

@@ -75,12 +75,14 @@ export class MonthlyCalendarSection {
         button.style.borderColor = settings.highlightColor;
         button.style.background = `${settings.highlightColor}44`;
       }
-      button.createSpan({ text: String(date.getDate()) });
+      button.createSpan({ cls: "cow-calendar-day-number", text: String(date.getDate()) });
       const holidays = this.holidays.getHolidays(date);
       if (holidays.length > 0) {
         button.createSpan({ cls: "cow-calendar-holiday", text: holidays[0].name });
+      } else {
+        button.createSpan({ cls: "cow-calendar-holiday is-empty", text: "" });
       }
-      const dots = button.createDiv({ cls: "cow-calendar-dots" });
+      const dots = button.createDiv({ cls: "cow-calendar-dots cow-calendar-day-indicators" });
       this.renderBadges(dots, this.getBadges(date));
       button.addEventListener("click", () => {
         new DayOverviewModal(this.app, this.store, date, () => {

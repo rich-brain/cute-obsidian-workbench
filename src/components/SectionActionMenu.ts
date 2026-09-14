@@ -3,6 +3,7 @@ import type { DashboardStore } from "../core/DashboardStore";
 import type { DashboardSectionConfig } from "../types/dashboard";
 import { getSectionCapabilities } from "../core/SectionCapabilities";
 import { openAddContentModal } from "./SectionContentActions";
+import { openManageContentModal } from "./SectionContentActions";
 
 const CARD_COLORS = [
   { id: "default", label: "默认" },
@@ -38,6 +39,12 @@ export class SectionActionMenu {
         .setTitle("添加内容")
         .setIcon("plus")
         .onClick(() => void this.addContent()));
+    }
+    if (capabilities.canManage) {
+      menu.addItem((item) => item
+        .setTitle("编辑数据")
+        .setIcon("pencil")
+        .onClick(() => openManageContentModal(this.app, this.store, this.section, this.onDataChanged)));
     }
 
     menu.addItem((item) => item

@@ -1,6 +1,7 @@
 import { App, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import { AddTransactionModal } from "./AddTransactionModal";
+import { openTransactionModal } from "../DashboardEditModals";
 
 export class MonthlyBudgetSection {
   constructor(
@@ -14,6 +15,10 @@ export class MonthlyBudgetSection {
     setIcon(action.createSpan(), "plus");
     action.createSpan({ text: "新增记账" });
     action.addEventListener("click", () => this.openModal());
+    const manage = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
+    setIcon(manage.createSpan(), "list-checks");
+    manage.createSpan({ text: "管理收支" });
+    manage.addEventListener("click", () => this.openManager());
 
     const grid = container.createDiv({ cls: "cow-reading-stat-grid" });
     [
@@ -33,5 +38,12 @@ export class MonthlyBudgetSection {
       await this.store.addTransaction(transaction);
       this.onDataChanged();
     }).open();
+  }
+
+  private openManager(): void {
+    openTransactionModal(this.app, async (transaction) => {
+      await this.store.addTransaction(transaction);
+      this.onDataChanged();
+    });
   }
 }

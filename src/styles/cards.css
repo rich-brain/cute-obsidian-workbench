@@ -14,9 +14,10 @@
   box-sizing: border-box;
   height: auto;
   min-height: 150px;
+  min-width: 0;
   border-radius: var(--cow-radius);
   padding: 12px;
-  overflow: hidden;
+  overflow: visible;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, var(--cute-card-opacity)), rgba(255, 246, 229, var(--cute-card-opacity))),
     var(--cow-paper);
@@ -106,10 +107,13 @@
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 10px;
+  min-width: 0;
 }
 
 .cow-section-content {
   position: relative;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .cow-empty-state {
@@ -120,11 +124,19 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .cow-section-title h3 {
+  min-width: 0;
   margin: 0;
   font-size: 17px;
+  overflow-wrap: anywhere;
+}
+
+.cow-section-title > span {
+  flex: 0 0 auto;
 }
 
 .cow-icon-button {
@@ -164,6 +176,7 @@
   overflow: auto;
   padding-right: 4px;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .cow-modal p {
@@ -175,6 +188,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .cow-add-module-grid {
@@ -330,7 +344,8 @@
   .cow-add-module-grid,
   .cow-quick-create-grid,
   .cow-choice-grid,
-  .cow-background-choice-grid {
+  .cow-background-choice-grid,
+  .cow-avatar-choice-grid {
     grid-template-columns: 1fr;
   }
 }

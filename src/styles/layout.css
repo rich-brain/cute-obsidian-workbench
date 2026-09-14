@@ -7,6 +7,12 @@
     linear-gradient(135deg, var(--cute-bg), #fff7dc 48%, #ffd6e8);
 }
 
+.cute-obsidian-workbench *,
+.cute-obsidian-workbench *::before,
+.cute-obsidian-workbench *::after {
+  box-sizing: border-box;
+}
+
 .cow-shell {
   display: grid;
   grid-template-columns: 244px minmax(0, 1fr);
@@ -19,6 +25,7 @@
 .cow-main,
 .cow-sidebar {
   min-height: 0;
+  min-width: 0;
 }
 
 .cow-main {
@@ -31,6 +38,7 @@
 .cow-page-host {
   overflow: auto;
   padding-right: 4px;
+  min-width: 0;
 }
 
 .cow-page-heading {
@@ -42,9 +50,11 @@
 }
 
 .cow-page-heading h1 {
+  min-width: 0;
   margin: 0;
   font-size: 26px;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .cow-page-heading p {

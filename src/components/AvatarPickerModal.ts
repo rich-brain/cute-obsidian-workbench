@@ -11,9 +11,11 @@ export const AVATAR_PRESETS = [
 
 export function renderWorkbenchAvatar(container: HTMLElement, avatar: WorkbenchAvatarSettings | undefined, className: string): HTMLElement {
   const value = avatar ?? { type: "preset", value: "dog" };
-  const root = container.createDiv({ cls: `${className} cow-custom-avatar cow-avatar-${value.type === "preset" ? value.value : "image"}` });
+  const wrapperClass = className === "cow-banner-dog" ? "cow-banner-avatar-wrapper" : "cow-sidebar-avatar-wrapper";
+  const imageClass = className === "cow-banner-dog" ? "cow-banner-avatar-image" : "cow-sidebar-avatar-image";
+  const root = container.createDiv({ cls: `${className} ${wrapperClass} cow-custom-avatar cow-avatar-${value.type === "preset" ? value.value : "image"}` });
   if (value.type === "image") {
-    root.createEl("img", { attr: { src: value.value, alt: "" } });
+    root.createEl("img", { cls: imageClass, attr: { src: value.value, alt: "" } });
     return root;
   }
 

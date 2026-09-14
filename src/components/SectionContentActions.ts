@@ -20,6 +20,17 @@ import { AddBookModal } from "./reading/AddBookModal";
 import { AddTransactionModal } from "./finance/AddTransactionModal";
 import { GoalEditorModal, KeyResultModal, MilestoneModal, RiskModal } from "./goals/GoalModals";
 import { formatDateKey } from "../core/DashboardStore";
+import {
+  openAccountModal,
+  openBodyMeasurementModal,
+  openBudgetModal,
+  openFitnessDailyModal,
+  openFitnessGoalModal,
+  openInvestmentWatchModal,
+  openPriorityItemModal,
+  openTransactionModal
+} from "./DashboardEditModals";
+import { TodayFocusTaskModal, TodoStatisticsModal } from "./overview/TodoStatisticsModal";
 
 export function openAddContentModal(app: App, store: DashboardStore, section: DashboardSectionConfig, onDataChanged: () => void): void {
   const refresh = () => onDataChanged();
@@ -139,11 +150,76 @@ export function openAddContentModal(app: App, store: DashboardStore, section: Da
       }).open();
       break;
     case "today-focus":
-      void store.addTodayFocusTask("新的待办任务").then(refresh);
+      new TodayFocusTaskModal(app, formatDateKey(new Date()), async (values) => {
+        await store.addTodayFocusTask(values.label, values.category, values.date);
+        refresh();
+      }).open();
+      break;
+    case "body-measurements":
+      openBodyMeasurementModal(app, async (values) => {
+        await store.addBodyMeasurement(values);
+        refresh();
+      });
+      break;
+    case "water-sleep-habits":
+      openFitnessDailyModal(app, store.getFitnessDailyRecord(), async (values) => {
+        await store.updateFitnessDailyRecord(values.date, values);
+        refresh();
+      });
+      break;
+    case "fitness-goals":
+      openFitnessGoalModal(app, async (values) => {
+        await store.addFitnessGoal(values);
+        refresh();
+      });
+      break;
+    case "monthly-budget":
+      openBudgetLimitModal(app, store.getMonthlyBudgetLimit(), async (value) => {
+        await store.setMonthlyBudgetLimit(value);
+        refresh();
+      });
+      break;
+    case "expense-categories":
+      openBudgetModal(app, async (values) => {
+        await store.addBudget(values);
+        refresh();
+      });
+      break;
+    case "account-overview":
+      openAccountModal(app, async (values) => {
+        await store.addAccount(values);
+        refresh();
+      });
+      break;
+    case "income-expense-trend":
+      openTransactionModal(app, async (values) => {
+        await store.addTransaction(values);
+        refresh();
+      });
+      break;
+    case "investment-watch":
+      openInvestmentWatchModal(app, async (values) => {
+        await store.addInvestmentWatchItem(values);
+        refresh();
+      });
+      break;
+    case "priority-matrix":
+      openPriorityItemModal(app, async (values) => {
+        await store.addPriorityMatrixItem(values);
+        refresh();
+      });
       break;
     default:
       new Notice("这个模块暂未提供添加入口。");
   }
+}
+
+export function openManageContentModal(app: App, store: DashboardStore, section: DashboardSectionConfig, onDataChanged: () => void): void {
+  if (section.type === "today-focus") {
+    new TodoStatisticsModal(app, store, new Date(), onDataChanged).open();
+    return;
+  }
+  openAddContentModal(app, store, section, onDataChanged);
 }
 
 export function openTextModal(app: App, title: string, fieldName: string, initialValue: string, onSubmit: (value: string) => Promise<void>): void {
@@ -151,6 +227,14 @@ export function openTextModal(app: App, title: string, fieldName: string, initia
     const value = String(values.value ?? "").trim();
     if (!value) return;
     await onSubmit(value);
+  }).open();
+}
+
+function openBudgetLimitModal(app: App, initialValue: number, onSubmit: (value: number) => Promise<void>): void {
+  new CrudItemModal(app, "设置月预算", { amount: initialValue }, [
+    { key: "amount", name: "月预算", type: "number" }
+  ], async (values) => {
+    await onSubmit(Number(values.amount) || 0);
   }).open();
 }
 

@@ -14,16 +14,19 @@ import type {
   DashboardSectionConfig,
   ExperimentPlan,
   FocusRecord,
+  FitnessDailyRecord,
   FitnessGoal,
   FocusSettings,
   FocusState,
   FinanceTodo,
   Goal,
   HealthReminder,
+  InvestmentWatchItem,
   KeyResult,
   Milestone,
   Objective,
   QuickActionConfig,
+  PriorityMatrixItem,
   ReadingQuote,
   ResearchDeadline,
   ResearchPaper,
@@ -147,6 +150,7 @@ function createSection(
 }
 
 const DEFAULT_DATA: WorkbenchData = {
+  dataVersion: "0.3.0",
   currentPage: "overview",
   sections: [
     {
@@ -623,9 +627,9 @@ const DEFAULT_DATA: WorkbenchData = {
     { id: "workout-3", date: "2026-09-10", type: "拉伸", duration: 20, calories: 80, completed: true, note: "肩颈和髋部放松" }
   ],
   bodyMeasurements: [
-    { date: "2026-09-01", weight: 58.8, bmi: 21.6, waist: 70, chest: 84, hip: 91 },
-    { date: "2026-09-08", weight: 58.2, bmi: 21.4, waist: 69, chest: 84, hip: 90 },
-    { date: "2026-09-14", weight: 57.9, bmi: 21.3, waist: 68, chest: 84, hip: 90 }
+    { id: "measure-2026-09-01", date: "2026-09-01", weight: 58.8, bmi: 21.6, waist: 70, chest: 84, hip: 91 },
+    { id: "measure-2026-09-08", date: "2026-09-08", weight: 58.2, bmi: 21.4, waist: 69, chest: 84, hip: 90 },
+    { id: "measure-2026-09-14", date: "2026-09-14", weight: 57.9, bmi: 21.3, waist: 68, chest: 84, hip: 90 }
   ],
   fitnessGoals: [
     { id: "fitness-goal-weight", title: "稳定体重", current: 57.9, target: 56.5, unit: "kg", deadline: "2026-12-31" },
@@ -749,7 +753,8 @@ const DEFAULT_DATA: WorkbenchData = {
     focusDuration: 25,
     breakDuration: 5,
     autoStartBreak: false,
-    autoStartNextFocus: false
+    autoStartNextFocus: false,
+    defaultBackground: "pink"
   },
   focusState: {
     isRunning: false,
@@ -758,6 +763,20 @@ const DEFAULT_DATA: WorkbenchData = {
     remainingSeconds: 25 * 60
   },
   focusRecords: [],
+  fitnessDailyRecords: [
+    { date: "2026-09-14", waterCups: 5, waterGoal: 8, sleepHours: 7, sleepGoal: 8, bedtime: "23:30", wakeTime: "07:00" }
+  ],
+  investmentWatchItems: [
+    { id: "watch-hs300", name: "沪深300", code: "CSI300", price: 3800, changePercent: 0.8, type: "指数" },
+    { id: "watch-btc", name: "比特币", code: "BTC", price: 65000, changePercent: -1.2, type: "加密资产" },
+    { id: "watch-gold", name: "黄金", code: "XAU", price: 2380, changePercent: 0.3, type: "商品" }
+  ],
+  priorityMatrixItems: [
+    { id: "priority-1", title: "本周必须交付的关键结果", quadrant: "important-urgent", note: "优先处理", completed: false },
+    { id: "priority-2", title: "长期目标、健康节奏、能力建设", quadrant: "important-not-urgent", note: "每天推进", completed: false },
+    { id: "priority-3", title: "临时消息、流程性处理", quadrant: "not-important-urgent", note: "集中批处理", completed: false },
+    { id: "priority-4", title: "低价值消耗，尽量减少", quadrant: "not-important-not-urgent", note: "减少投入", completed: false }
+  ],
   theme: {
     cuteBg: "#ffd1e2",
     cuteCard: "#fff7df",
@@ -1094,14 +1113,19 @@ export class DashboardStore {
     await this.save();
   }
 
-  async startFocusSession(task = ""): Promise<void> {
+  async startFocusSession(task = "", durationMinutes = this.data.focusSettings.focusDuration, background = this.data.focusSettings.defaultBackground ?? "pink"): Promise<void> {
+    const plannedDuration = Math.max(1, Math.round(durationMinutes));
+    this.data.focusSettings.focusDuration = plannedDuration;
+    this.data.focusSettings.defaultBackground = background;
     this.data.focusState = {
       isRunning: true,
       isPaused: false,
       mode: "focus",
       startedAt: new Date().toISOString(),
-      remainingSeconds: this.data.focusSettings.focusDuration * 60,
-      currentTask: task.trim()
+      remainingSeconds: plannedDuration * 60,
+      currentTask: task.trim(),
+      background,
+      plannedDuration
     };
     await this.save();
   }
@@ -1136,13 +1160,18 @@ export class DashboardStore {
       const totalSeconds = this.data.focusSettings.focusDuration * 60;
       const duration = Math.max(0, Math.round((totalSeconds - state.remainingSeconds) / 60));
       if (duration > 0 || completed) {
+        const endedAt = new Date().toISOString();
         this.data.focusRecords.push({
           id: `focus-record-${Date.now()}`,
           date: formatDateKey(new Date()),
           task: state.currentTask?.trim() || "专注",
-          duration: completed ? this.data.focusSettings.focusDuration : duration,
+          duration: completed ? (state.plannedDuration ?? this.data.focusSettings.focusDuration) : duration,
           completed,
-          createdAt: new Date().toISOString()
+          createdAt: endedAt,
+          startedAt: state.startedAt,
+          endedAt,
+          plannedDuration: state.plannedDuration ?? this.data.focusSettings.focusDuration,
+          background: state.background
         });
       }
     }
@@ -1158,13 +1187,18 @@ export class DashboardStore {
   async completeCurrentFocusPhase(): Promise<void> {
     const state = this.resolveFocusState();
     if (state.mode === "focus") {
+      const endedAt = new Date().toISOString();
       this.data.focusRecords.push({
         id: `focus-record-${Date.now()}`,
         date: formatDateKey(new Date()),
         task: state.currentTask?.trim() || "专注",
-        duration: this.data.focusSettings.focusDuration,
+        duration: state.plannedDuration ?? this.data.focusSettings.focusDuration,
         completed: true,
-        createdAt: new Date().toISOString()
+        createdAt: endedAt,
+        startedAt: state.startedAt,
+        endedAt,
+        plannedDuration: state.plannedDuration ?? this.data.focusSettings.focusDuration,
+        background: state.background
       });
       this.data.focusState = {
         isRunning: this.data.focusSettings.autoStartBreak,
@@ -1172,7 +1206,9 @@ export class DashboardStore {
         mode: "break",
         startedAt: this.data.focusSettings.autoStartBreak ? new Date().toISOString() : undefined,
         remainingSeconds: this.data.focusSettings.breakDuration * 60,
-        currentTask: state.currentTask
+        currentTask: state.currentTask,
+        background: state.background,
+        plannedDuration: this.data.focusSettings.breakDuration
       };
     } else {
       this.data.focusState = {
@@ -1181,7 +1217,9 @@ export class DashboardStore {
         mode: "focus",
         startedAt: this.data.focusSettings.autoStartNextFocus ? new Date().toISOString() : undefined,
         remainingSeconds: this.data.focusSettings.focusDuration * 60,
-        currentTask: state.currentTask
+        currentTask: state.currentTask,
+        background: state.background,
+        plannedDuration: this.data.focusSettings.focusDuration
       };
     }
     await this.save();
@@ -1223,13 +1261,30 @@ export class DashboardStore {
     await this.save();
   }
 
-  async addTodayFocusTask(label: string, category: TodayFocusTask["category"] = "个人"): Promise<void> {
+  async addTodayFocusTask(label: string, category: TodayFocusTask["category"] = "个人", date = formatDateKey(new Date())): Promise<void> {
     this.data.todayFocusTasks.push({
       id: `focus-${Date.now()}`,
       label,
       category,
-      completed: false
+      completed: false,
+      date
     });
+    await this.save();
+  }
+
+  getTodayFocusTasksForDate(date = formatDateKey(new Date())): TodayFocusTask[] {
+    return this.data.todayFocusTasks.filter((task) => (task.date ?? formatDateKey(new Date())) === date);
+  }
+
+  async updateTodayFocusTask(taskId: string, updates: Partial<TodayFocusTask>): Promise<void> {
+    const task = this.data.todayFocusTasks.find((item) => item.id === taskId);
+    if (!task) return;
+    Object.assign(task, updates);
+    await this.save();
+  }
+
+  async deleteTodayFocusTask(taskId: string): Promise<void> {
+    this.data.todayFocusTasks = this.data.todayFocusTasks.filter((item) => item.id !== taskId);
     await this.save();
   }
 
@@ -1457,8 +1512,53 @@ export class DashboardStore {
     return this.data.bodyMeasurements;
   }
 
+  async addBodyMeasurement(measurement: BodyMeasurement): Promise<void> {
+    this.data.bodyMeasurements.push({ ...measurement, id: measurement.id ?? `measure-${Date.now()}` });
+    this.data.bodyMeasurements.sort((left, right) => left.date.localeCompare(right.date));
+    await this.save();
+  }
+
+  async updateBodyMeasurement(measurementId: string, updates: Partial<BodyMeasurement>): Promise<void> {
+    const measurement = this.data.bodyMeasurements.find((item) => (item.id ?? item.date) === measurementId);
+    if (!measurement) return;
+    Object.assign(measurement, updates);
+    await this.save();
+  }
+
+  getFitnessDailyRecord(date = formatDateKey(new Date())): FitnessDailyRecord {
+    const record = this.data.fitnessDailyRecords.find((item) => item.date === date);
+    return record ?? { date, waterCups: 0, waterGoal: 8, sleepHours: 0, sleepGoal: 8, bedtime: "", wakeTime: "" };
+  }
+
+  async updateFitnessDailyRecord(date: string, updates: Partial<FitnessDailyRecord>): Promise<void> {
+    let record = this.data.fitnessDailyRecords.find((item) => item.date === date);
+    if (!record) {
+      record = this.getFitnessDailyRecord(date);
+      this.data.fitnessDailyRecords.push(record);
+    }
+    Object.assign(record, updates, { date });
+    await this.save();
+  }
+
   getFitnessGoals(): FitnessGoal[] {
     return this.data.fitnessGoals;
+  }
+
+  async addFitnessGoal(goal: FitnessGoal): Promise<void> {
+    this.data.fitnessGoals.push(goal);
+    await this.save();
+  }
+
+  async updateFitnessGoal(goalId: string, updates: Partial<FitnessGoal>): Promise<void> {
+    const goal = this.data.fitnessGoals.find((item) => item.id === goalId);
+    if (!goal) return;
+    Object.assign(goal, updates);
+    await this.save();
+  }
+
+  async deleteFitnessGoal(goalId: string): Promise<void> {
+    this.data.fitnessGoals = this.data.fitnessGoals.filter((item) => item.id !== goalId);
+    await this.save();
   }
 
   getHealthReminders(): HealthReminder[] {
@@ -1486,12 +1586,108 @@ export class DashboardStore {
     return this.data.transactions;
   }
 
+  async updateTransaction(transactionId: string, updates: Partial<Transaction>): Promise<void> {
+    const transaction = this.data.transactions.find((item) => item.id === transactionId);
+    if (!transaction) return;
+    Object.assign(transaction, updates);
+    this.recalculateBudgetSpent();
+    await this.save();
+  }
+
+  async deleteTransaction(transactionId: string): Promise<void> {
+    this.data.transactions = this.data.transactions.filter((item) => item.id !== transactionId);
+    this.recalculateBudgetSpent();
+    await this.save();
+  }
+
   getBudgets(): Budget[] {
     return this.data.budgets;
   }
 
+  getMonthlyBudgetLimit(): number {
+    return this.data.budgets.reduce((sum, budget) => sum + budget.amount, 0);
+  }
+
+  async setMonthlyBudgetLimit(amount: number): Promise<void> {
+    const budget = this.data.budgets[0] ?? { id: "budget-monthly", category: "月预算", amount: 0, spent: 0 };
+    const currentTotal = this.getMonthlyBudgetLimit();
+    const delta = Math.max(0, amount) - currentTotal;
+    budget.amount = Math.max(0, budget.amount + delta);
+    if (!this.data.budgets.some((item) => item.id === budget.id)) {
+      this.data.budgets.unshift(budget);
+    }
+    await this.save();
+  }
+
+  async addBudget(budget: Budget): Promise<void> {
+    this.data.budgets.push(budget);
+    this.recalculateBudgetSpent();
+    await this.save();
+  }
+
+  async updateBudget(budgetId: string, updates: Partial<Budget>): Promise<void> {
+    const budget = this.data.budgets.find((item) => item.id === budgetId);
+    if (!budget) return;
+    Object.assign(budget, updates);
+    this.recalculateBudgetSpent();
+    await this.save();
+  }
+
+  async deleteBudget(budgetId: string): Promise<boolean> {
+    const budget = this.data.budgets.find((item) => item.id === budgetId);
+    if (!budget) return false;
+    if (this.data.transactions.some((transaction) => transaction.category === budget.category)) {
+      return false;
+    }
+    this.data.budgets = this.data.budgets.filter((item) => item.id !== budgetId);
+    await this.save();
+    return true;
+  }
+
   getAccounts(): Account[] {
     return this.data.accounts;
+  }
+
+  getTotalAssets(): number {
+    return this.data.accounts.reduce((sum, account) => sum + account.balance, 0);
+  }
+
+  async addAccount(account: Account): Promise<void> {
+    this.data.accounts.push(account);
+    await this.save();
+  }
+
+  async updateAccount(accountId: string, updates: Partial<Account>): Promise<void> {
+    const account = this.data.accounts.find((item) => item.id === accountId);
+    if (!account) return;
+    Object.assign(account, updates);
+    await this.save();
+  }
+
+  async deleteAccount(accountId: string): Promise<void> {
+    this.data.accounts = this.data.accounts.filter((item) => item.id !== accountId);
+    await this.save();
+  }
+
+  getInvestmentWatchItems(): InvestmentWatchItem[] {
+    return this.data.investmentWatchItems;
+  }
+
+  async addInvestmentWatchItem(item: InvestmentWatchItem): Promise<void> {
+    this.data.investmentWatchItems.push(item);
+    await this.save();
+  }
+
+  async updateInvestmentWatchItem(itemId: string, updates: Partial<InvestmentWatchItem>): Promise<void> {
+    const item = this.data.investmentWatchItems.find((entry) => entry.id === itemId);
+    if (!item) return;
+    Object.assign(item, updates);
+    await this.save();
+  }
+
+  async deleteInvestmentWatchItem(itemId: string): Promise<void> {
+    this.data.investmentWatchItems = this.data.investmentWatchItems.filter((item) => item.id !== itemId);
+    await this.save();
   }
 
   getSavingGoals(): SavingGoal[] {
@@ -1683,12 +1879,7 @@ export class DashboardStore {
 
   async addTransaction(transaction: Transaction): Promise<void> {
     this.data.transactions.push(transaction);
-    if (transaction.type === "expense") {
-      const budget = this.data.budgets.find((item) => item.category === transaction.category);
-      if (budget) {
-        budget.spent += transaction.amount;
-      }
-    }
+    this.recalculateBudgetSpent();
     await this.save();
   }
 
@@ -1720,6 +1911,35 @@ export class DashboardStore {
     const now = new Date();
     const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     return this.data.transactions.filter((transaction) => transaction.date.startsWith(prefix));
+  }
+
+  getPriorityMatrixItems(): PriorityMatrixItem[] {
+    return this.data.priorityMatrixItems;
+  }
+
+  async addPriorityMatrixItem(item: PriorityMatrixItem): Promise<void> {
+    this.data.priorityMatrixItems.push(item);
+    await this.save();
+  }
+
+  async updatePriorityMatrixItem(itemId: string, updates: Partial<PriorityMatrixItem>): Promise<void> {
+    const item = this.data.priorityMatrixItems.find((entry) => entry.id === itemId);
+    if (!item) return;
+    Object.assign(item, updates);
+    await this.save();
+  }
+
+  async deletePriorityMatrixItem(itemId: string): Promise<void> {
+    this.data.priorityMatrixItems = this.data.priorityMatrixItems.filter((item) => item.id !== itemId);
+    await this.save();
+  }
+
+  private recalculateBudgetSpent(): void {
+    this.data.budgets.forEach((budget) => {
+      budget.spent = this.getCurrentMonthTransactions()
+        .filter((transaction) => transaction.type === "expense" && transaction.category === budget.category)
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+    });
   }
 
   private setSectionEnabledInMemory(sectionId: string, enabled: boolean): void {
@@ -1815,6 +2035,7 @@ export class DashboardStore {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
+      dataVersion: "0.3.0",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -1914,6 +2135,15 @@ export class DashboardStore {
       focusRecords: Array.isArray(partial.focusRecords)
         ? partial.focusRecords
         : structuredClone(DEFAULT_DATA.focusRecords),
+      fitnessDailyRecords: Array.isArray(partial.fitnessDailyRecords)
+        ? partial.fitnessDailyRecords
+        : structuredClone(DEFAULT_DATA.fitnessDailyRecords),
+      investmentWatchItems: Array.isArray(partial.investmentWatchItems)
+        ? partial.investmentWatchItems
+        : structuredClone(DEFAULT_DATA.investmentWatchItems),
+      priorityMatrixItems: Array.isArray(partial.priorityMatrixItems)
+        ? partial.priorityMatrixItems
+        : structuredClone(DEFAULT_DATA.priorityMatrixItems),
       theme: {
         ...DEFAULT_DATA.theme,
         ...partial.theme

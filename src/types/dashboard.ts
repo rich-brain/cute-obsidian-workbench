@@ -42,6 +42,7 @@ export interface TodayFocusTask {
   label: string;
   category: "科研" | "阅读" | "健身" | "理财" | "个人";
   completed: boolean;
+  date?: string;
 }
 
 export interface ResearchProject {
@@ -124,6 +125,7 @@ export interface HealthReminder {
 }
 
 export interface BodyMeasurement {
+  id?: string;
   date: string;
   weight: number;
   bmi: number;
@@ -148,6 +150,7 @@ export interface Transaction {
   amount: number;
   date: string;
   note: string;
+  accountId?: string;
 }
 
 export interface Budget {
@@ -155,13 +158,15 @@ export interface Budget {
   category: string;
   amount: number;
   spent: number;
+  color?: string;
 }
 
 export interface Account {
   id: string;
   name: string;
-  type: "现金" | "储蓄卡" | "信用卡" | "投资账户";
+  type: "现金" | "储蓄卡" | "信用卡" | "投资账户" | "支付宝" | "微信钱包" | "证券" | "其他";
   balance: number;
+  icon?: string;
 }
 
 export interface SavingGoal {
@@ -288,6 +293,7 @@ export interface FocusSettings {
   breakDuration: number;
   autoStartBreak: boolean;
   autoStartNextFocus: boolean;
+  defaultBackground?: string;
 }
 
 export interface FocusState {
@@ -298,6 +304,8 @@ export interface FocusState {
   pausedAt?: string;
   remainingSeconds: number;
   currentTask?: string;
+  background?: string;
+  plannedDuration?: number;
 }
 
 export interface FocusRecord {
@@ -307,6 +315,37 @@ export interface FocusRecord {
   duration: number;
   completed: boolean;
   createdAt: string;
+  startedAt?: string;
+  endedAt?: string;
+  plannedDuration?: number;
+  background?: string;
+}
+
+export interface FitnessDailyRecord {
+  date: string;
+  waterCups: number;
+  waterGoal: number;
+  sleepHours: number;
+  sleepGoal: number;
+  bedtime: string;
+  wakeTime: string;
+}
+
+export interface InvestmentWatchItem {
+  id: string;
+  name: string;
+  code: string;
+  price: number;
+  changePercent: number;
+  type: string;
+}
+
+export interface PriorityMatrixItem {
+  id: string;
+  title: string;
+  quadrant: "important-urgent" | "important-not-urgent" | "not-important-urgent" | "not-important-not-urgent";
+  note: string;
+  completed: boolean;
 }
 
 export interface ThemeSettings {
@@ -324,6 +363,7 @@ export interface ThemeSettings {
 }
 
 export interface WorkbenchData {
+  dataVersion: string;
   currentPage: DashboardPage;
   sections: DashboardSectionConfig[];
   banner: BannerSettings;
@@ -360,6 +400,9 @@ export interface WorkbenchData {
   focusSettings: FocusSettings;
   focusState: FocusState;
   focusRecords: FocusRecord[];
+  fitnessDailyRecords: FitnessDailyRecord[];
+  investmentWatchItems: InvestmentWatchItem[];
+  priorityMatrixItems: PriorityMatrixItem[];
   theme: ThemeSettings;
   userSettings: WorkbenchSettings;
 }
@@ -379,6 +422,7 @@ export interface SectionCapabilities {
   canEdit?: boolean;
   canDeleteItems?: boolean;
   canOpenStats?: boolean;
+  canManage?: boolean;
 }
 
 export interface CustomSectionInput {

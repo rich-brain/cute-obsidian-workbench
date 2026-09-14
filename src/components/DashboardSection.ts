@@ -15,6 +15,7 @@ import { QuickActionsSection } from "./overview/QuickActionsSection";
 import { RecentNotesSection } from "./overview/RecentNotesSection";
 import { TodayFocusSection } from "./overview/TodayFocusSection";
 import { FocusStatSection } from "./overview/FocusStatSection";
+import { TodoStatisticsModal } from "./overview/TodoStatisticsModal";
 import {
   ApexHabitSettingsSection,
   BannerBackgroundSettingsSection,
@@ -178,7 +179,7 @@ export class DashboardSection {
         break;
       case "today-focus":
       case "today-tasks":
-        new TodayFocusSection(this.store, this.onDataChanged).render(container);
+        new TodayFocusSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "habit-overview":
       case "habit-summary":
@@ -271,13 +272,13 @@ export class DashboardSection {
         new FitnessCheckinSection(this.store, this.onDataChanged).render(container);
         break;
       case "body-measurements":
-        new BodyMeasurementsSection(this.store).render(container);
+        new BodyMeasurementsSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "cardio-strength-plan":
         new CardioStrengthSection(this.store).render(container);
         break;
       case "water-sleep-habits":
-        new WaterSleepHabitsSection(this.store).render(container);
+        new WaterSleepHabitsSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "fitness-stats":
         new FitnessStatsSection(this.store).render(container);
@@ -286,7 +287,7 @@ export class DashboardSection {
         new WorkoutLogSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "fitness-goals":
-        new FitnessGoalsSection(this.store).render(container);
+        new FitnessGoalsSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "health-reminders":
         new HealthRemindersSection(this.app, this.store, this.onDataChanged).render(container);
@@ -298,10 +299,10 @@ export class DashboardSection {
         new MonthlyBudgetSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "expense-categories":
-        new ExpenseCategoriesSection(this.store).render(container);
+        new ExpenseCategoriesSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "account-overview":
-        new AccountOverviewSection(this.store).render(container);
+        new AccountOverviewSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "saving-goals":
         new SavingGoalsSection(this.app, this.store, this.onDataChanged).render(container);
@@ -313,13 +314,13 @@ export class DashboardSection {
         new FinanceCheckinSection(this.store, this.onDataChanged).render(container);
         break;
       case "income-expense-trend":
-        new IncomeExpenseTrendSection(this.store).render(container);
+        new IncomeExpenseTrendSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "finance-todos":
         new FinanceTodosSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "investment-watch":
-        new InvestmentWatchSection().render(container);
+        new InvestmentWatchSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "expense-heatmap":
         new ExpenseHeatmapSection(this.store).render(container);
@@ -340,7 +341,7 @@ export class DashboardSection {
         new MilestoneTimelineSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "priority-matrix":
-        new PriorityMatrixSection().render(container);
+        new PriorityMatrixSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "goals-checkin":
         new GoalsCheckinSection(this.store, this.onDataChanged).render(container);
@@ -403,6 +404,11 @@ export class DashboardSection {
 
     if (this.section.type === "monthly-progress") {
       new MonthlyProgressStatisticsModal(this.app, this.store).open();
+      return;
+    }
+
+    if (this.section.type === "today-focus") {
+      new TodoStatisticsModal(this.app, this.store, new Date(), this.onDataChanged).open();
     }
   }
 
