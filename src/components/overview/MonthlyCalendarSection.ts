@@ -76,6 +76,10 @@ export class MonthlyCalendarSection {
         button.style.background = `${settings.highlightColor}44`;
       }
       button.createSpan({ text: String(date.getDate()) });
+      const holidays = this.holidays.getHolidays(date);
+      if (holidays.length > 0) {
+        button.createSpan({ cls: "cow-calendar-holiday", text: holidays[0].name });
+      }
       const dots = button.createDiv({ cls: "cow-calendar-dots" });
       this.renderBadges(dots, this.getBadges(date));
       button.addEventListener("click", () => {
@@ -105,8 +109,9 @@ export class MonthlyCalendarSection {
       if (noteCount > 0) badges.push({ cls: "is-note", count: noteCount });
     }
 
-    if (settings.showEventMarkers && this.holidays.getHoliday(date)) {
-      badges.push({ cls: "is-event", count: 1 });
+    if (settings.showEventMarkers) {
+      const eventCount = this.holidays.getHolidays(date).length;
+      if (eventCount > 0) badges.push({ cls: "is-event", count: eventCount });
     }
 
     return badges;

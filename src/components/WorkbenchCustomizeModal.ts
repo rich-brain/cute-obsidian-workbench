@@ -2,6 +2,7 @@ import { App, Modal, Notice, setIcon, Setting } from "obsidian";
 import { AddSectionModal } from "./AddSectionButton";
 import { type DashboardStore } from "../core/DashboardStore";
 import type { DashboardPage } from "../types/dashboard";
+import { AvatarPickerModal } from "./AvatarPickerModal";
 
 export class WorkbenchCustomizeModal extends Modal {
   private titleValue: string;
@@ -65,6 +66,28 @@ export class WorkbenchCustomizeModal extends Modal {
       .setName("本地图片")
       .setDesc("保存为 data URL，BRAT 安装后不依赖额外资源路径。")
       .addButton((button) => button.setButtonText("选择图片").onClick(() => fileInput.click()));
+
+    new Setting(this.contentEl)
+      .setName("左侧头像")
+      .setDesc("选择预设图标或上传图片，刷新后仍保留。")
+      .addButton((button) => button.setButtonText("修改左侧头像").onClick(() => {
+        const current = this.store.getData().banner.sidebarAvatar;
+        new AvatarPickerModal(this.app, "修改左侧头像", current, async (avatar) => {
+          await this.store.updateSidebarAvatar(avatar);
+          this.onDataChanged();
+        }).open();
+      }));
+
+    new Setting(this.contentEl)
+      .setName("Banner 图标")
+      .setDesc("选择 Banner 左侧显示的可爱图标。")
+      .addButton((button) => button.setButtonText("修改 Banner 图标").onClick(() => {
+        const current = this.store.getData().banner.bannerAvatar;
+        new AvatarPickerModal(this.app, "修改 Banner 图标", current, async (avatar) => {
+          await this.store.updateBannerAvatar(avatar);
+          this.onDataChanged();
+        }).open();
+      }));
 
     new Setting(this.contentEl)
       .setName("Banner 主标题")

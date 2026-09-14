@@ -2,6 +2,8 @@ import { App, setIcon } from "obsidian";
 import type { DashboardPage } from "../types/dashboard";
 import { PAGE_LABELS } from "../core/PageLabels";
 import { CalendarService } from "../services/CalendarService";
+import type { WorkbenchData } from "../types/dashboard";
+import { renderWorkbenchAvatar } from "./AvatarPickerModal";
 
 interface SidebarAction {
   label: string;
@@ -22,7 +24,9 @@ export class Sidebar {
     private readonly currentPage: DashboardPage,
     private readonly actions: SidebarAction[],
     private readonly onQuickCreate: () => void,
-    private readonly onOpenDay: (date: Date) => void
+    private readonly onOpenDay: (date: Date) => void,
+    private readonly getData: () => WorkbenchData,
+    private readonly onCustomizeAvatar: () => void
   ) {}
 
   render(container: HTMLElement): void {
@@ -35,7 +39,12 @@ export class Sidebar {
     quickCreate.addEventListener("click", this.onQuickCreate);
 
     const profile = sidebar.createDiv({ cls: "cow-profile" });
-    profile.createDiv({ cls: "cow-profile-avatar" }).createDiv({ cls: "cow-mini-dog" });
+    const avatarButton = profile.createEl("button", {
+      cls: "cow-profile-avatar-button",
+      attr: { type: "button", "aria-label": "修改左侧头像" }
+    });
+    renderWorkbenchAvatar(avatarButton, this.getData().banner.sidebarAvatar, "cow-profile-avatar");
+    avatarButton.addEventListener("click", this.onCustomizeAvatar);
     profile.createEl("h2", { text: "我的工作台" });
     profile.createEl("p", { text: "记录、思考、成长、可爱向前" });
 

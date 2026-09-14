@@ -234,6 +234,13 @@ export interface BannerSettings {
   backgroundPosition: string;
   overlay: boolean;
   opacity: number;
+  bannerAvatar?: WorkbenchAvatarSettings;
+  sidebarAvatar?: WorkbenchAvatarSettings;
+}
+
+export interface WorkbenchAvatarSettings {
+  type: "preset" | "image";
+  value: string;
 }
 
 export interface CalendarSettings {
@@ -274,6 +281,32 @@ export interface QuickActionConfig {
   order: number;
   type: "new-note" | "daily-note" | "search" | "templates" | "graph" | "custom";
   target?: string;
+}
+
+export interface FocusSettings {
+  focusDuration: number;
+  breakDuration: number;
+  autoStartBreak: boolean;
+  autoStartNextFocus: boolean;
+}
+
+export interface FocusState {
+  isRunning: boolean;
+  isPaused: boolean;
+  mode: "focus" | "break";
+  startedAt?: string;
+  pausedAt?: string;
+  remainingSeconds: number;
+  currentTask?: string;
+}
+
+export interface FocusRecord {
+  id: string;
+  date: string;
+  task: string;
+  duration: number;
+  completed: boolean;
+  createdAt: string;
 }
 
 export interface ThemeSettings {
@@ -324,6 +357,9 @@ export interface WorkbenchData {
   calendarTodos: CalendarTodo[];
   apexHabitSettings: ApexHabitSettings;
   quickActions: QuickActionConfig[];
+  focusSettings: FocusSettings;
+  focusState: FocusState;
+  focusRecords: FocusRecord[];
   theme: ThemeSettings;
   userSettings: WorkbenchSettings;
 }

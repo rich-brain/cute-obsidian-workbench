@@ -13,7 +13,10 @@ import type {
   DashboardPageDefinition,
   DashboardSectionConfig,
   ExperimentPlan,
+  FocusRecord,
   FitnessGoal,
+  FocusSettings,
+  FocusState,
   FinanceTodo,
   Goal,
   HealthReminder,
@@ -504,7 +507,9 @@ const DEFAULT_DATA: WorkbenchData = {
     background: "pink-paper",
     backgroundPosition: "center",
     overlay: true,
-    opacity: 0.88
+    opacity: 0.88,
+    sidebarAvatar: { type: "preset", value: "dog" },
+    bannerAvatar: { type: "preset", value: "dog" }
   },
   habits: {},
   todayFocusTasks: [
@@ -740,6 +745,19 @@ const DEFAULT_DATA: WorkbenchData = {
     { id: "quick-templates", label: "打开模板", enabled: true, order: 40, type: "templates" },
     { id: "quick-graph", label: "打开图谱", enabled: true, order: 50, type: "graph" }
   ],
+  focusSettings: {
+    focusDuration: 25,
+    breakDuration: 5,
+    autoStartBreak: false,
+    autoStartNextFocus: false
+  },
+  focusState: {
+    isRunning: false,
+    isPaused: false,
+    mode: "focus",
+    remainingSeconds: 25 * 60
+  },
+  focusRecords: [],
   theme: {
     cuteBg: "#ffd1e2",
     cuteCard: "#fff7df",
@@ -918,6 +936,16 @@ export class DashboardStore {
     await this.save();
   }
 
+  async updateSidebarAvatar(avatar: WorkbenchData["banner"]["sidebarAvatar"]): Promise<void> {
+    this.data.banner.sidebarAvatar = avatar;
+    await this.save();
+  }
+
+  async updateBannerAvatar(avatar: WorkbenchData["banner"]["bannerAvatar"]): Promise<void> {
+    this.data.banner.bannerAvatar = avatar;
+    await this.save();
+  }
+
   async updateBannerMessage(message: string): Promise<void> {
     this.data.banner.message = message;
     await this.save();
@@ -1034,6 +1062,137 @@ export class DashboardStore {
       target
     });
     await this.save();
+  }
+
+  getFocusSettings(): FocusSettings {
+    return this.data.focusSettings;
+  }
+
+  getFocusState(): FocusState {
+    return this.resolveFocusState();
+  }
+
+  getFocusRecords(): FocusRecord[] {
+    return [...this.data.focusRecords].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+
+  getTodayFocusRecords(): FocusRecord[] {
+    const today = formatDateKey(new Date());
+    return this.getFocusRecords().filter((record) => record.date === today);
+  }
+
+  async updateFocusSettings(updates: Partial<FocusSettings>): Promise<void> {
+    this.data.focusSettings = {
+      ...this.data.focusSettings,
+      ...updates,
+      focusDuration: Math.max(1, Math.round(updates.focusDuration ?? this.data.focusSettings.focusDuration)),
+      breakDuration: Math.max(1, Math.round(updates.breakDuration ?? this.data.focusSettings.breakDuration))
+    };
+    if (!this.data.focusState.isRunning) {
+      this.data.focusState.remainingSeconds = this.data.focusSettings.focusDuration * 60;
+    }
+    await this.save();
+  }
+
+  async startFocusSession(task = ""): Promise<void> {
+    this.data.focusState = {
+      isRunning: true,
+      isPaused: false,
+      mode: "focus",
+      startedAt: new Date().toISOString(),
+      remainingSeconds: this.data.focusSettings.focusDuration * 60,
+      currentTask: task.trim()
+    };
+    await this.save();
+  }
+
+  async pauseFocusSession(): Promise<void> {
+    const state = this.resolveFocusState();
+    if (!state.isRunning || state.isPaused) return;
+    this.data.focusState = {
+      ...state,
+      isPaused: true,
+      pausedAt: new Date().toISOString(),
+      startedAt: undefined
+    };
+    await this.save();
+  }
+
+  async resumeFocusSession(): Promise<void> {
+    const state = this.resolveFocusState();
+    if (!state.isRunning || !state.isPaused) return;
+    this.data.focusState = {
+      ...state,
+      isPaused: false,
+      pausedAt: undefined,
+      startedAt: new Date().toISOString()
+    };
+    await this.save();
+  }
+
+  async endFocusSession(completed = false): Promise<void> {
+    const state = this.resolveFocusState();
+    if (state.mode === "focus") {
+      const totalSeconds = this.data.focusSettings.focusDuration * 60;
+      const duration = Math.max(0, Math.round((totalSeconds - state.remainingSeconds) / 60));
+      if (duration > 0 || completed) {
+        this.data.focusRecords.push({
+          id: `focus-record-${Date.now()}`,
+          date: formatDateKey(new Date()),
+          task: state.currentTask?.trim() || "专注",
+          duration: completed ? this.data.focusSettings.focusDuration : duration,
+          completed,
+          createdAt: new Date().toISOString()
+        });
+      }
+    }
+    this.data.focusState = {
+      isRunning: false,
+      isPaused: false,
+      mode: "focus",
+      remainingSeconds: this.data.focusSettings.focusDuration * 60
+    };
+    await this.save();
+  }
+
+  async completeCurrentFocusPhase(): Promise<void> {
+    const state = this.resolveFocusState();
+    if (state.mode === "focus") {
+      this.data.focusRecords.push({
+        id: `focus-record-${Date.now()}`,
+        date: formatDateKey(new Date()),
+        task: state.currentTask?.trim() || "专注",
+        duration: this.data.focusSettings.focusDuration,
+        completed: true,
+        createdAt: new Date().toISOString()
+      });
+      this.data.focusState = {
+        isRunning: this.data.focusSettings.autoStartBreak,
+        isPaused: !this.data.focusSettings.autoStartBreak,
+        mode: "break",
+        startedAt: this.data.focusSettings.autoStartBreak ? new Date().toISOString() : undefined,
+        remainingSeconds: this.data.focusSettings.breakDuration * 60,
+        currentTask: state.currentTask
+      };
+    } else {
+      this.data.focusState = {
+        isRunning: this.data.focusSettings.autoStartNextFocus,
+        isPaused: !this.data.focusSettings.autoStartNextFocus,
+        mode: "focus",
+        startedAt: this.data.focusSettings.autoStartNextFocus ? new Date().toISOString() : undefined,
+        remainingSeconds: this.data.focusSettings.focusDuration * 60,
+        currentTask: state.currentTask
+      };
+    }
+    await this.save();
+  }
+
+  getTodayFocusMinutes(): number {
+    return this.getTodayFocusRecords().reduce((sum, record) => sum + record.duration, 0);
+  }
+
+  getTodayPomodoroCount(): number {
+    return this.getTodayFocusRecords().filter((record) => record.completed).length;
   }
 
   exportData(): string {
@@ -1615,6 +1774,20 @@ export class DashboardStore {
     return streak;
   }
 
+  private resolveFocusState(): FocusState {
+    const state = { ...this.data.focusState };
+    if (!state.isRunning || state.isPaused || !state.startedAt) {
+      return state;
+    }
+
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(state.startedAt).getTime()) / 1000));
+    const remainingSeconds = Math.max(0, state.remainingSeconds - elapsedSeconds);
+    return {
+      ...state,
+      remainingSeconds
+    };
+  }
+
   getCurrentWeekDates(): string[] {
     const today = new Date();
     const day = today.getDay();
@@ -1730,6 +1903,17 @@ export class DashboardStore {
       quickActions: Array.isArray(partial.quickActions)
         ? partial.quickActions
         : structuredClone(DEFAULT_DATA.quickActions),
+      focusSettings: {
+        ...DEFAULT_DATA.focusSettings,
+        ...partial.focusSettings
+      },
+      focusState: {
+        ...DEFAULT_DATA.focusState,
+        ...partial.focusState
+      },
+      focusRecords: Array.isArray(partial.focusRecords)
+        ? partial.focusRecords
+        : structuredClone(DEFAULT_DATA.focusRecords),
       theme: {
         ...DEFAULT_DATA.theme,
         ...partial.theme

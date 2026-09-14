@@ -23,7 +23,7 @@ __export(main_exports, {
   default: () => CuteObsidianWorkbenchPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian57 = require("obsidian");
+var import_obsidian59 = require("obsidian");
 
 // src/core/DashboardStore.ts
 var DASHBOARD_PAGES = [
@@ -486,7 +486,9 @@ var DEFAULT_DATA = {
     background: "pink-paper",
     backgroundPosition: "center",
     overlay: true,
-    opacity: 0.88
+    opacity: 0.88,
+    sidebarAvatar: { type: "preset", value: "dog" },
+    bannerAvatar: { type: "preset", value: "dog" }
   },
   habits: {},
   todayFocusTasks: [
@@ -722,6 +724,19 @@ var DEFAULT_DATA = {
     { id: "quick-templates", label: "\u6253\u5F00\u6A21\u677F", enabled: true, order: 40, type: "templates" },
     { id: "quick-graph", label: "\u6253\u5F00\u56FE\u8C31", enabled: true, order: 50, type: "graph" }
   ],
+  focusSettings: {
+    focusDuration: 25,
+    breakDuration: 5,
+    autoStartBreak: false,
+    autoStartNextFocus: false
+  },
+  focusState: {
+    isRunning: false,
+    isPaused: false,
+    mode: "focus",
+    remainingSeconds: 25 * 60
+  },
+  focusRecords: [],
   theme: {
     cuteBg: "#ffd1e2",
     cuteCard: "#fff7df",
@@ -873,6 +888,14 @@ var DashboardStore = class {
     this.data.banner = { ...this.data.banner, ...updates };
     await this.save();
   }
+  async updateSidebarAvatar(avatar) {
+    this.data.banner.sidebarAvatar = avatar;
+    await this.save();
+  }
+  async updateBannerAvatar(avatar) {
+    this.data.banner.bannerAvatar = avatar;
+    await this.save();
+  }
   async updateBannerMessage(message) {
     this.data.banner.message = message;
     await this.save();
@@ -975,6 +998,128 @@ var DashboardStore = class {
       target
     });
     await this.save();
+  }
+  getFocusSettings() {
+    return this.data.focusSettings;
+  }
+  getFocusState() {
+    return this.resolveFocusState();
+  }
+  getFocusRecords() {
+    return [...this.data.focusRecords].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+  getTodayFocusRecords() {
+    const today = formatDateKey(/* @__PURE__ */ new Date());
+    return this.getFocusRecords().filter((record) => record.date === today);
+  }
+  async updateFocusSettings(updates) {
+    var _a, _b;
+    this.data.focusSettings = {
+      ...this.data.focusSettings,
+      ...updates,
+      focusDuration: Math.max(1, Math.round((_a = updates.focusDuration) != null ? _a : this.data.focusSettings.focusDuration)),
+      breakDuration: Math.max(1, Math.round((_b = updates.breakDuration) != null ? _b : this.data.focusSettings.breakDuration))
+    };
+    if (!this.data.focusState.isRunning) {
+      this.data.focusState.remainingSeconds = this.data.focusSettings.focusDuration * 60;
+    }
+    await this.save();
+  }
+  async startFocusSession(task = "") {
+    this.data.focusState = {
+      isRunning: true,
+      isPaused: false,
+      mode: "focus",
+      startedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      remainingSeconds: this.data.focusSettings.focusDuration * 60,
+      currentTask: task.trim()
+    };
+    await this.save();
+  }
+  async pauseFocusSession() {
+    const state = this.resolveFocusState();
+    if (!state.isRunning || state.isPaused) return;
+    this.data.focusState = {
+      ...state,
+      isPaused: true,
+      pausedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      startedAt: void 0
+    };
+    await this.save();
+  }
+  async resumeFocusSession() {
+    const state = this.resolveFocusState();
+    if (!state.isRunning || !state.isPaused) return;
+    this.data.focusState = {
+      ...state,
+      isPaused: false,
+      pausedAt: void 0,
+      startedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await this.save();
+  }
+  async endFocusSession(completed = false) {
+    var _a;
+    const state = this.resolveFocusState();
+    if (state.mode === "focus") {
+      const totalSeconds = this.data.focusSettings.focusDuration * 60;
+      const duration = Math.max(0, Math.round((totalSeconds - state.remainingSeconds) / 60));
+      if (duration > 0 || completed) {
+        this.data.focusRecords.push({
+          id: `focus-record-${Date.now()}`,
+          date: formatDateKey(/* @__PURE__ */ new Date()),
+          task: ((_a = state.currentTask) == null ? void 0 : _a.trim()) || "\u4E13\u6CE8",
+          duration: completed ? this.data.focusSettings.focusDuration : duration,
+          completed,
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        });
+      }
+    }
+    this.data.focusState = {
+      isRunning: false,
+      isPaused: false,
+      mode: "focus",
+      remainingSeconds: this.data.focusSettings.focusDuration * 60
+    };
+    await this.save();
+  }
+  async completeCurrentFocusPhase() {
+    var _a;
+    const state = this.resolveFocusState();
+    if (state.mode === "focus") {
+      this.data.focusRecords.push({
+        id: `focus-record-${Date.now()}`,
+        date: formatDateKey(/* @__PURE__ */ new Date()),
+        task: ((_a = state.currentTask) == null ? void 0 : _a.trim()) || "\u4E13\u6CE8",
+        duration: this.data.focusSettings.focusDuration,
+        completed: true,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      this.data.focusState = {
+        isRunning: this.data.focusSettings.autoStartBreak,
+        isPaused: !this.data.focusSettings.autoStartBreak,
+        mode: "break",
+        startedAt: this.data.focusSettings.autoStartBreak ? (/* @__PURE__ */ new Date()).toISOString() : void 0,
+        remainingSeconds: this.data.focusSettings.breakDuration * 60,
+        currentTask: state.currentTask
+      };
+    } else {
+      this.data.focusState = {
+        isRunning: this.data.focusSettings.autoStartNextFocus,
+        isPaused: !this.data.focusSettings.autoStartNextFocus,
+        mode: "focus",
+        startedAt: this.data.focusSettings.autoStartNextFocus ? (/* @__PURE__ */ new Date()).toISOString() : void 0,
+        remainingSeconds: this.data.focusSettings.focusDuration * 60,
+        currentTask: state.currentTask
+      };
+    }
+    await this.save();
+  }
+  getTodayFocusMinutes() {
+    return this.getTodayFocusRecords().reduce((sum, record) => sum + record.duration, 0);
+  }
+  getTodayPomodoroCount() {
+    return this.getTodayFocusRecords().filter((record) => record.completed).length;
   }
   exportData() {
     return JSON.stringify(this.data, null, 2);
@@ -1448,6 +1593,18 @@ var DashboardStore = class {
     }
     return streak;
   }
+  resolveFocusState() {
+    const state = { ...this.data.focusState };
+    if (!state.isRunning || state.isPaused || !state.startedAt) {
+      return state;
+    }
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(state.startedAt).getTime()) / 1e3));
+    const remainingSeconds = Math.max(0, state.remainingSeconds - elapsedSeconds);
+    return {
+      ...state,
+      remainingSeconds
+    };
+  }
   getCurrentWeekDates() {
     const today = /* @__PURE__ */ new Date();
     const day = today.getDay();
@@ -1516,6 +1673,15 @@ var DashboardStore = class {
         customHabits: Array.isArray((_b = partial.apexHabitSettings) == null ? void 0 : _b.customHabits) ? partial.apexHabitSettings.customHabits : structuredClone(DEFAULT_DATA.apexHabitSettings.customHabits)
       },
       quickActions: Array.isArray(partial.quickActions) ? partial.quickActions : structuredClone(DEFAULT_DATA.quickActions),
+      focusSettings: {
+        ...DEFAULT_DATA.focusSettings,
+        ...partial.focusSettings
+      },
+      focusState: {
+        ...DEFAULT_DATA.focusState,
+        ...partial.focusState
+      },
+      focusRecords: Array.isArray(partial.focusRecords) ? partial.focusRecords : structuredClone(DEFAULT_DATA.focusRecords),
       theme: {
         ...DEFAULT_DATA.theme,
         ...partial.theme
@@ -1619,7 +1785,7 @@ var WorkbenchSettingTab = class extends import_obsidian.PluginSettingTab {
 };
 
 // src/views/WorkbenchView.ts
-var import_obsidian56 = require("obsidian");
+var import_obsidian58 = require("obsidian");
 
 // src/core/DashboardRouter.ts
 var ROUTE_CHANGED_EVENT = "route-changed";
@@ -1666,7 +1832,7 @@ var EventBus = class {
 };
 
 // src/components/Sidebar.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 
 // src/core/PageLabels.ts
 var PAGE_LABELS = {
@@ -1720,14 +1886,98 @@ var CalendarService = class {
   }
 };
 
+// src/components/AvatarPickerModal.ts
+var import_obsidian2 = require("obsidian");
+var AVATAR_PRESETS = [
+  { id: "dog", label: "\u624B\u7ED8\u72D7\u72D7", icon: "dog" },
+  { id: "heart", label: "\u7231\u5FC3", icon: "heart" },
+  { id: "star", label: "\u661F\u661F", icon: "sparkles" },
+  { id: "flower", label: "\u5C0F\u82B1", icon: "flower-2" },
+  { id: "moon", label: "\u6708\u4EAE", icon: "moon" }
+];
+function renderWorkbenchAvatar(container, avatar, className) {
+  var _a;
+  const value = avatar != null ? avatar : { type: "preset", value: "dog" };
+  const root = container.createDiv({ cls: `${className} cow-custom-avatar cow-avatar-${value.type === "preset" ? value.value : "image"}` });
+  if (value.type === "image") {
+    root.createEl("img", { attr: { src: value.value, alt: "" } });
+    return root;
+  }
+  if (value.value === "dog") {
+    root.createDiv({ cls: className === "cow-banner-dog" ? "cow-dog-face" : "cow-mini-dog" });
+    return root;
+  }
+  const preset = (_a = AVATAR_PRESETS.find((item) => item.id === value.value)) != null ? _a : AVATAR_PRESETS[0];
+  (0, import_obsidian2.setIcon)(root.createSpan(), preset.icon);
+  return root;
+}
+var AvatarPickerModal = class extends import_obsidian2.Modal {
+  constructor(app, title, current, onPick) {
+    super(app);
+    this.title = title;
+    this.current = current;
+    this.onPick = onPick;
+  }
+  onOpen() {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal");
+    this.contentEl.createEl("h2", { text: this.title });
+    this.contentEl.createEl("p", { text: "\u9009\u62E9\u9884\u8BBE\u56FE\u6807\uFF0C\u6216\u4E0A\u4F20\u4E00\u5F20\u672C\u5730\u56FE\u7247\u4FDD\u5B58\u4E3A data URL\u3002" });
+    const grid = this.contentEl.createDiv({ cls: "cow-avatar-choice-grid" });
+    AVATAR_PRESETS.forEach((preset) => {
+      var _a;
+      const button = grid.createEl("button", {
+        cls: ((_a = this.current) == null ? void 0 : _a.type) === "preset" && this.current.value === preset.id ? "is-active" : "",
+        attr: { type: "button" }
+      });
+      const preview = button.createDiv({ cls: `cow-avatar-preview cow-avatar-${preset.id}` });
+      if (preset.id === "dog") {
+        preview.createDiv({ cls: "cow-mini-dog" });
+      } else {
+        (0, import_obsidian2.setIcon)(preview.createSpan(), preset.icon);
+      }
+      button.createSpan({ text: preset.label });
+      button.addEventListener("click", async () => {
+        await this.onPick({ type: "preset", value: preset.id });
+        new import_obsidian2.Notice("\u56FE\u6807\u5DF2\u4FDD\u5B58\u3002");
+        this.close();
+      });
+    });
+    const fileInput = this.contentEl.createEl("input", {
+      cls: "cow-hidden-input",
+      attr: { type: "file", accept: "image/*" }
+    });
+    fileInput.addEventListener("change", () => {
+      var _a;
+      const file = (_a = fileInput.files) == null ? void 0 : _a[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        await this.onPick({ type: "image", value: String(reader.result) });
+        new import_obsidian2.Notice("\u56FE\u7247\u56FE\u6807\u5DF2\u4FDD\u5B58\u3002");
+        this.close();
+      };
+      reader.readAsDataURL(file);
+    });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    const upload = actions.createEl("button", { attr: { type: "button" } });
+    (0, import_obsidian2.setIcon)(upload.createSpan(), "image-plus");
+    upload.createSpan({ text: "\u4E0A\u4F20\u56FE\u7247" });
+    upload.addEventListener("click", () => fileInput.click());
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+  }
+};
+
 // src/components/Sidebar.ts
 var Sidebar = class {
-  constructor(app, currentPage, actions, onQuickCreate, onOpenDay) {
+  constructor(app, currentPage, actions, onQuickCreate, onOpenDay, getData, onCustomizeAvatar) {
     this.app = app;
     this.currentPage = currentPage;
     this.actions = actions;
     this.onQuickCreate = onQuickCreate;
     this.onOpenDay = onOpenDay;
+    this.getData = getData;
+    this.onCustomizeAvatar = onCustomizeAvatar;
     this.calendar = new CalendarService();
     this.visibleMonth = /* @__PURE__ */ new Date();
     this.selectedDate = /* @__PURE__ */ new Date();
@@ -1738,10 +1988,15 @@ var Sidebar = class {
       cls: "cow-sidebar-create-button",
       attr: { type: "button", "aria-label": "\u5FEB\u901F\u521B\u5EFA" }
     });
-    (0, import_obsidian2.setIcon)(quickCreate, "plus");
+    (0, import_obsidian3.setIcon)(quickCreate, "plus");
     quickCreate.addEventListener("click", this.onQuickCreate);
     const profile = sidebar.createDiv({ cls: "cow-profile" });
-    profile.createDiv({ cls: "cow-profile-avatar" }).createDiv({ cls: "cow-mini-dog" });
+    const avatarButton = profile.createEl("button", {
+      cls: "cow-profile-avatar-button",
+      attr: { type: "button", "aria-label": "\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF" }
+    });
+    renderWorkbenchAvatar(avatarButton, this.getData().banner.sidebarAvatar, "cow-profile-avatar");
+    avatarButton.addEventListener("click", this.onCustomizeAvatar);
     profile.createEl("h2", { text: "\u6211\u7684\u5DE5\u4F5C\u53F0" });
     profile.createEl("p", { text: "\u8BB0\u5F55\u3001\u601D\u8003\u3001\u6210\u957F\u3001\u53EF\u7231\u5411\u524D" });
     this.clockEl = sidebar.createDiv({ cls: "cow-clock" });
@@ -1765,14 +2020,14 @@ var Sidebar = class {
     this.calendarEl.empty();
     const header = this.calendarEl.createDiv({ cls: "cow-mini-calendar-header" });
     const prev = header.createEl("button", { attr: { type: "button", "aria-label": "\u4E0A\u4E00\u6708" } });
-    (0, import_obsidian2.setIcon)(prev, "chevron-left");
+    (0, import_obsidian3.setIcon)(prev, "chevron-left");
     prev.addEventListener("click", () => {
       this.visibleMonth = this.calendar.addMonths(this.visibleMonth, -1);
       this.renderMiniCalendarContent();
     });
     header.createEl("h3", { text: this.calendar.getMonthTitle(this.visibleMonth) });
     const next = header.createEl("button", { attr: { type: "button", "aria-label": "\u4E0B\u4E00\u6708" } });
-    (0, import_obsidian2.setIcon)(next, "chevron-right");
+    (0, import_obsidian3.setIcon)(next, "chevron-right");
     next.addEventListener("click", () => {
       this.visibleMonth = this.calendar.addMonths(this.visibleMonth, 1);
       this.renderMiniCalendarContent();
@@ -1817,12 +2072,12 @@ var Sidebar = class {
         cls: "cow-sidebar-action",
         attr: { type: "button" }
       });
-      (0, import_obsidian2.setIcon)(button.createSpan(), action.icon);
+      (0, import_obsidian3.setIcon)(button.createSpan(), action.icon);
       button.createSpan({ text: action.label });
       button.addEventListener("click", action.onClick);
     });
     const fileHint = actions.createDiv({ cls: "cow-file-shortcut" });
-    (0, import_obsidian2.setIcon)(fileHint.createSpan(), "folder-open");
+    (0, import_obsidian3.setIcon)(fileHint.createSpan(), "folder-open");
     fileHint.createSpan({ text: `\u6587\u4EF6\u5E93\uFF1A${this.app.vault.getName()}` });
   }
   updateClock() {
@@ -1848,11 +2103,12 @@ var Sidebar = class {
 };
 
 // src/components/TopBanner.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 var TopBanner = class {
-  constructor(getData, onCustomize) {
+  constructor(getData, onCustomize, onCustomizeAvatar) {
     this.getData = getData;
     this.onCustomize = onCustomize;
+    this.onCustomizeAvatar = onCustomizeAvatar;
   }
   render(container) {
     var _a;
@@ -1865,8 +2121,12 @@ var TopBanner = class {
       banner.style.backgroundImage = `linear-gradient(rgba(255, 224, 237, ${data.banner.overlay ? "0.45" : "0"}), rgba(255, 247, 223, ${data.banner.overlay ? "0.45" : "0"})), url("${data.banner.imageDataUrl}")`;
       banner.style.backgroundSize = "cover";
     }
-    const dog = banner.createDiv({ cls: "cow-banner-dog", attr: { "aria-hidden": "true" } });
-    dog.createDiv({ cls: "cow-dog-face" });
+    const dog = banner.createEl("button", {
+      cls: "cow-banner-avatar-button",
+      attr: { type: "button", "aria-label": "\u4FEE\u6539 Banner \u56FE\u6807" }
+    });
+    renderWorkbenchAvatar(dog, data.banner.bannerAvatar, "cow-banner-dog");
+    dog.addEventListener("click", this.onCustomizeAvatar);
     const copy = banner.createDiv({ cls: "cow-banner-copy" });
     copy.createEl("p", { cls: "cow-banner-kicker", text: "\u51B2\u9E2D\uFF01" });
     copy.createEl("h2", { text: data.banner.message });
@@ -1875,14 +2135,14 @@ var TopBanner = class {
       cls: "cow-banner-button",
       attr: { type: "button", "aria-label": "\u81EA\u5B9A\u4E49\u5DE5\u4F5C\u53F0" }
     });
-    (0, import_obsidian3.setIcon)(button.createSpan(), "plus");
+    (0, import_obsidian4.setIcon)(button.createSpan(), "plus");
     button.createSpan({ text: "\u81EA\u5B9A\u4E49" });
     button.addEventListener("click", this.onCustomize);
   }
 };
 
 // src/components/TopNavigation.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 var TopNavigation = class {
   constructor(pages, getCurrentPage, onNavigate) {
     this.pages = pages;
@@ -1897,7 +2157,7 @@ var TopNavigation = class {
         attr: { type: "button", "aria-label": page.label }
       });
       const icon = button.createSpan({ cls: "cow-nav-icon" });
-      (0, import_obsidian4.setIcon)(icon, page.icon);
+      (0, import_obsidian5.setIcon)(icon, page.icon);
       button.createSpan({ text: page.label });
       button.addEventListener("click", () => this.onNavigate(page.id));
     });
@@ -1905,10 +2165,10 @@ var TopNavigation = class {
 };
 
 // src/components/DashboardSection.ts
-var import_obsidian49 = require("obsidian");
+var import_obsidian51 = require("obsidian");
 
 // src/components/SectionActionMenu.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 
 // src/core/SectionCapabilities.ts
 var ADDABLE_SECTION_TYPES = /* @__PURE__ */ new Set([
@@ -1949,11 +2209,11 @@ function getSectionCapabilities(sectionType) {
 }
 
 // src/components/SectionContentActions.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/components/CrudItemModal.ts
-var import_obsidian5 = require("obsidian");
-var CrudItemModal = class extends import_obsidian5.Modal {
+var import_obsidian6 = require("obsidian");
+var CrudItemModal = class extends import_obsidian6.Modal {
   constructor(app, title, initialValues, fields, onSubmit) {
     super(app);
     this.title = title;
@@ -1975,7 +2235,7 @@ var CrudItemModal = class extends import_obsidian5.Modal {
   }
   renderField(field) {
     const currentValue = this.values[field.key];
-    const setting = new import_obsidian5.Setting(this.contentEl).setName(field.name);
+    const setting = new import_obsidian6.Setting(this.contentEl).setName(field.name);
     if (field.type === "textarea") {
       setting.addTextArea((text) => text.setValue(String(currentValue != null ? currentValue : "")).onChange((value) => {
         this.values[field.key] = value;
@@ -2016,8 +2276,8 @@ var CrudItemModal = class extends import_obsidian5.Modal {
 };
 
 // src/components/reading/AddBookModal.ts
-var import_obsidian6 = require("obsidian");
-var AddBookModal = class extends import_obsidian6.Modal {
+var import_obsidian7 = require("obsidian");
+var AddBookModal = class extends import_obsidian7.Modal {
   constructor(app, onSubmit, book) {
     var _a, _b, _c, _d, _e, _f, _g;
     super(app);
@@ -2042,46 +2302,46 @@ var AddBookModal = class extends import_obsidian6.Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     this.contentEl.createEl("h2", { text: this.book ? "\u7F16\u8F91\u4E66\u7C4D" : "\u589E\u52A0\u4E66\u7C4D" });
-    new import_obsidian6.Setting(this.contentEl).setName("\u4E66\u540D").addText((text) => {
+    new import_obsidian7.Setting(this.contentEl).setName("\u4E66\u540D").addText((text) => {
       text.setValue(this.title);
       text.onChange((value) => {
         this.title = value.trim();
       });
     });
-    new import_obsidian6.Setting(this.contentEl).setName("\u4F5C\u8005").addText((text) => {
+    new import_obsidian7.Setting(this.contentEl).setName("\u4F5C\u8005").addText((text) => {
       text.setValue(this.author);
       text.onChange((value) => {
         this.author = value.trim();
       });
     });
-    new import_obsidian6.Setting(this.contentEl).setName("\u603B\u9875\u6570").addText((text) => {
+    new import_obsidian7.Setting(this.contentEl).setName("\u603B\u9875\u6570").addText((text) => {
       text.inputEl.type = "number";
       text.setValue(String(this.totalPages));
       text.onChange((value) => {
         this.totalPages = Number(value) || 0;
       });
     });
-    new import_obsidian6.Setting(this.contentEl).setName("\u5F53\u524D\u9875").addText((text) => {
+    new import_obsidian7.Setting(this.contentEl).setName("\u5F53\u524D\u9875").addText((text) => {
       text.inputEl.type = "number";
       text.setValue(String(this.currentPage));
       text.onChange((value) => {
         this.currentPage = Number(value) || 0;
       });
     });
-    new import_obsidian6.Setting(this.contentEl).setName("\u72B6\u6001").addDropdown((dropdown) => {
+    new import_obsidian7.Setting(this.contentEl).setName("\u72B6\u6001").addDropdown((dropdown) => {
       ["\u5728\u8BFB", "\u60F3\u8BFB", "\u5DF2\u8BFB"].forEach((status) => dropdown.addOption(status, status));
       dropdown.setValue(this.status);
       dropdown.onChange((value) => {
         this.status = value;
       });
     });
-    new import_obsidian6.Setting(this.contentEl).setName("\u7B14\u8BB0\u8DEF\u5F84").addText((text) => {
+    new import_obsidian7.Setting(this.contentEl).setName("\u7B14\u8BB0\u8DEF\u5F84").addText((text) => {
       text.setValue(this.notePath);
       text.onChange((value) => {
         this.notePath = value.trim();
       });
     });
-    new import_obsidian6.Setting(this.contentEl).setName("\u6807\u7B7E").addText((text) => {
+    new import_obsidian7.Setting(this.contentEl).setName("\u6807\u7B7E").addText((text) => {
       text.setValue(this.tags);
       text.onChange((value) => {
         this.tags = value;
@@ -2110,8 +2370,8 @@ var AddBookModal = class extends import_obsidian6.Modal {
 };
 
 // src/components/goals/GoalModals.ts
-var import_obsidian7 = require("obsidian");
-var GoalEditorModal = class extends import_obsidian7.Modal {
+var import_obsidian8 = require("obsidian");
+var GoalEditorModal = class extends import_obsidian8.Modal {
   constructor(app, goal, onSubmit) {
     var _a, _b, _c, _d, _e, _f;
     super(app);
@@ -2128,16 +2388,16 @@ var GoalEditorModal = class extends import_obsidian7.Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     this.contentEl.createEl("h2", { text: this.goal ? "\u4FEE\u6539\u76EE\u6807" : "\u65B0\u589E\u76EE\u6807" });
-    new import_obsidian7.Setting(this.contentEl).setName("\u6807\u9898").addText((text) => text.setValue(this.title).onChange((value) => this.title = value.trim()));
-    new import_obsidian7.Setting(this.contentEl).setName("\u63CF\u8FF0").addTextArea((text) => text.setValue(this.description).onChange((value) => this.description = value.trim()));
-    new import_obsidian7.Setting(this.contentEl).setName("\u5206\u7C7B").addText((text) => text.setValue(this.category).onChange((value) => this.category = value.trim() || "\u4E2A\u4EBA"));
-    new import_obsidian7.Setting(this.contentEl).setName("\u8FDB\u5EA6").addText((text) => {
+    new import_obsidian8.Setting(this.contentEl).setName("\u6807\u9898").addText((text) => text.setValue(this.title).onChange((value) => this.title = value.trim()));
+    new import_obsidian8.Setting(this.contentEl).setName("\u63CF\u8FF0").addTextArea((text) => text.setValue(this.description).onChange((value) => this.description = value.trim()));
+    new import_obsidian8.Setting(this.contentEl).setName("\u5206\u7C7B").addText((text) => text.setValue(this.category).onChange((value) => this.category = value.trim() || "\u4E2A\u4EBA"));
+    new import_obsidian8.Setting(this.contentEl).setName("\u8FDB\u5EA6").addText((text) => {
       text.inputEl.type = "number";
       text.setValue(String(this.progress));
       text.onChange((value) => this.progress = Number(value) || 0);
     });
-    new import_obsidian7.Setting(this.contentEl).setName("\u622A\u6B62\u65E5\u671F").addText((text) => text.setValue(this.deadline).onChange((value) => this.deadline = value.trim()));
-    new import_obsidian7.Setting(this.contentEl).setName("\u72B6\u6001").addDropdown((dropdown) => {
+    new import_obsidian8.Setting(this.contentEl).setName("\u622A\u6B62\u65E5\u671F").addText((text) => text.setValue(this.deadline).onChange((value) => this.deadline = value.trim()));
+    new import_obsidian8.Setting(this.contentEl).setName("\u72B6\u6001").addDropdown((dropdown) => {
       ["\u672A\u5F00\u59CB", "\u8FDB\u884C\u4E2D", "\u5DF2\u5B8C\u6210", "\u6682\u505C"].forEach((status) => dropdown.addOption(status, status));
       dropdown.setValue(this.status);
       dropdown.onChange((value) => this.status = value);
@@ -2165,7 +2425,7 @@ var GoalEditorModal = class extends import_obsidian7.Modal {
     });
   }
 };
-var KeyResultModal = class extends import_obsidian7.Modal {
+var KeyResultModal = class extends import_obsidian8.Modal {
   constructor(app, objectives, onSubmit) {
     var _a, _b;
     super(app);
@@ -2179,13 +2439,13 @@ var KeyResultModal = class extends import_obsidian7.Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     this.contentEl.createEl("h2", { text: "\u65B0\u589E KR" });
-    new import_obsidian7.Setting(this.contentEl).setName("Objective").addDropdown((dropdown) => {
+    new import_obsidian8.Setting(this.contentEl).setName("Objective").addDropdown((dropdown) => {
       this.objectives.forEach((objective) => dropdown.addOption(objective.id, `${objective.quarter} \xB7 ${objective.title}`));
       dropdown.setValue(this.objectiveId);
       dropdown.onChange((value) => this.objectiveId = value);
     });
-    new import_obsidian7.Setting(this.contentEl).setName("\u6807\u9898").addText((text) => text.onChange((value) => this.title = value.trim()));
-    new import_obsidian7.Setting(this.contentEl).setName("\u8FDB\u5EA6").addText((text) => {
+    new import_obsidian8.Setting(this.contentEl).setName("\u6807\u9898").addText((text) => text.onChange((value) => this.title = value.trim()));
+    new import_obsidian8.Setting(this.contentEl).setName("\u8FDB\u5EA6").addText((text) => {
       text.inputEl.type = "number";
       text.onChange((value) => this.progress = Number(value) || 0);
     });
@@ -2209,7 +2469,7 @@ var KeyResultModal = class extends import_obsidian7.Modal {
     });
   }
 };
-var MilestoneModal = class extends import_obsidian7.Modal {
+var MilestoneModal = class extends import_obsidian8.Modal {
   constructor(app, goals, onSubmit) {
     var _a, _b;
     super(app);
@@ -2223,13 +2483,13 @@ var MilestoneModal = class extends import_obsidian7.Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     this.contentEl.createEl("h2", { text: "\u65B0\u589E\u91CC\u7A0B\u7891" });
-    new import_obsidian7.Setting(this.contentEl).setName("\u76EE\u6807").addDropdown((dropdown) => {
+    new import_obsidian8.Setting(this.contentEl).setName("\u76EE\u6807").addDropdown((dropdown) => {
       this.goals.forEach((goal) => dropdown.addOption(goal.id, goal.title));
       dropdown.setValue(this.goalId);
       dropdown.onChange((value) => this.goalId = value);
     });
-    new import_obsidian7.Setting(this.contentEl).setName("\u6807\u9898").addText((text) => text.onChange((value) => this.title = value.trim()));
-    new import_obsidian7.Setting(this.contentEl).setName("\u65E5\u671F").addText((text) => text.setValue(this.date).onChange((value) => this.date = value.trim()));
+    new import_obsidian8.Setting(this.contentEl).setName("\u6807\u9898").addText((text) => text.onChange((value) => this.title = value.trim()));
+    new import_obsidian8.Setting(this.contentEl).setName("\u65E5\u671F").addText((text) => text.setValue(this.date).onChange((value) => this.date = value.trim()));
     this.renderActions(async () => {
       if (!this.title || !this.goalId) return;
       await this.onSubmit({
@@ -2250,7 +2510,7 @@ var MilestoneModal = class extends import_obsidian7.Modal {
     });
   }
 };
-var RiskModal = class extends import_obsidian7.Modal {
+var RiskModal = class extends import_obsidian8.Modal {
   constructor(app, onSubmit) {
     super(app);
     this.onSubmit = onSubmit;
@@ -2262,15 +2522,15 @@ var RiskModal = class extends import_obsidian7.Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     this.contentEl.createEl("h2", { text: "\u6DFB\u52A0\u98CE\u9669" });
-    new import_obsidian7.Setting(this.contentEl).setName("\u98CE\u9669").addText((text) => text.onChange((value) => this.title = value.trim()));
-    new import_obsidian7.Setting(this.contentEl).setName("\u7B49\u7EA7").addDropdown((dropdown) => {
+    new import_obsidian8.Setting(this.contentEl).setName("\u98CE\u9669").addText((text) => text.onChange((value) => this.title = value.trim()));
+    new import_obsidian8.Setting(this.contentEl).setName("\u7B49\u7EA7").addDropdown((dropdown) => {
       dropdown.addOption("low", "\u4F4E");
       dropdown.addOption("medium", "\u4E2D");
       dropdown.addOption("high", "\u9AD8");
       dropdown.setValue(this.level);
       dropdown.onChange((value) => this.level = value);
     });
-    new import_obsidian7.Setting(this.contentEl).setName("\u65B9\u6848").addTextArea((text) => text.onChange((value) => this.solution = value.trim()));
+    new import_obsidian8.Setting(this.contentEl).setName("\u65B9\u6848").addTextArea((text) => text.onChange((value) => this.solution = value.trim()));
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
     actions.createEl("button", { text: "\u6DFB\u52A0", attr: { type: "button" } }).addEventListener("click", async () => {
@@ -2403,7 +2663,7 @@ function openAddContentModal(app, store, section, onDataChanged) {
       void store.addTodayFocusTask("\u65B0\u7684\u5F85\u529E\u4EFB\u52A1").then(refresh);
       break;
     default:
-      new import_obsidian8.Notice("\u8FD9\u4E2A\u6A21\u5757\u6682\u672A\u63D0\u4F9B\u6DFB\u52A0\u5165\u53E3\u3002");
+      new import_obsidian9.Notice("\u8FD9\u4E2A\u6A21\u5757\u6682\u672A\u63D0\u4F9B\u6DFB\u52A0\u5165\u53E3\u3002");
   }
 }
 function openTextModal(app, title, fieldName, initialValue, onSubmit) {
@@ -2589,7 +2849,7 @@ var SectionActionMenu = class {
     this.onDataChanged = onDataChanged;
   }
   show(event) {
-    const menu = new import_obsidian9.Menu();
+    const menu = new import_obsidian10.Menu();
     const capabilities = getSectionCapabilities(this.section.type);
     if (capabilities.canAdd) {
       menu.addItem((item) => item.setTitle("\u6DFB\u52A0\u5185\u5BB9").setIcon("plus").onClick(() => void this.addContent()));
@@ -2616,7 +2876,7 @@ var SectionActionMenu = class {
     this.onDataChanged();
   }
 };
-var ConfirmSectionDeleteModal = class extends import_obsidian9.Modal {
+var ConfirmSectionDeleteModal = class extends import_obsidian10.Modal {
   constructor(app, section, onConfirm) {
     super(app);
     this.section = section;
@@ -2636,7 +2896,7 @@ var ConfirmSectionDeleteModal = class extends import_obsidian9.Modal {
     });
   }
 };
-var SectionColorModal = class extends import_obsidian9.Modal {
+var SectionColorModal = class extends import_obsidian10.Modal {
   constructor(app, store, section, onDataChanged) {
     super(app);
     this.store = store;
@@ -2664,7 +2924,7 @@ var SectionColorModal = class extends import_obsidian9.Modal {
     });
   }
 };
-var SectionWidthModal = class extends import_obsidian9.Modal {
+var SectionWidthModal = class extends import_obsidian10.Modal {
   constructor(app, store, section, onDataChanged) {
     super(app);
     this.store = store;
@@ -2681,7 +2941,7 @@ var SectionWidthModal = class extends import_obsidian9.Modal {
         cls: this.section.width === width.id ? "is-active" : "",
         attr: { type: "button" }
       });
-      (0, import_obsidian9.setIcon)(button.createSpan(), width.id === "full" ? "panel-top" : "columns-3");
+      (0, import_obsidian10.setIcon)(button.createSpan(), width.id === "full" ? "panel-top" : "columns-3");
       button.createSpan({ text: width.label });
       button.addEventListener("click", async () => {
         await this.store.updateSection(this.section.id, { width: width.id });
@@ -2693,13 +2953,24 @@ var SectionWidthModal = class extends import_obsidian9.Modal {
 };
 
 // src/components/overview/HabitStatisticsModal.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 
 // src/services/StatisticsService.ts
 var StatisticsService = class {
   constructor(store) {
     this.store = store;
     this.calendar = new CalendarService();
+  }
+  getFocusStats() {
+    const today = this.calendar.getDateKey(/* @__PURE__ */ new Date());
+    const weekKeys = new Set(this.store.getCurrentWeekDates());
+    const records = this.store.getFocusRecords();
+    return {
+      todayMinutes: records.filter((record) => record.date === today).reduce((sum, record) => sum + record.duration, 0),
+      todayPomodoros: records.filter((record) => record.date === today && record.completed).length,
+      weekMinutes: records.filter((record) => weekKeys.has(record.date)).reduce((sum, record) => sum + record.duration, 0),
+      recentRecords: records.slice(0, 5)
+    };
   }
   getHabitStats(month) {
     const monthDays = this.getHabitMonthDays(month);
@@ -2843,7 +3114,7 @@ var StatisticsService = class {
 };
 
 // src/components/overview/HabitStatisticsModal.ts
-var HabitStatisticsModal = class extends import_obsidian10.Modal {
+var HabitStatisticsModal = class extends import_obsidian11.Modal {
   constructor(app, store) {
     super(app);
     this.calendar = new CalendarService();
@@ -2861,7 +3132,7 @@ var HabitStatisticsModal = class extends import_obsidian10.Modal {
     this.selectedDay = (_a = this.selectedDay) != null ? _a : stats.monthDays.find((day2) => day2.date === this.calendar.getDateKey(/* @__PURE__ */ new Date()));
     const header = this.contentEl.createDiv({ cls: "cow-stats-modal-header" });
     const previous = header.createEl("button", { attr: { type: "button", "aria-label": "\u4E0A\u4E00\u6708" } });
-    (0, import_obsidian10.setIcon)(previous, "chevron-left");
+    (0, import_obsidian11.setIcon)(previous, "chevron-left");
     previous.addEventListener("click", () => {
       this.month = this.calendar.addMonths(this.month, -1);
       this.selectedDay = void 0;
@@ -2869,7 +3140,7 @@ var HabitStatisticsModal = class extends import_obsidian10.Modal {
     });
     header.createEl("h2", { text: `\u6253\u5361\u7EDF\u8BA1 \xB7 ${this.calendar.getMonthTitle(this.month)}` });
     const next = header.createEl("button", { attr: { type: "button", "aria-label": "\u4E0B\u4E00\u6708" } });
-    (0, import_obsidian10.setIcon)(next, "chevron-right");
+    (0, import_obsidian11.setIcon)(next, "chevron-right");
     next.addEventListener("click", () => {
       this.month = this.calendar.addMonths(this.month, 1);
       this.selectedDay = void 0;
@@ -2913,8 +3184,8 @@ var HabitStatisticsModal = class extends import_obsidian10.Modal {
 };
 
 // src/components/overview/MonthlyProgressStatisticsModal.ts
-var import_obsidian11 = require("obsidian");
-var MonthlyProgressStatisticsModal = class extends import_obsidian11.Modal {
+var import_obsidian12 = require("obsidian");
+var MonthlyProgressStatisticsModal = class extends import_obsidian12.Modal {
   constructor(app, store) {
     super(app);
     this.calendar = new CalendarService();
@@ -2930,14 +3201,14 @@ var MonthlyProgressStatisticsModal = class extends import_obsidian11.Modal {
     const progress = this.statistics.getMonthProgress(this.month);
     const header = this.contentEl.createDiv({ cls: "cow-stats-modal-header" });
     const previous = header.createEl("button", { attr: { type: "button", "aria-label": "\u4E0A\u4E00\u6708" } });
-    (0, import_obsidian11.setIcon)(previous, "chevron-left");
+    (0, import_obsidian12.setIcon)(previous, "chevron-left");
     previous.addEventListener("click", () => {
       this.month = this.calendar.addMonths(this.month, -1);
       this.render();
     });
     header.createEl("h2", { text: `\u672C\u6708\u8FDB\u5EA6\u7EDF\u8BA1 \xB7 ${this.calendar.getMonthTitle(this.month)}` });
     const next = header.createEl("button", { attr: { type: "button", "aria-label": "\u4E0B\u4E00\u6708" } });
-    (0, import_obsidian11.setIcon)(next, "chevron-right");
+    (0, import_obsidian12.setIcon)(next, "chevron-right");
     next.addEventListener("click", () => {
       this.month = this.calendar.addMonths(this.month, 1);
       this.render();
@@ -2998,7 +3269,7 @@ var ContributionHeatmapSection = class {
 };
 
 // src/components/overview/HabitOverviewSection.ts
-var import_obsidian12 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 var HabitOverviewSection = class {
   constructor(store, onDataChanged) {
     this.store = store;
@@ -3020,7 +3291,7 @@ var HabitOverviewSection = class {
           attr: { type: "button", "aria-label": `${habit.label} ${date}` }
         });
         if (completed) {
-          (0, import_obsidian12.setIcon)(button, "check");
+          (0, import_obsidian13.setIcon)(button, "check");
         }
         button.addEventListener("click", async () => {
           await this.store.toggleHabit(habit.id, date);
@@ -3034,25 +3305,100 @@ var HabitOverviewSection = class {
 };
 
 // src/components/overview/MonthlyCalendarSection.ts
-var import_obsidian14 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 
 // src/services/HolidayService.ts
+var FIXED_HOLIDAYS = {
+  "01-01": [
+    { name: "\u5143\u65E6", region: "CN" },
+    { name: "New Year's Day", region: "Global" }
+  ],
+  "02-14": [{ name: "Valentine's Day", region: "Global" }],
+  "04-01": [{ name: "April Fools' Day", region: "Global" }],
+  "05-01": [{ name: "\u52B3\u52A8\u8282", region: "CN" }],
+  "09-10": [{ name: "\u6559\u5E08\u8282", region: "CN" }],
+  "10-01": [{ name: "\u56FD\u5E86\u8282", region: "CN" }],
+  "10-31": [{ name: "Halloween", region: "Global" }],
+  "12-25": [{ name: "Christmas", region: "Global" }]
+};
+var CHINESE_LUNAR_HOLIDAYS = {
+  2024: {
+    "02-10": "\u6625\u8282",
+    "02-24": "\u5143\u5BB5\u8282",
+    "04-04": "\u6E05\u660E\u8282",
+    "06-10": "\u7AEF\u5348\u8282",
+    "09-17": "\u4E2D\u79CB\u8282"
+  },
+  2025: {
+    "01-29": "\u6625\u8282",
+    "02-12": "\u5143\u5BB5\u8282",
+    "04-04": "\u6E05\u660E\u8282",
+    "05-31": "\u7AEF\u5348\u8282",
+    "10-06": "\u4E2D\u79CB\u8282"
+  },
+  2026: {
+    "02-17": "\u6625\u8282",
+    "03-03": "\u5143\u5BB5\u8282",
+    "04-05": "\u6E05\u660E\u8282",
+    "06-19": "\u7AEF\u5348\u8282",
+    "09-25": "\u4E2D\u79CB\u8282"
+  },
+  2027: {
+    "02-06": "\u6625\u8282",
+    "02-20": "\u5143\u5BB5\u8282",
+    "04-05": "\u6E05\u660E\u8282",
+    "06-09": "\u7AEF\u5348\u8282",
+    "09-15": "\u4E2D\u79CB\u8282"
+  },
+  2028: {
+    "01-26": "\u6625\u8282",
+    "02-09": "\u5143\u5BB5\u8282",
+    "04-04": "\u6E05\u660E\u8282",
+    "05-28": "\u7AEF\u5348\u8282",
+    "10-03": "\u4E2D\u79CB\u8282"
+  },
+  2029: {
+    "02-13": "\u6625\u8282",
+    "02-27": "\u5143\u5BB5\u8282",
+    "04-04": "\u6E05\u660E\u8282",
+    "06-16": "\u7AEF\u5348\u8282",
+    "09-22": "\u4E2D\u79CB\u8282"
+  },
+  2030: {
+    "02-03": "\u6625\u8282",
+    "02-17": "\u5143\u5BB5\u8282",
+    "04-05": "\u6E05\u660E\u8282",
+    "06-05": "\u7AEF\u5348\u8282",
+    "09-12": "\u4E2D\u79CB\u8282"
+  }
+};
 var HolidayService = class {
   constructor() {
     this.calendar = new CalendarService();
-    this.holidays = {
-      "01-01": "\u5143\u65E6",
-      "02-14": "\u60C5\u4EBA\u8282",
-      "05-01": "\u52B3\u52A8\u8282",
-      "09-10": "\u6559\u5E08\u8282",
-      "10-01": "\u56FD\u5E86\u8282",
-      "12-25": "\u5723\u8BDE\u8282"
-    };
+  }
+  getHolidays(date) {
+    var _a, _b;
+    const key = this.calendar.getDateKey(date).slice(5);
+    const holidays = [...(_a = FIXED_HOLIDAYS[key]) != null ? _a : []];
+    const lunarHoliday = (_b = CHINESE_LUNAR_HOLIDAYS[date.getFullYear()]) == null ? void 0 : _b[key];
+    if (lunarHoliday) {
+      holidays.push({ name: lunarHoliday, region: "CN" });
+    }
+    if (this.isThanksgiving(date)) {
+      holidays.push({ name: "Thanksgiving", region: "Global" });
+    }
+    return holidays;
   }
   getHoliday(date) {
-    var _a;
-    const key = this.calendar.getDateKey(date).slice(5);
-    return (_a = this.holidays[key]) != null ? _a : null;
+    const names = this.getHolidays(date).map((holiday) => holiday.name);
+    return names.length > 0 ? names.join(" / ") : null;
+  }
+  isThanksgiving(date) {
+    if (date.getMonth() !== 10 || date.getDay() !== 4) {
+      return false;
+    }
+    const day = date.getDate();
+    return day >= 22 && day <= 28;
   }
 };
 
@@ -3153,8 +3499,8 @@ var NoteService = class {
 };
 
 // src/components/overview/DayOverviewModal.ts
-var import_obsidian13 = require("obsidian");
-var DayOverviewModal = class extends import_obsidian13.Modal {
+var import_obsidian14 = require("obsidian");
+var DayOverviewModal = class extends import_obsidian14.Modal {
   constructor(app, store, date, onDataChanged) {
     super(app);
     this.store = store;
@@ -3171,10 +3517,10 @@ var DayOverviewModal = class extends import_obsidian13.Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     const dateKey = this.calendar.getDateKey(this.date);
-    const holiday = this.holidays.getHoliday(this.date);
+    const holidays = this.holidays.getHolidays(this.date);
     this.contentEl.createEl("h2", { text: dateKey });
     this.contentEl.createEl("p", {
-      text: `${this.calendar.getWeekdayLabel(this.date)}${holiday ? ` \xB7 ${holiday}` : " \xB7 \u6682\u65E0\u8282\u65E5"}`
+      text: `${this.calendar.getWeekdayLabel(this.date)}${holidays.length > 0 ? ` \xB7 ${holidays.map((holiday) => holiday.name).join(" / ")}` : " \xB7 \u6682\u65E0\u8282\u65E5"}`
     });
     this.renderTodos(dateKey);
     this.renderNotes();
@@ -3183,7 +3529,7 @@ var DayOverviewModal = class extends import_obsidian13.Modal {
     const header = this.contentEl.createDiv({ cls: "cow-day-section-header" });
     header.createEl("h3", { text: "\u5F85\u529E" });
     const addButton = header.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian13.setIcon)(addButton.createSpan(), "plus");
+    (0, import_obsidian14.setIcon)(addButton.createSpan(), "plus");
     addButton.createSpan({ text: "\u6DFB\u52A0\u5F85\u529E" });
     addButton.addEventListener("click", () => {
       new CalendarTodoModal(this.app, async (title, category) => {
@@ -3213,7 +3559,7 @@ var DayOverviewModal = class extends import_obsidian13.Modal {
     text.createEl("strong", { text: todo.title });
     text.createSpan({ text: todo.category });
     const edit = row.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u5F85\u529E" } });
-    (0, import_obsidian13.setIcon)(edit, "pencil");
+    (0, import_obsidian14.setIcon)(edit, "pencil");
     edit.addEventListener("click", () => {
       new CalendarTodoModal(this.app, async (title, category) => {
         await this.store.updateCalendarTodo(todo.id, { title, category });
@@ -3222,7 +3568,7 @@ var DayOverviewModal = class extends import_obsidian13.Modal {
       }, todo).open();
     });
     const remove = row.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u5F85\u529E" } });
-    (0, import_obsidian13.setIcon)(remove, "trash-2");
+    (0, import_obsidian14.setIcon)(remove, "trash-2");
     remove.addEventListener("click", async () => {
       await this.store.deleteCalendarTodo(todo.id);
       this.onDataChanged();
@@ -3273,7 +3619,7 @@ var DayOverviewModal = class extends import_obsidian13.Modal {
     });
   }
 };
-var CalendarTodoModal = class extends import_obsidian13.Modal {
+var CalendarTodoModal = class extends import_obsidian14.Modal {
   constructor(app, onSubmit, todo) {
     var _a, _b;
     super(app);
@@ -3285,10 +3631,10 @@ var CalendarTodoModal = class extends import_obsidian13.Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     this.contentEl.createEl("h2", { text: this.titleValue ? "\u7F16\u8F91\u5F85\u529E" : "\u6DFB\u52A0\u5F85\u529E" });
-    new import_obsidian13.Setting(this.contentEl).setName("\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
+    new import_obsidian14.Setting(this.contentEl).setName("\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
       this.titleValue = value;
     }));
-    new import_obsidian13.Setting(this.contentEl).setName("\u5206\u7C7B").addText((text) => text.setValue(this.categoryValue).onChange((value) => {
+    new import_obsidian14.Setting(this.contentEl).setName("\u5206\u7C7B").addText((text) => text.setValue(this.categoryValue).onChange((value) => {
       this.categoryValue = value;
     }));
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
@@ -3322,7 +3668,7 @@ var MonthlyCalendarSection = class {
     const root = container.createDiv({ cls: "cow-month-calendar" });
     const header = root.createDiv({ cls: "cow-month-calendar-header" });
     const previous = header.createEl("button", { attr: { type: "button", "aria-label": "\u4E0A\u4E00\u6708" } });
-    (0, import_obsidian14.setIcon)(previous, "chevron-left");
+    (0, import_obsidian15.setIcon)(previous, "chevron-left");
     previous.addEventListener("click", () => {
       this.displayDate = this.calendar.addMonths(this.displayDate, -1);
       this.draw(container);
@@ -3334,7 +3680,7 @@ var MonthlyCalendarSection = class {
       this.draw(container);
     });
     const next = header.createEl("button", { attr: { type: "button", "aria-label": "\u4E0B\u4E00\u6708" } });
-    (0, import_obsidian14.setIcon)(next, "chevron-right");
+    (0, import_obsidian15.setIcon)(next, "chevron-right");
     next.addEventListener("click", () => {
       this.displayDate = this.calendar.addMonths(this.displayDate, 1);
       this.draw(container);
@@ -3359,6 +3705,10 @@ var MonthlyCalendarSection = class {
         button.style.background = `${settings.highlightColor}44`;
       }
       button.createSpan({ text: String(date.getDate()) });
+      const holidays = this.holidays.getHolidays(date);
+      if (holidays.length > 0) {
+        button.createSpan({ cls: "cow-calendar-holiday", text: holidays[0].name });
+      }
       const dots = button.createDiv({ cls: "cow-calendar-dots" });
       this.renderBadges(dots, this.getBadges(date));
       button.addEventListener("click", () => {
@@ -3384,8 +3734,9 @@ var MonthlyCalendarSection = class {
       const noteCount = this.notes.getNoteCountForDate(date);
       if (noteCount > 0) badges.push({ cls: "is-note", count: noteCount });
     }
-    if (settings.showEventMarkers && this.holidays.getHoliday(date)) {
-      badges.push({ cls: "is-event", count: 1 });
+    if (settings.showEventMarkers) {
+      const eventCount = this.holidays.getHolidays(date).length;
+      if (eventCount > 0) badges.push({ cls: "is-event", count: eventCount });
     }
     return badges;
   }
@@ -3428,7 +3779,7 @@ var MonthlyProgressSection = class {
 };
 
 // src/components/overview/OverviewStatsSection.ts
-var import_obsidian15 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 var OverviewStatsSection = class {
   constructor(store, type) {
     this.store = store;
@@ -3438,7 +3789,7 @@ var OverviewStatsSection = class {
     const stat = this.getStat();
     const wrapper = container.createDiv({ cls: "cow-overview-stat" });
     const art = wrapper.createDiv({ cls: `cow-stat-art ${stat.className}` });
-    (0, import_obsidian15.setIcon)(art.createSpan(), stat.icon);
+    (0, import_obsidian16.setIcon)(art.createSpan(), stat.icon);
     const body = wrapper.createDiv();
     body.createEl("strong", { text: stat.value });
     body.createEl("span", { text: stat.caption });
@@ -3488,7 +3839,7 @@ var OverviewStatsSection = class {
 };
 
 // src/components/overview/QuickActionsSection.ts
-var import_obsidian16 = require("obsidian");
+var import_obsidian17 = require("obsidian");
 var QuickActionsSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -3500,7 +3851,7 @@ var QuickActionsSection = class {
     const grid = container.createDiv({ cls: "cow-quick-action-grid" });
     actions.forEach((action) => {
       const button = grid.createEl("button", { attr: { type: "button" } });
-      (0, import_obsidian16.setIcon)(button.createSpan(), this.getIcon(action));
+      (0, import_obsidian17.setIcon)(button.createSpan(), this.getIcon(action));
       button.createSpan({ text: action.label });
       button.addEventListener("click", () => void this.runAction(action));
     });
@@ -3523,7 +3874,7 @@ var QuickActionsSection = class {
         this.executeCommand("graph:open");
         break;
       default:
-        new import_obsidian16.Notice(action.target ? `\u81EA\u5B9A\u4E49\u5165\u53E3\uFF1A${action.target}` : "\u81EA\u5B9A\u4E49\u5FEB\u6377\u5165\u53E3\u5DF2\u89E6\u53D1\u3002");
+        new import_obsidian17.Notice(action.target ? `\u81EA\u5B9A\u4E49\u5165\u53E3\uFF1A${action.target}` : "\u81EA\u5B9A\u4E49\u5FEB\u6377\u5165\u53E3\u5DF2\u89E6\u53D1\u3002");
     }
   }
   getIcon(action) {
@@ -3541,7 +3892,7 @@ var QuickActionsSection = class {
     var _a;
     const didRun = (_a = this.app.commands) == null ? void 0 : _a.executeCommandById(commandId);
     if (!didRun) {
-      new import_obsidian16.Notice("\u8FD9\u4E2A Obsidian \u547D\u4EE4\u6682\u65F6\u4E0D\u53EF\u7528\u3002");
+      new import_obsidian17.Notice("\u8FD9\u4E2A Obsidian \u547D\u4EE4\u6682\u65F6\u4E0D\u53EF\u7528\u3002");
     }
   }
   async createNote() {
@@ -3560,7 +3911,7 @@ var QuickActionsSection = class {
   async addTask() {
     await this.store.addTodayFocusTask("\u65B0\u7684\u5F85\u529E\u4EFB\u52A1");
     this.onDataChanged();
-    new import_obsidian16.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
+    new import_obsidian17.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
   }
   async createUniqueFile(folder, basename, content) {
     if (!this.app.vault.getAbstractFileByPath(folder)) {
@@ -3639,8 +3990,172 @@ var TodayFocusSection = class {
   }
 };
 
+// src/components/overview/FocusStatSection.ts
+var import_obsidian18 = require("obsidian");
+var FocusStatSection = class {
+  constructor(app, store, onDataChanged) {
+    this.app = app;
+    this.store = store;
+    this.onDataChanged = onDataChanged;
+  }
+  render(container) {
+    const stats = new StatisticsService(this.store).getFocusStats();
+    const state = this.store.getFocusState();
+    const root = container.createDiv({ cls: "cow-focus-stat-card" });
+    const top = root.createDiv({ cls: "cow-focus-stat-top" });
+    const art = top.createDiv({ cls: "cow-stat-art is-blue" });
+    (0, import_obsidian18.setIcon)(art.createSpan(), state.mode === "break" ? "coffee" : "headphones");
+    const summary = top.createDiv();
+    summary.createEl("strong", { text: this.formatMinutes(stats.todayMinutes) });
+    summary.createSpan({ text: `\u4ECA\u65E5 ${stats.todayPomodoros} \u4E2A\u756A\u8304 \xB7 \u672C\u5468 ${this.formatMinutes(stats.weekMinutes)}` });
+    root.createDiv({ cls: "cow-focus-timer", text: this.formatSeconds(state.remainingSeconds) });
+    root.createDiv({
+      cls: "cow-focus-status",
+      text: `${state.isRunning ? state.isPaused ? "\u5DF2\u6682\u505C" : "\u8FDB\u884C\u4E2D" : "\u672A\u5F00\u59CB"} \xB7 ${state.mode === "focus" ? "\u4E13\u6CE8" : "\u4F11\u606F"}${state.currentTask ? ` \xB7 ${state.currentTask}` : ""}`
+    });
+    const actions = root.createDiv({ cls: "cow-focus-actions" });
+    const primary = actions.createEl("button", { cls: "mod-cta", attr: { type: "button" } });
+    (0, import_obsidian18.setIcon)(primary.createSpan(), state.isRunning ? state.isPaused ? "play" : "pause" : "play");
+    primary.createSpan({ text: state.isRunning ? state.isPaused ? "\u7EE7\u7EED" : "\u6682\u505C" : "\u5F00\u59CB\u4E13\u6CE8" });
+    primary.addEventListener("click", async () => {
+      if (!state.isRunning) {
+        await this.store.startFocusSession("");
+        this.onDataChanged();
+        return;
+      }
+      if (state.isPaused) {
+        await this.store.resumeFocusSession();
+      } else {
+        await this.store.pauseFocusSession();
+      }
+      this.onDataChanged();
+    });
+    const detail = actions.createEl("button", { attr: { type: "button" } });
+    (0, import_obsidian18.setIcon)(detail.createSpan(), "timer");
+    detail.createSpan({ text: "\u67E5\u770B\u8BB0\u5F55" });
+    detail.addEventListener("click", () => new FocusSessionModal(this.app, this.store, this.onDataChanged).open());
+  }
+  formatMinutes(minutes) {
+    if (minutes < 60) return `${minutes}min`;
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest === 0 ? `${hours}h` : `${hours}h ${rest}min`;
+  }
+  formatSeconds(seconds) {
+    const safe = Math.max(0, seconds);
+    const mins = Math.floor(safe / 60);
+    const secs = safe % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+};
+var FocusSessionModal = class extends import_obsidian18.Modal {
+  constructor(app, store, onDataChanged) {
+    var _a;
+    super(app);
+    this.store = store;
+    this.onDataChanged = onDataChanged;
+    this.taskValue = "";
+    this.taskValue = (_a = store.getFocusState().currentTask) != null ? _a : "";
+  }
+  onOpen() {
+    this.render();
+    this.timer = window.setInterval(() => this.tick(), 1e3);
+  }
+  onClose() {
+    if (this.timer) {
+      window.clearInterval(this.timer);
+      this.timer = void 0;
+    }
+  }
+  render() {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal");
+    const settings = this.store.getFocusSettings();
+    const state = this.store.getFocusState();
+    const stats = new StatisticsService(this.store).getFocusStats();
+    this.contentEl.createEl("h2", { text: "\u4ECA\u65E5\u4E13\u6CE8" });
+    this.contentEl.createEl("p", {
+      text: `\u9ED8\u8BA4 ${settings.focusDuration} \u5206\u949F\u4E13\u6CE8 / ${settings.breakDuration} \u5206\u949F\u4F11\u606F\uFF0C\u4ECA\u65E5\u7D2F\u8BA1 ${stats.todayMinutes} \u5206\u949F\u3002`
+    });
+    const timer = this.contentEl.createDiv({ cls: "cow-focus-modal-timer" });
+    timer.createSpan({ text: state.mode === "focus" ? "\u4E13\u6CE8\u4E2D" : "\u4F11\u606F\u4E2D" });
+    timer.createEl("strong", { text: this.formatSeconds(state.remainingSeconds) });
+    timer.createSpan({ text: this.getStateLabel(state) });
+    new import_obsidian18.Setting(this.contentEl).setName("\u672C\u6B21\u4EFB\u52A1").addText((text) => text.setValue(this.taskValue).setPlaceholder("\u4F8B\u5982\uFF1A\u6574\u7406\u8BBA\u6587\u7B14\u8BB0").onChange((value) => {
+      this.taskValue = value;
+    }));
+    new import_obsidian18.Setting(this.contentEl).setName("\u4E13\u6CE8\u65F6\u957F").setDesc("\u5355\u4F4D\uFF1A\u5206\u949F").addText((text) => text.setValue(String(settings.focusDuration)).onChange((value) => {
+      const next = Number(value);
+      if (Number.isFinite(next) && next > 0) {
+        void this.store.updateFocusSettings({ focusDuration: next });
+      }
+    }));
+    new import_obsidian18.Setting(this.contentEl).setName("\u4F11\u606F\u65F6\u957F").setDesc("\u5355\u4F4D\uFF1A\u5206\u949F").addText((text) => text.setValue(String(settings.breakDuration)).onChange((value) => {
+      const next = Number(value);
+      if (Number.isFinite(next) && next > 0) {
+        void this.store.updateFocusSettings({ breakDuration: next });
+      }
+    }));
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions cow-focus-modal-actions" });
+    this.renderAction(actions, state.isRunning ? state.isPaused ? "\u7EE7\u7EED" : "\u6682\u505C" : "\u5F00\u59CB", state.isRunning && !state.isPaused ? "pause" : "play", async () => {
+      if (!state.isRunning) {
+        await this.store.startFocusSession(this.taskValue);
+      } else if (state.isPaused) {
+        await this.store.resumeFocusSession();
+      } else {
+        await this.store.pauseFocusSession();
+      }
+      this.onDataChanged();
+      this.render();
+    }, true);
+    this.renderAction(actions, "\u7ED3\u675F", "square", async () => {
+      await this.store.endFocusSession(false);
+      this.onDataChanged();
+      this.render();
+    });
+    this.renderAction(actions, "\u5173\u95ED", "x", async () => this.close());
+    const records = this.contentEl.createDiv({ cls: "cow-focus-records" });
+    records.createEl("h3", { text: "\u6700\u8FD1\u8BB0\u5F55" });
+    const recent = stats.recentRecords;
+    if (recent.length === 0) {
+      records.createEl("p", { cls: "cow-empty-state", text: "\u8FD8\u6CA1\u6709\u4E13\u6CE8\u8BB0\u5F55\u3002" });
+    } else {
+      recent.forEach((record) => {
+        const row = records.createDiv({ cls: "cow-focus-record-item" });
+        row.createEl("strong", { text: record.task });
+        row.createSpan({ text: `${record.date} \xB7 ${record.duration} \u5206\u949F${record.completed ? " \xB7 \u5DF2\u5B8C\u6210" : ""}` });
+      });
+    }
+  }
+  async tick() {
+    const state = this.store.getFocusState();
+    if (state.isRunning && !state.isPaused && state.remainingSeconds <= 0) {
+      await this.store.completeCurrentFocusPhase();
+      this.onDataChanged();
+      new import_obsidian18.Notice(state.mode === "focus" ? "\u4E13\u6CE8\u5B8C\u6210\uFF0C\u4F11\u606F\u4E00\u4E0B\u5427\u3002" : "\u4F11\u606F\u5B8C\u6210\uFF0C\u53EF\u4EE5\u5F00\u59CB\u4E0B\u4E00\u8F6E\u5566\u3002");
+    }
+    this.render();
+  }
+  renderAction(container, label, icon, onClick, primary = false) {
+    const button = container.createEl("button", { cls: primary ? "mod-cta" : "", attr: { type: "button" } });
+    (0, import_obsidian18.setIcon)(button.createSpan(), icon);
+    button.createSpan({ text: label });
+    button.addEventListener("click", () => void onClick());
+  }
+  getStateLabel(state) {
+    if (!state.isRunning) return "\u51C6\u5907\u5F00\u59CB";
+    return state.isPaused ? "\u5DF2\u6682\u505C" : "\u6B63\u5728\u8BA1\u65F6";
+  }
+  formatSeconds(seconds) {
+    const safe = Math.max(0, seconds);
+    const mins = Math.floor(safe / 60);
+    const secs = safe % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+};
+
 // src/components/modules/ModulesControls.ts
-var import_obsidian17 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 function renderSwitch(container, checked, onChange) {
   const input = container.createEl("input", { type: "checkbox", cls: "cow-switch" });
   input.checked = checked;
@@ -3716,7 +4231,7 @@ var ModuleSwitchSortSection = class {
   renderRow(list, section) {
     const row = list.createDiv({ cls: "cow-module-row", attr: { draggable: "true", "data-id": section.id } });
     const handle = row.createSpan({ cls: "cow-drag-handle" });
-    (0, import_obsidian17.setIcon)(handle, "grip-vertical");
+    (0, import_obsidian19.setIcon)(handle, "grip-vertical");
     row.createSpan({ text: section.title });
     row.createSpan({ cls: "cow-module-page", text: section.page });
     renderSwitch(row, section.enabled, async (checked) => {
@@ -3824,7 +4339,7 @@ var FunctionalSectionManagerSection = class {
     const header = panel.createDiv({ cls: "cow-list-item-head" });
     header.createEl("h4", { text: "\u53EF\u6DFB\u52A0\u6A21\u5757" });
     const custom = header.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    (0, import_obsidian17.setIcon)(custom.createSpan(), "plus");
+    (0, import_obsidian19.setIcon)(custom.createSpan(), "plus");
     custom.createSpan({ text: "\u81EA\u5B9A\u4E49" });
     custom.addEventListener("click", () => {
       new CustomSectionModal(this.app, this.selectedPage, async (input) => {
@@ -3844,7 +4359,7 @@ var FunctionalSectionManagerSection = class {
       row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: module2.description });
       const actions = row.createDiv({ cls: "cow-list-item-actions" });
       const add = actions.createEl("button", { attr: { type: "button", "aria-label": "\u6DFB\u52A0\u6A21\u5757" } });
-      (0, import_obsidian17.setIcon)(add, "plus");
+      (0, import_obsidian19.setIcon)(add, "plus");
       add.addEventListener("click", async () => {
         await this.store.addSection(this.selectedPage, module2.type);
         this.onDataChanged();
@@ -3856,7 +4371,7 @@ var FunctionalSectionManagerSection = class {
     const title = row.createDiv({ cls: "cow-section-manager-title" });
     if (mode === "enabled") {
       const handle = title.createSpan({ cls: "cow-drag-handle" });
-      (0, import_obsidian17.setIcon)(handle, "grip-vertical");
+      (0, import_obsidian19.setIcon)(handle, "grip-vertical");
     }
     title.createEl("strong", { text: section.title });
     title.createSpan({ text: this.getSectionDescription(section) });
@@ -3917,7 +4432,7 @@ var FunctionalSectionManagerSection = class {
   }
   renderIconButton(container, icon, label, action) {
     const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
-    (0, import_obsidian17.setIcon)(button, icon);
+    (0, import_obsidian19.setIcon)(button, icon);
     button.addEventListener("click", async () => {
       await action();
       this.onDataChanged();
@@ -3929,7 +4444,7 @@ var FunctionalSectionManagerSection = class {
     return String((_c = (_b = (_a = section.config) == null ? void 0 : _a.description) != null ? _b : definition == null ? void 0 : definition.description) != null ? _c : section.type);
   }
 };
-var CustomSectionModal = class extends import_obsidian17.Modal {
+var CustomSectionModal = class extends import_obsidian19.Modal {
   constructor(app, page, onSubmit) {
     super(app);
     this.page = page;
@@ -3944,13 +4459,13 @@ var CustomSectionModal = class extends import_obsidian17.Modal {
     this.contentEl.addClass("cow-modal");
     this.contentEl.createEl("h2", { text: "\u521B\u5EFA\u81EA\u5B9A\u4E49\u529F\u80FD\u5206\u533A" });
     this.contentEl.createEl("p", { text: `\u5C06\u6DFB\u52A0\u5230 ${PAGE_LABELS[this.page]} \u9875\u9762\u3002` });
-    new import_obsidian17.Setting(this.contentEl).setName("\u6807\u9898").addText((text) => text.onChange((value) => {
+    new import_obsidian19.Setting(this.contentEl).setName("\u6807\u9898").addText((text) => text.onChange((value) => {
       this.title = value.trim();
     }));
-    new import_obsidian17.Setting(this.contentEl).setName("\u63CF\u8FF0").addTextArea((text) => text.onChange((value) => {
+    new import_obsidian19.Setting(this.contentEl).setName("\u63CF\u8FF0").addTextArea((text) => text.onChange((value) => {
       this.description = value.trim();
     }));
-    new import_obsidian17.Setting(this.contentEl).setName("\u7C7B\u578B").addDropdown((dropdown) => {
+    new import_obsidian19.Setting(this.contentEl).setName("\u7C7B\u578B").addDropdown((dropdown) => {
       [
         ["custom-text", "\u6587\u672C"],
         ["custom-todo-list", "Todo List"],
@@ -3962,7 +4477,7 @@ var CustomSectionModal = class extends import_obsidian17.Modal {
         this.type = value;
       });
     });
-    new import_obsidian17.Setting(this.contentEl).setName("\u989C\u8272").addDropdown((dropdown) => {
+    new import_obsidian19.Setting(this.contentEl).setName("\u989C\u8272").addDropdown((dropdown) => {
       CARD_COLORS2.forEach((color) => dropdown.addOption(color.id, color.label));
       dropdown.setValue(this.color);
       dropdown.onChange((value) => {
@@ -4098,7 +4613,7 @@ var ApexHabitSettingsSection = class {
     settings.customHabits.sort((a, b) => a.order - b.order).forEach((habit) => {
       const row = list.createDiv({ cls: "cow-module-row", attr: { draggable: "true", "data-id": habit.id } });
       const handle = row.createSpan({ cls: "cow-drag-handle" });
-      (0, import_obsidian17.setIcon)(handle, "grip-vertical");
+      (0, import_obsidian19.setIcon)(handle, "grip-vertical");
       const edit = row.createEl("input", { type: "text", value: habit.label });
       edit.addEventListener("change", async () => {
         await this.store.updateCustomHabit(habit.id, { label: edit.value.trim() || habit.label });
@@ -4222,7 +4737,7 @@ function readJsonFile(file, onRead) {
     try {
       onRead(JSON.parse(String(reader.result)));
     } catch (e) {
-      new import_obsidian17.Notice("\u5BFC\u5165\u5931\u8D25\uFF1AJSON \u683C\u5F0F\u4E0D\u6B63\u786E\u3002");
+      new import_obsidian19.Notice("\u5BFC\u5165\u5931\u8D25\uFF1AJSON \u683C\u5F0F\u4E0D\u6B63\u786E\u3002");
     }
   };
   reader.readAsText(file);
@@ -4246,7 +4761,7 @@ var AccountOverviewSection = class {
 };
 
 // src/components/finance/BillRemindersSection.ts
-var import_obsidian18 = require("obsidian");
+var import_obsidian20 = require("obsidian");
 var BillRemindersSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -4261,13 +4776,13 @@ var BillRemindersSection = class {
       head.createEl("strong", { text: bill.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u8D26\u5355" } });
-      (0, import_obsidian18.setIcon)(edit, "pencil");
+      (0, import_obsidian20.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openBillModal(this.app, async (values) => {
         await this.store.updateBill(bill.id, values);
         this.onDataChanged();
       }, bill));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u8D26\u5355" } });
-      (0, import_obsidian18.setIcon)(remove, "trash-2");
+      (0, import_obsidian20.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteBill(bill.id);
         this.onDataChanged();
@@ -4321,7 +4836,7 @@ var ExpenseHeatmapSection = class {
 };
 
 // src/components/finance/FinanceCheckinSection.ts
-var import_obsidian19 = require("obsidian");
+var import_obsidian21 = require("obsidian");
 var FinanceCheckinSection = class {
   constructor(store, onDataChanged) {
     this.store = store;
@@ -4339,7 +4854,7 @@ var FinanceCheckinSection = class {
       dates.forEach((date) => {
         const done = this.store.isHabitCompleted(habit.id, date);
         const button = row.createEl("button", { cls: `cow-habit-dot ${done ? "is-done" : ""}`, attr: { type: "button" } });
-        if (done) (0, import_obsidian19.setIcon)(button, "check");
+        if (done) (0, import_obsidian21.setIcon)(button, "check");
         button.addEventListener("click", async () => {
           await this.store.toggleHabit(habit.id, date);
           this.onDataChanged();
@@ -4351,11 +4866,11 @@ var FinanceCheckinSection = class {
 };
 
 // src/components/finance/FinanceTodosSection.ts
-var import_obsidian21 = require("obsidian");
+var import_obsidian23 = require("obsidian");
 
 // src/components/finance/AddTransactionModal.ts
-var import_obsidian20 = require("obsidian");
-var AddTransactionModal = class extends import_obsidian20.Modal {
+var import_obsidian22 = require("obsidian");
+var AddTransactionModal = class extends import_obsidian22.Modal {
   constructor(app, onSubmit) {
     super(app);
     this.onSubmit = onSubmit;
@@ -4369,7 +4884,7 @@ var AddTransactionModal = class extends import_obsidian20.Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     this.contentEl.createEl("h2", { text: "\u65B0\u589E\u8BB0\u8D26" });
-    new import_obsidian20.Setting(this.contentEl).setName("\u7C7B\u578B").addDropdown((dropdown) => {
+    new import_obsidian22.Setting(this.contentEl).setName("\u7C7B\u578B").addDropdown((dropdown) => {
       dropdown.addOption("expense", "\u652F\u51FA");
       dropdown.addOption("income", "\u6536\u5165");
       dropdown.setValue(this.type);
@@ -4377,25 +4892,25 @@ var AddTransactionModal = class extends import_obsidian20.Modal {
         this.type = value;
       });
     });
-    new import_obsidian20.Setting(this.contentEl).setName("\u5206\u7C7B").addText((text) => {
+    new import_obsidian22.Setting(this.contentEl).setName("\u5206\u7C7B").addText((text) => {
       text.setValue(this.category);
       text.onChange((value) => {
         this.category = value.trim() || "\u672A\u5206\u7C7B";
       });
     });
-    new import_obsidian20.Setting(this.contentEl).setName("\u91D1\u989D").addText((text) => {
+    new import_obsidian22.Setting(this.contentEl).setName("\u91D1\u989D").addText((text) => {
       text.inputEl.type = "number";
       text.onChange((value) => {
         this.amount = Number(value) || 0;
       });
     });
-    new import_obsidian20.Setting(this.contentEl).setName("\u65E5\u671F").addText((text) => {
+    new import_obsidian22.Setting(this.contentEl).setName("\u65E5\u671F").addText((text) => {
       text.setValue(this.date);
       text.onChange((value) => {
         this.date = value.trim() || formatDateKey(/* @__PURE__ */ new Date());
       });
     });
-    new import_obsidian20.Setting(this.contentEl).setName("\u5907\u6CE8").addText((text) => {
+    new import_obsidian22.Setting(this.contentEl).setName("\u5907\u6CE8").addText((text) => {
       text.onChange((value) => {
         this.note = value.trim();
       });
@@ -4428,7 +4943,7 @@ var FinanceTodosSection = class {
   }
   render(container) {
     const action = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    (0, import_obsidian21.setIcon)(action.createSpan(), "plus");
+    (0, import_obsidian23.setIcon)(action.createSpan(), "plus");
     action.createSpan({ text: "\u65B0\u589E\u8BB0\u8D26" });
     action.addEventListener("click", () => {
       new AddTransactionModal(this.app, async (transaction) => {
@@ -4448,13 +4963,13 @@ var FinanceTodosSection = class {
       row.createSpan({ text: item.title });
       const actions = row.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u8BB0\u8D26\u5F85\u529E" } });
-      (0, import_obsidian21.setIcon)(edit, "pencil");
+      (0, import_obsidian23.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openTextModal(this.app, "\u7F16\u8F91\u8BB0\u8D26\u5F85\u529E", "\u5F85\u529E", item.title, async (value) => {
         await this.store.updateFinanceTodo(item.id, { title: value });
         this.onDataChanged();
       }));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u8BB0\u8D26\u5F85\u529E" } });
-      (0, import_obsidian21.setIcon)(remove, "trash-2");
+      (0, import_obsidian23.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteFinanceTodo(item.id);
         this.onDataChanged();
@@ -4500,7 +5015,7 @@ var InvestmentWatchSection = class {
 };
 
 // src/components/finance/MonthlyBudgetSection.ts
-var import_obsidian22 = require("obsidian");
+var import_obsidian24 = require("obsidian");
 var MonthlyBudgetSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -4509,7 +5024,7 @@ var MonthlyBudgetSection = class {
   }
   render(container) {
     const action = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    (0, import_obsidian22.setIcon)(action.createSpan(), "plus");
+    (0, import_obsidian24.setIcon)(action.createSpan(), "plus");
     action.createSpan({ text: "\u65B0\u589E\u8BB0\u8D26" });
     action.addEventListener("click", () => this.openModal());
     const grid = container.createDiv({ cls: "cow-reading-stat-grid" });
@@ -4533,7 +5048,7 @@ var MonthlyBudgetSection = class {
 };
 
 // src/components/finance/SavingGoalsSection.ts
-var import_obsidian23 = require("obsidian");
+var import_obsidian25 = require("obsidian");
 var SavingGoalsSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -4549,13 +5064,13 @@ var SavingGoalsSection = class {
       head.createEl("strong", { text: goal.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u50A8\u84C4\u76EE\u6807" } });
-      (0, import_obsidian23.setIcon)(edit, "pencil");
+      (0, import_obsidian25.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openSavingGoalModal(this.app, async (values) => {
         await this.store.updateSavingGoal(goal.id, values);
         this.onDataChanged();
       }, goal));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u50A8\u84C4\u76EE\u6807" } });
-      (0, import_obsidian23.setIcon)(remove, "trash-2");
+      (0, import_obsidian25.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteSavingGoal(goal.id);
         this.onDataChanged();
@@ -4614,7 +5129,7 @@ var CardioStrengthSection = class {
 };
 
 // src/components/fitness/FitnessCheckinSection.ts
-var import_obsidian24 = require("obsidian");
+var import_obsidian26 = require("obsidian");
 var FitnessCheckinSection = class {
   constructor(store, onDataChanged) {
     this.store = store;
@@ -4632,7 +5147,7 @@ var FitnessCheckinSection = class {
       dates.forEach((date) => {
         const done = this.store.isHabitCompleted(habit.id, date);
         const button = row.createEl("button", { cls: `cow-habit-dot ${done ? "is-done" : ""}`, attr: { type: "button" } });
-        if (done) (0, import_obsidian24.setIcon)(button, "check");
+        if (done) (0, import_obsidian26.setIcon)(button, "check");
         button.addEventListener("click", async () => {
           await this.store.toggleHabit(habit.id, date);
           this.onDataChanged();
@@ -4725,7 +5240,7 @@ var GoalBreakdownSection = class {
 };
 
 // src/components/goals/GoalsCheckinSection.ts
-var import_obsidian25 = require("obsidian");
+var import_obsidian27 = require("obsidian");
 var GoalsCheckinSection = class {
   constructor(store, onDataChanged) {
     this.store = store;
@@ -4743,7 +5258,7 @@ var GoalsCheckinSection = class {
       dates.forEach((date) => {
         const done = this.store.isHabitCompleted(habit.id, date);
         const button = row.createEl("button", { cls: `cow-habit-dot ${done ? "is-done" : ""}`, attr: { type: "button" } });
-        if (done) (0, import_obsidian25.setIcon)(button, "check");
+        if (done) (0, import_obsidian27.setIcon)(button, "check");
         button.addEventListener("click", async () => {
           await this.store.toggleHabit(habit.id, date);
           this.onDataChanged();
@@ -4777,7 +5292,7 @@ var LongTermProgressSection = class {
 };
 
 // src/components/goals/MilestoneTimelineSection.ts
-var import_obsidian26 = require("obsidian");
+var import_obsidian28 = require("obsidian");
 var MilestoneTimelineSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -4786,7 +5301,7 @@ var MilestoneTimelineSection = class {
   }
   render(container) {
     const add = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    (0, import_obsidian26.setIcon)(add.createSpan(), "plus");
+    (0, import_obsidian28.setIcon)(add.createSpan(), "plus");
     add.createSpan({ text: "\u65B0\u589E\u91CC\u7A0B\u7891" });
     add.addEventListener("click", () => {
       new MilestoneModal(this.app, this.store.getGoals(), async (milestone) => {
@@ -4802,7 +5317,7 @@ var MilestoneTimelineSection = class {
       item.createSpan({ text: milestone.status });
       const actions = item.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u91CC\u7A0B\u7891" } });
-      (0, import_obsidian26.setIcon)(edit, "pencil");
+      (0, import_obsidian28.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => {
         new CrudItemModal(this.app, "\u7F16\u8F91\u91CC\u7A0B\u7891", {
           title: milestone.title,
@@ -4818,7 +5333,7 @@ var MilestoneTimelineSection = class {
         }).open();
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u91CC\u7A0B\u7891" } });
-      (0, import_obsidian26.setIcon)(remove, "trash-2");
+      (0, import_obsidian28.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteMilestone(milestone.id);
         this.onDataChanged();
@@ -4828,7 +5343,7 @@ var MilestoneTimelineSection = class {
 };
 
 // src/components/goals/MonthlyKeyResultsSection.ts
-var import_obsidian27 = require("obsidian");
+var import_obsidian29 = require("obsidian");
 var MonthlyKeyResultsSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -4837,7 +5352,7 @@ var MonthlyKeyResultsSection = class {
   }
   render(container) {
     const add = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    (0, import_obsidian27.setIcon)(add.createSpan(), "plus");
+    (0, import_obsidian29.setIcon)(add.createSpan(), "plus");
     add.createSpan({ text: "\u65B0\u589E KR" });
     add.addEventListener("click", () => {
       new KeyResultModal(this.app, this.store.getObjectives(), async (kr) => {
@@ -4858,7 +5373,7 @@ var MonthlyKeyResultsSection = class {
       item.createSpan({ cls: kr.completed ? "is-complete" : "", text: kr.title });
       const actions = item.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91 KR" } });
-      (0, import_obsidian27.setIcon)(edit, "pencil");
+      (0, import_obsidian29.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => {
         new CrudItemModal(this.app, "\u7F16\u8F91 KR", {
           title: kr.title,
@@ -4874,7 +5389,7 @@ var MonthlyKeyResultsSection = class {
         }).open();
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664 KR" } });
-      (0, import_obsidian27.setIcon)(remove, "trash-2");
+      (0, import_obsidian29.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteKeyResult(kr.id);
         this.onDataChanged();
@@ -4902,7 +5417,7 @@ var PriorityMatrixSection = class {
 };
 
 // src/components/goals/QuarterlyOkrSection.ts
-var import_obsidian28 = require("obsidian");
+var import_obsidian30 = require("obsidian");
 var QuarterlyOkrSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -4917,13 +5432,13 @@ var QuarterlyOkrSection = class {
       head.createEl("strong", { text: objective.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91 OKR" } });
-      (0, import_obsidian28.setIcon)(edit, "pencil");
+      (0, import_obsidian30.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openObjectiveModal(this.app, async (values) => {
         await this.store.updateObjective(objective.id, values);
         this.onDataChanged();
       }, objective));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664 OKR" } });
-      (0, import_obsidian28.setIcon)(remove, "trash-2");
+      (0, import_obsidian30.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteObjective(objective.id);
         this.onDataChanged();
@@ -4948,7 +5463,7 @@ var ReviewChecklistSection = class {
 };
 
 // src/components/goals/RisksBlockersSection.ts
-var import_obsidian29 = require("obsidian");
+var import_obsidian31 = require("obsidian");
 var RisksBlockersSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -4957,7 +5472,7 @@ var RisksBlockersSection = class {
   }
   render(container) {
     const add = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    (0, import_obsidian29.setIcon)(add.createSpan(), "plus");
+    (0, import_obsidian31.setIcon)(add.createSpan(), "plus");
     add.createSpan({ text: "\u6DFB\u52A0\u98CE\u9669" });
     add.addEventListener("click", () => {
       new RiskModal(this.app, async (risk) => {
@@ -4971,7 +5486,7 @@ var RisksBlockersSection = class {
       row.createEl("strong", { text: risk.title });
       const actions = row.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u98CE\u9669" } });
-      (0, import_obsidian29.setIcon)(edit, "pencil");
+      (0, import_obsidian31.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => {
         new CrudItemModal(this.app, "\u7F16\u8F91\u98CE\u9669", {
           title: risk.title,
@@ -4987,7 +5502,7 @@ var RisksBlockersSection = class {
         }).open();
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u98CE\u9669" } });
-      (0, import_obsidian29.setIcon)(remove, "trash-2");
+      (0, import_obsidian31.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteRisk(risk.id);
         this.onDataChanged();
@@ -4999,7 +5514,7 @@ var RisksBlockersSection = class {
 };
 
 // src/components/goals/YearlyGoalsSection.ts
-var import_obsidian30 = require("obsidian");
+var import_obsidian32 = require("obsidian");
 var YearlyGoalsSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5008,7 +5523,7 @@ var YearlyGoalsSection = class {
   }
   render(container) {
     const add = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    (0, import_obsidian30.setIcon)(add.createSpan(), "plus");
+    (0, import_obsidian32.setIcon)(add.createSpan(), "plus");
     add.createSpan({ text: "\u65B0\u589E\u76EE\u6807" });
     add.addEventListener("click", () => {
       new GoalEditorModal(this.app, void 0, async (goal) => {
@@ -5022,7 +5537,7 @@ var YearlyGoalsSection = class {
       const title = row.createDiv({ cls: "cow-inline-title" });
       title.createEl("strong", { text: goal.title });
       const edit = title.createEl("button", { attr: { type: "button", "aria-label": "\u4FEE\u6539\u76EE\u6807" } });
-      (0, import_obsidian30.setIcon)(edit, "pencil");
+      (0, import_obsidian32.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => {
         new GoalEditorModal(this.app, goal, async (updated) => {
           await this.store.updateGoal(goal.id, updated);
@@ -5030,7 +5545,7 @@ var YearlyGoalsSection = class {
         }).open();
       });
       const remove = title.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u76EE\u6807" } });
-      (0, import_obsidian30.setIcon)(remove, "trash-2");
+      (0, import_obsidian32.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteGoal(goal.id);
         this.onDataChanged();
@@ -5053,7 +5568,7 @@ var YearlyGoalsSection = class {
 };
 
 // src/components/fitness/HealthRemindersSection.ts
-var import_obsidian31 = require("obsidian");
+var import_obsidian33 = require("obsidian");
 var HealthRemindersSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5068,13 +5583,13 @@ var HealthRemindersSection = class {
       head.createSpan({ text: item.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u63D0\u9192" } });
-      (0, import_obsidian31.setIcon)(edit, "pencil");
+      (0, import_obsidian33.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openTextModal(this.app, "\u7F16\u8F91\u5065\u5EB7\u63D0\u9192", "\u63D0\u9192", item.title, async (value) => {
         await this.store.updateHealthReminder(item.id, value);
         this.onDataChanged();
       }));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u63D0\u9192" } });
-      (0, import_obsidian31.setIcon)(remove, "trash-2");
+      (0, import_obsidian33.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteHealthReminder(item.id);
         this.onDataChanged();
@@ -5126,7 +5641,7 @@ var WaterSleepHabitsSection = class {
 };
 
 // src/components/fitness/WorkoutLogSection.ts
-var import_obsidian32 = require("obsidian");
+var import_obsidian34 = require("obsidian");
 var WorkoutLogSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5141,13 +5656,13 @@ var WorkoutLogSection = class {
       head.createEl("strong", { text: workout.note });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u8FD0\u52A8\u65E5\u5FD7" } });
-      (0, import_obsidian32.setIcon)(edit, "pencil");
+      (0, import_obsidian34.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openWorkoutModal(this.app, async (values) => {
         await this.store.updateWorkout(workout.id, values);
         this.onDataChanged();
       }, true, workout));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u8FD0\u52A8\u65E5\u5FD7" } });
-      (0, import_obsidian32.setIcon)(remove, "trash-2");
+      (0, import_obsidian34.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteWorkout(workout.id);
         this.onDataChanged();
@@ -5158,7 +5673,7 @@ var WorkoutLogSection = class {
 };
 
 // src/components/fitness/WorkoutPlanSection.ts
-var import_obsidian33 = require("obsidian");
+var import_obsidian35 = require("obsidian");
 var WorkoutPlanSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5173,13 +5688,13 @@ var WorkoutPlanSection = class {
       head.createEl("strong", { text: workout.note });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u8BAD\u7EC3\u8BA1\u5212" } });
-      (0, import_obsidian33.setIcon)(edit, "pencil");
+      (0, import_obsidian35.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openWorkoutModal(this.app, async (values) => {
         await this.store.updateWorkout(workout.id, values);
         this.onDataChanged();
       }, workout.completed, workout));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u8BAD\u7EC3\u8BA1\u5212" } });
-      (0, import_obsidian33.setIcon)(remove, "trash-2");
+      (0, import_obsidian35.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteWorkout(workout.id);
         this.onDataChanged();
@@ -5201,7 +5716,7 @@ var AiReadingReviewSection = class {
 };
 
 // src/components/reading/BookListSection.ts
-var import_obsidian34 = require("obsidian");
+var import_obsidian36 = require("obsidian");
 var BookListSection = class {
   constructor(app, store, status, onDataChanged) {
     this.app = app;
@@ -5217,13 +5732,13 @@ var BookListSection = class {
       head.createEl("strong", { text: book.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u4E66\u7C4D" } });
-      (0, import_obsidian34.setIcon)(edit, "pencil");
+      (0, import_obsidian36.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => new AddBookModal(this.app, async (updated) => {
         await this.store.updateBook(book.id, updated);
         this.onDataChanged();
       }, book).open());
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u4E66\u7C4D" } });
-      (0, import_obsidian34.setIcon)(remove, "trash-2");
+      (0, import_obsidian36.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteBook(book.id);
         this.onDataChanged();
@@ -5234,10 +5749,10 @@ var BookListSection = class {
 };
 
 // src/components/reading/BookshelfSection.ts
-var import_obsidian36 = require("obsidian");
+var import_obsidian38 = require("obsidian");
 
 // src/components/reading/BookCard.ts
-var import_obsidian35 = require("obsidian");
+var import_obsidian37 = require("obsidian");
 var BookCard = class {
   constructor(app, store, book, onDataChanged) {
     this.app = app;
@@ -5271,16 +5786,16 @@ var BookCard = class {
     });
     controls.createSpan({ text: `/ ${this.book.totalPages}` });
     const open = controls.createEl("button", { attr: { type: "button", "aria-label": "\u6253\u5F00\u9605\u8BFB\u7B14\u8BB0" } });
-    (0, import_obsidian35.setIcon)(open, "notebook-tabs");
+    (0, import_obsidian37.setIcon)(open, "notebook-tabs");
     open.addEventListener("click", () => void this.openNote());
     const done = controls.createEl("button", { attr: { type: "button", "aria-label": "\u5B8C\u6210\u9605\u8BFB" } });
-    (0, import_obsidian35.setIcon)(done, "check");
+    (0, import_obsidian37.setIcon)(done, "check");
     done.addEventListener("click", async () => {
       await this.store.completeBook(this.book.id);
       this.onDataChanged();
     });
     const edit = controls.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u4E66\u7C4D" } });
-    (0, import_obsidian35.setIcon)(edit, "pencil");
+    (0, import_obsidian37.setIcon)(edit, "pencil");
     edit.addEventListener("click", () => {
       new AddBookModal(this.app, async (book) => {
         await this.store.updateBook(this.book.id, book);
@@ -5288,7 +5803,7 @@ var BookCard = class {
       }, this.book).open();
     });
     const remove = controls.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u4E66\u7C4D" } });
-    (0, import_obsidian35.setIcon)(remove, "trash-2");
+    (0, import_obsidian37.setIcon)(remove, "trash-2");
     remove.addEventListener("click", async () => {
       await this.store.deleteBook(this.book.id);
       this.onDataChanged();
@@ -5296,12 +5811,12 @@ var BookCard = class {
   }
   async openNote() {
     if (!this.book.notePath) {
-      new import_obsidian35.Notice("\u8FD9\u672C\u4E66\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u9605\u8BFB\u7B14\u8BB0\u3002");
+      new import_obsidian37.Notice("\u8FD9\u672C\u4E66\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u9605\u8BFB\u7B14\u8BB0\u3002");
       return;
     }
     const file = this.app.vault.getFileByPath(this.book.notePath);
     if (!file) {
-      new import_obsidian35.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${this.book.notePath}`);
+      new import_obsidian37.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${this.book.notePath}`);
       return;
     }
     await this.app.workspace.getLeaf(false).openFile(file);
@@ -5317,7 +5832,7 @@ var BookshelfSection = class {
   }
   render(container) {
     const add = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    (0, import_obsidian36.setIcon)(add.createSpan(), "plus");
+    (0, import_obsidian38.setIcon)(add.createSpan(), "plus");
     add.createSpan({ text: "\u589E\u52A0\u4E66\u7C4D" });
     add.addEventListener("click", () => {
       new AddBookModal(this.app, async (book) => {
@@ -5345,7 +5860,7 @@ var CurrentReadingSection = class {
 };
 
 // src/components/reading/ReadingCheckinSection.ts
-var import_obsidian37 = require("obsidian");
+var import_obsidian39 = require("obsidian");
 var ReadingCheckinSection = class {
   constructor(store, onDataChanged) {
     this.store = store;
@@ -5363,7 +5878,7 @@ var ReadingCheckinSection = class {
       dates.forEach((date) => {
         const done = this.store.isHabitCompleted(habit.id, date);
         const button = row.createEl("button", { cls: `cow-habit-dot ${done ? "is-done" : ""}`, attr: { type: "button" } });
-        if (done) (0, import_obsidian37.setIcon)(button, "check");
+        if (done) (0, import_obsidian39.setIcon)(button, "check");
         button.addEventListener("click", async () => {
           await this.store.toggleHabit(habit.id, date);
           this.onDataChanged();
@@ -5393,7 +5908,7 @@ var ReadingHeatmapSection = class {
 };
 
 // src/components/reading/ReadingNotesSection.ts
-var import_obsidian38 = require("obsidian");
+var import_obsidian40 = require("obsidian");
 var ReadingNotesSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5409,7 +5924,7 @@ var ReadingNotesSection = class {
       head.createEl("strong", { text: book.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u9605\u8BFB\u7B14\u8BB0" } });
-      (0, import_obsidian38.setIcon)(edit, "pencil");
+      (0, import_obsidian40.setIcon)(edit, "pencil");
       edit.addEventListener("click", (event) => {
         event.stopPropagation();
         new AddBookModal(this.app, async (updated) => {
@@ -5418,7 +5933,7 @@ var ReadingNotesSection = class {
         }, book).open();
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u9605\u8BFB\u7B14\u8BB0" } });
-      (0, import_obsidian38.setIcon)(remove, "trash-2");
+      (0, import_obsidian40.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async (event) => {
         event.stopPropagation();
         await this.store.deleteBook(book.id);
@@ -5430,7 +5945,7 @@ var ReadingNotesSection = class {
   }
   async openNote(book) {
     if (!book.notePath) {
-      new import_obsidian38.Notice("\u8FD9\u672C\u4E66\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u9605\u8BFB\u7B14\u8BB0\u3002");
+      new import_obsidian40.Notice("\u8FD9\u672C\u4E66\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u9605\u8BFB\u7B14\u8BB0\u3002");
       return;
     }
     const file = this.app.vault.getFileByPath(book.notePath);
@@ -5439,7 +5954,7 @@ var ReadingNotesSection = class {
 };
 
 // src/components/reading/ReadingPlanSection.ts
-var import_obsidian39 = require("obsidian");
+var import_obsidian41 = require("obsidian");
 var ReadingPlanSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5454,13 +5969,13 @@ var ReadingPlanSection = class {
       head.createEl("strong", { text: book.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u9605\u8BFB\u8BA1\u5212" } });
-      (0, import_obsidian39.setIcon)(edit, "pencil");
+      (0, import_obsidian41.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => new AddBookModal(this.app, async (updated) => {
         await this.store.updateBook(book.id, updated);
         this.onDataChanged();
       }, book).open());
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u9605\u8BFB\u8BA1\u5212" } });
-      (0, import_obsidian39.setIcon)(remove, "trash-2");
+      (0, import_obsidian41.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteBook(book.id);
         this.onDataChanged();
@@ -5473,7 +5988,7 @@ var ReadingPlanSection = class {
 };
 
 // src/components/reading/ReadingQuotesSection.ts
-var import_obsidian40 = require("obsidian");
+var import_obsidian42 = require("obsidian");
 var ReadingQuotesSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5488,13 +6003,13 @@ var ReadingQuotesSection = class {
       head.createEl("blockquote", { text: quote.text });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u91D1\u53E5" } });
-      (0, import_obsidian40.setIcon)(edit, "pencil");
+      (0, import_obsidian42.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openQuoteModal(this.app, async (values) => {
         await this.store.updateReadingQuote(quote.id, values);
         this.onDataChanged();
       }, quote));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u91D1\u53E5" } });
-      (0, import_obsidian40.setIcon)(remove, "trash-2");
+      (0, import_obsidian42.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteReadingQuote(quote.id);
         this.onDataChanged();
@@ -5530,7 +6045,7 @@ var ReadingStatsSection = class {
 };
 
 // src/components/research/DataAnalysisTasksSection.ts
-var import_obsidian41 = require("obsidian");
+var import_obsidian43 = require("obsidian");
 var DataAnalysisTasksSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5545,13 +6060,13 @@ var DataAnalysisTasksSection = class {
       head.createEl("strong", { text: task.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u4EFB\u52A1" } });
-      (0, import_obsidian41.setIcon)(edit, "pencil");
+      (0, import_obsidian43.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openDataAnalysisTaskModal(this.app, async (values) => {
         await this.store.updateDataAnalysisTask(task.id, values);
         this.onDataChanged();
       }, task));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u4EFB\u52A1" } });
-      (0, import_obsidian41.setIcon)(remove, "trash-2");
+      (0, import_obsidian43.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteDataAnalysisTask(task.id);
         this.onDataChanged();
@@ -5566,7 +6081,7 @@ var DataAnalysisTasksSection = class {
 };
 
 // src/components/research/ExperimentSection.ts
-var import_obsidian42 = require("obsidian");
+var import_obsidian44 = require("obsidian");
 var ExperimentSection = class {
   constructor(app, store, mode, onDataChanged) {
     this.app = app;
@@ -5583,7 +6098,7 @@ var ExperimentSection = class {
       head.createEl("strong", { text: item.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u5B9E\u9A8C" } });
-      (0, import_obsidian42.setIcon)(edit, "pencil");
+      (0, import_obsidian44.setIcon)(edit, "pencil");
       edit.addEventListener("click", (event) => {
         event.stopPropagation();
         openExperimentModal(this.app, async (values) => {
@@ -5592,7 +6107,7 @@ var ExperimentSection = class {
         }, item);
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u5B9E\u9A8C" } });
-      (0, import_obsidian42.setIcon)(remove, "trash-2");
+      (0, import_obsidian44.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async (event) => {
         event.stopPropagation();
         await this.store.deleteExperiment(this.mode, item.id);
@@ -5606,12 +6121,12 @@ var ExperimentSection = class {
   }
   async openNote(notePath) {
     if (!notePath) {
-      new import_obsidian42.Notice("\u8FD9\u6761\u5B9E\u9A8C\u8BB0\u5F55\u8FD8\u6CA1\u6709\u7ED1\u5B9A Markdown\u3002");
+      new import_obsidian44.Notice("\u8FD9\u6761\u5B9E\u9A8C\u8BB0\u5F55\u8FD8\u6CA1\u6709\u7ED1\u5B9A Markdown\u3002");
       return;
     }
     const file = this.app.vault.getFileByPath(notePath);
     if (!file) {
-      new import_obsidian42.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${notePath}`);
+      new import_obsidian44.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${notePath}`);
       return;
     }
     await this.app.workspace.getLeaf(false).openFile(file);
@@ -5619,7 +6134,7 @@ var ExperimentSection = class {
 };
 
 // src/components/research/LiteratureNotesSection.ts
-var import_obsidian43 = require("obsidian");
+var import_obsidian45 = require("obsidian");
 var LiteratureNotesSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5635,7 +6150,7 @@ var LiteratureNotesSection = class {
       head.createEl("strong", { text: paper.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u6587\u732E\u7B14\u8BB0" } });
-      (0, import_obsidian43.setIcon)(edit, "pencil");
+      (0, import_obsidian45.setIcon)(edit, "pencil");
       edit.addEventListener("click", (event) => {
         event.stopPropagation();
         openResearchPaperModal(this.app, async (values) => {
@@ -5644,7 +6159,7 @@ var LiteratureNotesSection = class {
         }, paper);
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u6587\u732E\u7B14\u8BB0" } });
-      (0, import_obsidian43.setIcon)(remove, "trash-2");
+      (0, import_obsidian45.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async (event) => {
         event.stopPropagation();
         await this.store.deleteResearchPaper(paper.id);
@@ -5656,7 +6171,7 @@ var LiteratureNotesSection = class {
   }
   async openNote(notePath) {
     if (!notePath) {
-      new import_obsidian43.Notice("\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u6587\u732E\u7B14\u8BB0\u3002");
+      new import_obsidian45.Notice("\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u6587\u732E\u7B14\u8BB0\u3002");
       return;
     }
     const file = this.app.vault.getFileByPath(notePath);
@@ -5665,7 +6180,7 @@ var LiteratureNotesSection = class {
 };
 
 // src/components/research/PaperQueueSection.ts
-var import_obsidian44 = require("obsidian");
+var import_obsidian46 = require("obsidian");
 var PaperQueueSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5680,7 +6195,7 @@ var PaperQueueSection = class {
       head.createEl("strong", { text: paper.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u8BBA\u6587" } });
-      (0, import_obsidian44.setIcon)(edit, "pencil");
+      (0, import_obsidian46.setIcon)(edit, "pencil");
       edit.addEventListener("click", (event) => {
         event.stopPropagation();
         openResearchPaperModal(this.app, async (values) => {
@@ -5689,7 +6204,7 @@ var PaperQueueSection = class {
         }, paper);
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u8BBA\u6587" } });
-      (0, import_obsidian44.setIcon)(remove, "trash-2");
+      (0, import_obsidian46.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async (event) => {
         event.stopPropagation();
         await this.store.deleteResearchPaper(paper.id);
@@ -5705,12 +6220,12 @@ var PaperQueueSection = class {
   }
   async openNote(notePath) {
     if (!notePath) {
-      new import_obsidian44.Notice("\u8FD9\u7BC7\u6587\u732E\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u7B14\u8BB0\u3002");
+      new import_obsidian46.Notice("\u8FD9\u7BC7\u6587\u732E\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u7B14\u8BB0\u3002");
       return;
     }
     const file = this.app.vault.getFileByPath(notePath);
     if (!file) {
-      new import_obsidian44.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${notePath}`);
+      new import_obsidian46.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${notePath}`);
       return;
     }
     await this.app.workspace.getLeaf(false).openFile(file);
@@ -5718,7 +6233,7 @@ var PaperQueueSection = class {
 };
 
 // src/components/research/ResearchCheckinSection.ts
-var import_obsidian45 = require("obsidian");
+var import_obsidian47 = require("obsidian");
 var ResearchCheckinSection = class {
   constructor(store, onDataChanged) {
     this.store = store;
@@ -5736,7 +6251,7 @@ var ResearchCheckinSection = class {
       dates.forEach((date) => {
         const done = this.store.isHabitCompleted(habit.id, date);
         const button = row.createEl("button", { cls: `cow-habit-dot ${done ? "is-done" : ""}`, attr: { type: "button" } });
-        if (done) (0, import_obsidian45.setIcon)(button, "check");
+        if (done) (0, import_obsidian47.setIcon)(button, "check");
         button.addEventListener("click", async () => {
           await this.store.toggleHabit(habit.id, date);
           this.onDataChanged();
@@ -5748,7 +6263,7 @@ var ResearchCheckinSection = class {
 };
 
 // src/components/research/ResearchMemoSection.ts
-var import_obsidian46 = require("obsidian");
+var import_obsidian48 = require("obsidian");
 var ResearchMemoSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5763,13 +6278,13 @@ var ResearchMemoSection = class {
       head.createSpan({ text: memo });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91 Memo" } });
-      (0, import_obsidian46.setIcon)(edit, "pencil");
+      (0, import_obsidian48.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openTextModal(this.app, "\u7F16\u8F91\u79D1\u7814 Memo", "Memo", memo, async (value) => {
         await this.store.updateResearchMemo(index, value);
         this.onDataChanged();
       }));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664 Memo" } });
-      (0, import_obsidian46.setIcon)(remove, "trash-2");
+      (0, import_obsidian48.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteResearchMemo(index);
         this.onDataChanged();
@@ -5779,7 +6294,7 @@ var ResearchMemoSection = class {
 };
 
 // src/components/research/ResearchProjectsSection.ts
-var import_obsidian47 = require("obsidian");
+var import_obsidian49 = require("obsidian");
 var ResearchProjectsSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5794,7 +6309,7 @@ var ResearchProjectsSection = class {
       head.createEl("strong", { text: project.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u9879\u76EE" } });
-      (0, import_obsidian47.setIcon)(edit, "pencil");
+      (0, import_obsidian49.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => {
         openResearchProjectModal(this.app, async (values) => {
           await this.store.updateResearchProject(project.id, { ...values, tags: values.tagsText.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean) });
@@ -5802,7 +6317,7 @@ var ResearchProjectsSection = class {
         }, project);
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u9879\u76EE" } });
-      (0, import_obsidian47.setIcon)(remove, "trash-2");
+      (0, import_obsidian49.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteResearchProject(project.id);
         this.onDataChanged();
@@ -5819,7 +6334,7 @@ var ResearchProjectsSection = class {
 };
 
 // src/components/research/ResearchTimelineSection.ts
-var import_obsidian48 = require("obsidian");
+var import_obsidian50 = require("obsidian");
 var ResearchTimelineSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -5835,13 +6350,13 @@ var ResearchTimelineSection = class {
       item.createSpan({ text: ddl.type });
       const actions = item.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91 DDL" } });
-      (0, import_obsidian48.setIcon)(edit, "pencil");
+      (0, import_obsidian50.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openDeadlineModal(this.app, async (values) => {
         await this.store.updateResearchDeadline(ddl.id, values);
         this.onDataChanged();
       }, ddl));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664 DDL" } });
-      (0, import_obsidian48.setIcon)(remove, "trash-2");
+      (0, import_obsidian50.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteResearchDeadline(ddl.id);
         this.onDataChanged();
@@ -5867,7 +6382,7 @@ var DashboardSection = class {
     });
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
     const title = header.createDiv({ cls: "cow-section-title" });
-    (0, import_obsidian49.setIcon)(title.createSpan(), this.getIcon());
+    (0, import_obsidian51.setIcon)(title.createSpan(), this.getIcon());
     title.createEl("h3", { text: this.section.title });
     const actions = header.createDiv({ cls: "cow-section-actions" });
     if (getSectionCapabilities(this.section.type).canAdd) {
@@ -5875,7 +6390,7 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": `\u6DFB\u52A0${this.section.title}\u5185\u5BB9` }
       });
-      (0, import_obsidian49.setIcon)(addButton.createSpan(), "plus");
+      (0, import_obsidian51.setIcon)(addButton.createSpan(), "plus");
       addButton.createSpan({ text: "\u6DFB\u52A0" });
       addButton.addEventListener("click", () => {
         openAddContentModal(this.app, this.store, this.section, this.onDataChanged);
@@ -5886,7 +6401,7 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": `${this.section.title}\u7EDF\u8BA1` }
       });
-      (0, import_obsidian49.setIcon)(statsButton.createSpan(), "bar-chart-3");
+      (0, import_obsidian51.setIcon)(statsButton.createSpan(), "bar-chart-3");
       statsButton.createSpan({ text: "\u7EDF\u8BA1" });
       statsButton.addEventListener("click", () => this.openStats());
     }
@@ -5894,7 +6409,7 @@ var DashboardSection = class {
       cls: "cow-icon-button",
       attr: { type: "button", "aria-label": `${this.section.title}\u64CD\u4F5C\u83DC\u5355` }
     });
-    (0, import_obsidian49.setIcon)(menuButton, "more-horizontal");
+    (0, import_obsidian51.setIcon)(menuButton, "more-horizontal");
     menuButton.addEventListener("click", (event) => {
       new SectionActionMenu(this.app, this.store, this.section, this.onRemove, this.onDataChanged).show(event);
     });
@@ -5905,9 +6420,11 @@ var DashboardSection = class {
     switch (this.section.type) {
       case "weekly-completion":
       case "pending-tasks":
-      case "today-focus-stat":
       case "checkin-streak":
         new OverviewStatsSection(this.store, this.section.type).render(container);
+        break;
+      case "today-focus-stat":
+        new FocusStatSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "today-focus":
       case "today-tasks":
@@ -6256,8 +6773,8 @@ var DashboardSection = class {
 };
 
 // src/components/AddSectionButton.ts
-var import_obsidian50 = require("obsidian");
-var AddSectionModal = class extends import_obsidian50.Modal {
+var import_obsidian52 = require("obsidian");
+var AddSectionModal = class extends import_obsidian52.Modal {
   constructor(app, page, modules, onSelect) {
     super(app);
     this.page = page;
@@ -6275,7 +6792,7 @@ var AddSectionModal = class extends import_obsidian50.Modal {
         cls: "cow-add-module-card",
         attr: { type: "button" }
       });
-      (0, import_obsidian50.setIcon)(button.createSpan({ cls: "cow-add-module-icon" }), module2.icon);
+      (0, import_obsidian52.setIcon)(button.createSpan({ cls: "cow-add-module-icon" }), module2.icon);
       button.createEl("strong", { text: module2.title });
       button.createEl("span", { text: module2.description });
       button.addEventListener("click", async () => {
@@ -6300,7 +6817,7 @@ var AddSectionButton = class {
       cls: "cow-add-section-button",
       attr: { type: "button" }
     });
-    (0, import_obsidian50.setIcon)(button.createSpan(), "plus");
+    (0, import_obsidian52.setIcon)(button.createSpan(), "plus");
     button.createSpan({ text: "\u6DFB\u52A0\u529F\u80FD\u5206\u533A" });
     button.addEventListener("click", () => {
       new AddSectionModal(this.app, this.page, this.modules, this.onAdd).open();
@@ -6375,8 +6892,8 @@ var GoalsPage = class extends BaseDashboardPage {
 };
 
 // src/pages/ModulesPage.ts
-var import_obsidian51 = require("obsidian");
-var ResetDefaultsModal = class extends import_obsidian51.Modal {
+var import_obsidian53 = require("obsidian");
+var ResetDefaultsModal = class extends import_obsidian53.Modal {
   constructor(app, onConfirm) {
     super(app);
     this.onConfirm = onConfirm;
@@ -6416,7 +6933,7 @@ var ModulesPage = class {
     const importInput = actions.createEl("input", { type: "file", attr: { accept: "application/json" } });
     importInput.addClass("cow-hidden-input");
     const importButton = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian51.setIcon)(importButton.createSpan(), "upload");
+    (0, import_obsidian53.setIcon)(importButton.createSpan(), "upload");
     importButton.createSpan({ text: "\u5BFC\u5165\u914D\u7F6E" });
     importButton.addEventListener("click", () => importInput.click());
     importInput.addEventListener("change", () => {
@@ -6425,18 +6942,18 @@ var ModulesPage = class {
       if (!file) return;
       readJsonFile(file, async (data) => {
         await this.store.importData(data);
-        new import_obsidian51.Notice("\u914D\u7F6E\u5DF2\u5BFC\u5165\u3002");
+        new import_obsidian53.Notice("\u914D\u7F6E\u5DF2\u5BFC\u5165\u3002");
         this.onDataChanged();
       });
     });
     const exportButton = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian51.setIcon)(exportButton.createSpan(), "download");
+    (0, import_obsidian53.setIcon)(exportButton.createSpan(), "download");
     exportButton.createSpan({ text: "\u5BFC\u51FA\u914D\u7F6E" });
     exportButton.addEventListener("click", () => {
       downloadJson("cute-obsidian-workbench-config.json", this.store.exportData());
     });
     const resetButton = actions.createEl("button", { cls: "mod-warning", attr: { type: "button" } });
-    (0, import_obsidian51.setIcon)(resetButton.createSpan(), "rotate-ccw");
+    (0, import_obsidian53.setIcon)(resetButton.createSpan(), "rotate-ccw");
     resetButton.createSpan({ text: "\u6062\u590D\u9ED8\u8BA4" });
     resetButton.addEventListener("click", () => {
       new ResetDefaultsModal(this.app, async () => {
@@ -6448,8 +6965,8 @@ var ModulesPage = class {
 };
 
 // src/components/QuickCreateModal.ts
-var import_obsidian52 = require("obsidian");
-var QuickCreateModal = class extends import_obsidian52.Modal {
+var import_obsidian54 = require("obsidian");
+var QuickCreateModal = class extends import_obsidian54.Modal {
   constructor(app, store, getCurrentPage, onDataChanged) {
     super(app);
     this.store = store;
@@ -6472,12 +6989,12 @@ var QuickCreateModal = class extends import_obsidian52.Modal {
     this.renderAction(grid, "\u6DFB\u52A0\u4EFB\u52A1", "list-plus", async () => {
       await this.store.addTodayFocusTask("\u65B0\u7684\u5F85\u529E\u4EFB\u52A1");
       this.onDataChanged();
-      new import_obsidian52.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
+      new import_obsidian54.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
     });
     this.renderAction(grid, "\u6DFB\u52A0\u6253\u5361\u9879\u76EE", "badge-plus", async () => {
       await this.store.addCustomHabit("\u65B0\u7684\u6253\u5361");
       this.onDataChanged();
-      new import_obsidian52.Notice("\u5DF2\u6DFB\u52A0\u6253\u5361\u9879\u76EE\uFF0C\u53EF\u5728\u6A21\u5757\u7BA1\u7406\u4E2D\u7F16\u8F91\u3002");
+      new import_obsidian54.Notice("\u5DF2\u6DFB\u52A0\u6253\u5361\u9879\u76EE\uFF0C\u53EF\u5728\u6A21\u5757\u7BA1\u7406\u4E2D\u7F16\u8F91\u3002");
     });
     this.renderAction(grid, "\u6DFB\u52A0\u529F\u80FD\u5206\u533A", "layout-grid", async () => {
       this.close();
@@ -6486,7 +7003,7 @@ var QuickCreateModal = class extends import_obsidian52.Modal {
   }
   renderAction(container, label, icon, action, closeAfter = true) {
     const button = container.createEl("button", { cls: "cow-quick-create-card", attr: { type: "button" } });
-    (0, import_obsidian52.setIcon)(button.createSpan(), icon);
+    (0, import_obsidian54.setIcon)(button.createSpan(), icon);
     button.createSpan({ text: label });
     button.addEventListener("click", async () => {
       await action();
@@ -6503,8 +7020,8 @@ var QuickCreateModal = class extends import_obsidian52.Modal {
 };
 
 // src/components/WorkbenchCustomizeModal.ts
-var import_obsidian53 = require("obsidian");
-var WorkbenchCustomizeModal = class extends import_obsidian53.Modal {
+var import_obsidian55 = require("obsidian");
+var WorkbenchCustomizeModal = class extends import_obsidian55.Modal {
   constructor(app, store, getCurrentPage, onDataChanged) {
     var _a;
     super(app);
@@ -6531,7 +7048,7 @@ var WorkbenchCustomizeModal = class extends import_obsidian53.Modal {
         cls: this.store.getData().banner.background === background.id ? "is-active" : "",
         attr: { type: "button" }
       });
-      (0, import_obsidian53.setIcon)(button.createSpan(), "image");
+      (0, import_obsidian55.setIcon)(button.createSpan(), "image");
       button.createSpan({ text: background.label });
       button.addEventListener("click", async () => {
         await this.store.updateBanner({ background: background.id, imageDataUrl: void 0 });
@@ -6555,16 +7072,30 @@ var WorkbenchCustomizeModal = class extends import_obsidian53.Modal {
       };
       reader.readAsDataURL(file);
     });
-    new import_obsidian53.Setting(this.contentEl).setName("\u672C\u5730\u56FE\u7247").setDesc("\u4FDD\u5B58\u4E3A data URL\uFF0CBRAT \u5B89\u88C5\u540E\u4E0D\u4F9D\u8D56\u989D\u5916\u8D44\u6E90\u8DEF\u5F84\u3002").addButton((button) => button.setButtonText("\u9009\u62E9\u56FE\u7247").onClick(() => fileInput.click()));
-    new import_obsidian53.Setting(this.contentEl).setName("Banner \u4E3B\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
+    new import_obsidian55.Setting(this.contentEl).setName("\u672C\u5730\u56FE\u7247").setDesc("\u4FDD\u5B58\u4E3A data URL\uFF0CBRAT \u5B89\u88C5\u540E\u4E0D\u4F9D\u8D56\u989D\u5916\u8D44\u6E90\u8DEF\u5F84\u3002").addButton((button) => button.setButtonText("\u9009\u62E9\u56FE\u7247").onClick(() => fileInput.click()));
+    new import_obsidian55.Setting(this.contentEl).setName("\u5DE6\u4FA7\u5934\u50CF").setDesc("\u9009\u62E9\u9884\u8BBE\u56FE\u6807\u6216\u4E0A\u4F20\u56FE\u7247\uFF0C\u5237\u65B0\u540E\u4ECD\u4FDD\u7559\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF").onClick(() => {
+      const current = this.store.getData().banner.sidebarAvatar;
+      new AvatarPickerModal(this.app, "\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF", current, async (avatar) => {
+        await this.store.updateSidebarAvatar(avatar);
+        this.onDataChanged();
+      }).open();
+    }));
+    new import_obsidian55.Setting(this.contentEl).setName("Banner \u56FE\u6807").setDesc("\u9009\u62E9 Banner \u5DE6\u4FA7\u663E\u793A\u7684\u53EF\u7231\u56FE\u6807\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539 Banner \u56FE\u6807").onClick(() => {
+      const current = this.store.getData().banner.bannerAvatar;
+      new AvatarPickerModal(this.app, "\u4FEE\u6539 Banner \u56FE\u6807", current, async (avatar) => {
+        await this.store.updateBannerAvatar(avatar);
+        this.onDataChanged();
+      }).open();
+    }));
+    new import_obsidian55.Setting(this.contentEl).setName("Banner \u4E3B\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
       this.titleValue = value;
     }));
-    new import_obsidian53.Setting(this.contentEl).setName("Banner \u526F\u6807\u9898").addText((text) => text.setValue(this.subtitleValue).onChange((value) => {
+    new import_obsidian55.Setting(this.contentEl).setName("Banner \u526F\u6807\u9898").addText((text) => text.setValue(this.subtitleValue).onChange((value) => {
       this.subtitleValue = value;
     }));
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     const addSection = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian53.setIcon)(addSection.createSpan(), "plus");
+    (0, import_obsidian55.setIcon)(addSection.createSpan(), "plus");
     addSection.createSpan({ text: "\u6DFB\u52A0\u5F53\u524D\u9875\u9762\u529F\u80FD\u5206\u533A" });
     addSection.addEventListener("click", () => {
       this.close();
@@ -6577,7 +7108,7 @@ var WorkbenchCustomizeModal = class extends import_obsidian53.Modal {
         subtitle: this.subtitleValue.trim() || "\u628A\u60F3\u6CD5\u53D8\u6210\u884C\u52A8\uFF0C\u8BA9\u6BCF\u4E00\u5929\u90FD\u66F4\u9760\u8FD1\u7406\u60F3\u7684\u81EA\u5DF1\u3002"
       });
       this.onDataChanged();
-      new import_obsidian53.Notice("Banner \u6587\u6848\u5DF2\u4FDD\u5B58\u3002");
+      new import_obsidian55.Notice("Banner \u6587\u6848\u5DF2\u4FDD\u5B58\u3002");
       this.close();
     });
   }
@@ -6591,8 +7122,8 @@ var WorkbenchCustomizeModal = class extends import_obsidian53.Modal {
 };
 
 // src/components/DayDetailModal.ts
-var import_obsidian54 = require("obsidian");
-var DayDetailModal = class extends import_obsidian54.Modal {
+var import_obsidian56 = require("obsidian");
+var DayDetailModal = class extends import_obsidian56.Modal {
   constructor(app, store, date) {
     super(app);
     this.store = store;
@@ -6605,12 +7136,12 @@ var DayDetailModal = class extends import_obsidian54.Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     const dateKey = this.calendar.getDateKey(this.date);
-    const holiday = this.holidays.getHoliday(this.date);
+    const holidays = this.holidays.getHolidays(this.date);
     const dailyNote = this.notes.getDailyNote(this.date);
     const isToday = this.calendar.isSameDate(this.date, /* @__PURE__ */ new Date());
     this.contentEl.createEl("h2", { text: dateKey });
     this.contentEl.createEl("p", {
-      text: `${this.calendar.getWeekdayLabel(this.date)}${holiday ? ` \xB7 ${holiday}` : " \xB7 \u6682\u65E0\u8282\u65E5"}`
+      text: `${this.calendar.getWeekdayLabel(this.date)}${holidays.length > 0 ? ` \xB7 ${holidays.map((holiday) => holiday.name).join(" / ")}` : " \xB7 \u6682\u65E0\u8282\u65E5"}`
     });
     this.contentEl.createEl("h3", { text: "\u5F53\u5929\u5F85\u529E" });
     const taskList = this.contentEl.createEl("ul", { cls: "cow-day-detail-list" });
@@ -6626,7 +7157,7 @@ var DayDetailModal = class extends import_obsidian54.Modal {
     const noteRow = this.contentEl.createDiv({ cls: "cow-day-note-row" });
     noteRow.createSpan({ text: dailyNote ? dailyNote.path : "\u8FD8\u6CA1\u6709\u6BCF\u65E5\u7B14\u8BB0\u3002" });
     const button = noteRow.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian54.setIcon)(button.createSpan(), dailyNote ? "file-text" : "file-plus");
+    (0, import_obsidian56.setIcon)(button.createSpan(), dailyNote ? "file-text" : "file-plus");
     button.createSpan({ text: dailyNote ? "\u6253\u5F00\u6BCF\u65E5\u7B14\u8BB0" : "\u521B\u5EFA\u6BCF\u65E5\u7B14\u8BB0" });
     button.addEventListener("click", async () => {
       await this.notes.openOrCreateDailyNote(this.date);
@@ -6636,8 +7167,8 @@ var DayDetailModal = class extends import_obsidian54.Modal {
 };
 
 // src/components/NotesManagerModal.ts
-var import_obsidian55 = require("obsidian");
-var NotesManagerModal = class extends import_obsidian55.Modal {
+var import_obsidian57 = require("obsidian");
+var NotesManagerModal = class extends import_obsidian57.Modal {
   constructor(app) {
     super(app);
     this.searchValue = "";
@@ -6645,10 +7176,12 @@ var NotesManagerModal = class extends import_obsidian55.Modal {
   }
   onOpen() {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal");
-    this.contentEl.createEl("h2", { text: "\u7B14\u8BB0\u7BA1\u7406" });
-    this.contentEl.createEl("p", { text: "\u8F7B\u91CF\u67E5\u770B\u6700\u8FD1 Markdown \u7B14\u8BB0\uFF0C\u70B9\u51FB\u5373\u53EF\u6253\u5F00\u3002" });
-    const search = this.contentEl.createEl("input", {
+    this.contentEl.addClass("cow-modal", "cow-notes-manager-modal");
+    const header = this.contentEl.createDiv({ cls: "cow-notes-manager-header" });
+    header.createEl("h2", { text: "\u7B14\u8BB0\u7BA1\u7406" });
+    header.createEl("p", { text: "\u8F7B\u91CF\u67E5\u770B\u6700\u8FD1 Markdown \u7B14\u8BB0\uFF0C\u70B9\u51FB\u5373\u53EF\u6253\u5F00\u3002" });
+    const searchWrap = this.contentEl.createDiv({ cls: "cow-notes-manager-search" });
+    const search = searchWrap.createEl("input", {
       cls: "cow-notes-search",
       attr: { type: "search", placeholder: "\u641C\u7D22\u6587\u4EF6\u540D\u6216\u8DEF\u5F84" }
     });
@@ -6669,8 +7202,9 @@ var NotesManagerModal = class extends import_obsidian55.Modal {
     }
     files.forEach((file) => {
       const button = this.listEl.createEl("button", { cls: "cow-note-manager-item", attr: { type: "button" } });
-      button.createEl("strong", { text: file.basename });
-      button.createEl("span", { text: file.path });
+      const body = button.createDiv({ cls: "cow-note-manager-body" });
+      body.createEl("strong", { text: file.basename });
+      body.createEl("span", { text: file.path });
       button.createEl("time", { text: new Date(file.stat.mtime).toLocaleString("zh-CN") });
       button.addEventListener("click", async () => {
         await this.app.workspace.getLeaf(false).openFile(file);
@@ -6686,7 +7220,7 @@ var NotesManagerModal = class extends import_obsidian55.Modal {
 
 // src/views/WorkbenchView.ts
 var WORKBENCH_VIEW_TYPE = "cute-obsidian-workbench-view";
-var WorkbenchView = class extends import_obsidian56.ItemView {
+var WorkbenchView = class extends import_obsidian58.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -6732,12 +7266,12 @@ var WorkbenchView = class extends import_obsidian56.ItemView {
       new QuickCreateModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open();
     }, (date) => {
       new DayDetailModal(this.app, this.plugin.store, date).open();
-    });
+    }, this.plugin.store.getData.bind(this.plugin.store), () => this.openAvatarPicker("sidebar"));
     this.sidebar.render(shell);
     const main = shell.createDiv({ cls: "cow-main" });
     new TopBanner(this.plugin.store.getData.bind(this.plugin.store), () => {
       new WorkbenchCustomizeModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open();
-    }).render(main);
+    }, () => this.openAvatarPicker("banner")).render(main);
     new TopNavigation(this.plugin.store.getPages(), () => this.router.getCurrentPage(), (page) => {
       this.router.navigate(page);
     }).render(main);
@@ -6775,13 +7309,29 @@ var WorkbenchView = class extends import_obsidian56.ItemView {
     var _a;
     const didRun = (_a = this.app.commands) == null ? void 0 : _a.executeCommandById("file-explorer:open");
     if (!didRun) {
-      new import_obsidian56.Notice("\u672A\u80FD\u6FC0\u6D3B Obsidian \u6587\u4EF6\u7BA1\u7406\u5668\u3002");
+      new import_obsidian58.Notice("\u672A\u80FD\u6FC0\u6D3B Obsidian \u6587\u4EF6\u7BA1\u7406\u5668\u3002");
     }
+  }
+  openAvatarPicker(target) {
+    const banner = this.plugin.store.getData().banner;
+    new AvatarPickerModal(
+      this.app,
+      target === "sidebar" ? "\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF" : "\u4FEE\u6539 Banner \u56FE\u6807",
+      target === "sidebar" ? banner.sidebarAvatar : banner.bannerAvatar,
+      async (avatar) => {
+        if (target === "sidebar") {
+          await this.plugin.store.updateSidebarAvatar(avatar);
+        } else {
+          await this.plugin.store.updateBannerAvatar(avatar);
+        }
+        this.render();
+      }
+    ).open();
   }
 };
 
 // src/main.ts
-var CuteObsidianWorkbenchPlugin = class extends import_obsidian57.Plugin {
+var CuteObsidianWorkbenchPlugin = class extends import_obsidian59.Plugin {
   async onload() {
     this.store = new DashboardStore(
       () => this.loadData(),

@@ -14,6 +14,7 @@ import { OverviewStatsSection } from "./overview/OverviewStatsSection";
 import { QuickActionsSection } from "./overview/QuickActionsSection";
 import { RecentNotesSection } from "./overview/RecentNotesSection";
 import { TodayFocusSection } from "./overview/TodayFocusSection";
+import { FocusStatSection } from "./overview/FocusStatSection";
 import {
   ApexHabitSettingsSection,
   BannerBackgroundSettingsSection,
@@ -169,9 +170,11 @@ export class DashboardSection {
     switch (this.section.type) {
       case "weekly-completion":
       case "pending-tasks":
-      case "today-focus-stat":
       case "checkin-streak":
         new OverviewStatsSection(this.store, this.section.type).render(container);
+        break;
+      case "today-focus-stat":
+        new FocusStatSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "today-focus":
       case "today-tasks":

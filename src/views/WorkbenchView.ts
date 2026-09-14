@@ -18,6 +18,7 @@ import { WorkbenchCustomizeModal } from "../components/WorkbenchCustomizeModal";
 import { DayDetailModal } from "../components/DayDetailModal";
 import { NotesManagerModal } from "../components/NotesManagerModal";
 import { NoteService } from "../services/NoteService";
+import { AvatarPickerModal } from "../components/AvatarPickerModal";
 
 interface CommandEnabledApp {
   commands?: {
@@ -83,13 +84,13 @@ export class WorkbenchView extends ItemView {
       new QuickCreateModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open();
     }, (date) => {
       new DayDetailModal(this.app, this.plugin.store, date).open();
-    });
+    }, this.plugin.store.getData.bind(this.plugin.store), () => this.openAvatarPicker("sidebar"));
     this.sidebar.render(shell);
 
     const main = shell.createDiv({ cls: "cow-main" });
     new TopBanner(this.plugin.store.getData.bind(this.plugin.store), () => {
       new WorkbenchCustomizeModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open();
-    }).render(main);
+    }, () => this.openAvatarPicker("banner")).render(main);
 
     new TopNavigation(this.plugin.store.getPages(), () => this.router.getCurrentPage(), (page) => {
       this.router.navigate(page);
@@ -134,5 +135,22 @@ export class WorkbenchView extends ItemView {
     if (!didRun) {
       new Notice("未能激活 Obsidian 文件管理器。");
     }
+  }
+
+  private openAvatarPicker(target: "sidebar" | "banner"): void {
+    const banner = this.plugin.store.getData().banner;
+    new AvatarPickerModal(
+      this.app,
+      target === "sidebar" ? "修改左侧头像" : "修改 Banner 图标",
+      target === "sidebar" ? banner.sidebarAvatar : banner.bannerAvatar,
+      async (avatar) => {
+        if (target === "sidebar") {
+          await this.plugin.store.updateSidebarAvatar(avatar);
+        } else {
+          await this.plugin.store.updateBannerAvatar(avatar);
+        }
+        this.render();
+      }
+    ).open();
   }
 }

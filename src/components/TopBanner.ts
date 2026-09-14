@@ -1,10 +1,12 @@
 import { setIcon } from "obsidian";
 import type { WorkbenchData } from "../types/dashboard";
+import { renderWorkbenchAvatar } from "./AvatarPickerModal";
 
 export class TopBanner {
   constructor(
     private readonly getData: () => WorkbenchData,
-    private readonly onCustomize: () => void
+    private readonly onCustomize: () => void,
+    private readonly onCustomizeAvatar: () => void
   ) {}
 
   render(container: HTMLElement): void {
@@ -17,8 +19,12 @@ export class TopBanner {
       banner.style.backgroundImage = `linear-gradient(rgba(255, 224, 237, ${data.banner.overlay ? "0.45" : "0"}), rgba(255, 247, 223, ${data.banner.overlay ? "0.45" : "0"})), url("${data.banner.imageDataUrl}")`;
       banner.style.backgroundSize = "cover";
     }
-    const dog = banner.createDiv({ cls: "cow-banner-dog", attr: { "aria-hidden": "true" } });
-    dog.createDiv({ cls: "cow-dog-face" });
+    const dog = banner.createEl("button", {
+      cls: "cow-banner-avatar-button",
+      attr: { type: "button", "aria-label": "修改 Banner 图标" }
+    });
+    renderWorkbenchAvatar(dog, data.banner.bannerAvatar, "cow-banner-dog");
+    dog.addEventListener("click", this.onCustomizeAvatar);
 
     const copy = banner.createDiv({ cls: "cow-banner-copy" });
     copy.createEl("p", { cls: "cow-banner-kicker", text: "冲鸭！" });

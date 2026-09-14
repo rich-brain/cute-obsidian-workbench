@@ -368,6 +368,39 @@
   cursor: pointer;
 }
 
+.cow-avatar-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.cow-avatar-choice-grid button {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-height: 118px;
+  padding: 10px;
+  border: 1px solid var(--cow-border);
+  border-radius: 14px;
+  background: rgba(255, 248, 253, 0.76);
+  color: var(--cow-ink);
+  cursor: pointer;
+}
+
+.cow-avatar-choice-grid button.is-active {
+  border-color: var(--cow-pink-strong);
+  box-shadow: inset 0 0 0 2px rgba(242, 59, 141, 0.18);
+}
+
+.cow-avatar-preview {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 22px;
+}
+
 .cow-choice-grid button.is-active,
 .cow-background-choice-grid button.is-active {
   border-color: var(--cow-pink-strong);
@@ -491,12 +524,65 @@
   place-items: center;
 }
 
+.cow-profile-avatar-button,
+.cow-banner-avatar-button {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cow-profile-avatar-button {
+  margin: 0 auto;
+  border-radius: 28px;
+}
+
+.cow-banner-avatar-button {
+  border-radius: 28px;
+}
+
 .cow-profile-avatar {
   width: 84px;
   height: 84px;
-  margin: 0 auto;
   border-radius: 28px;
   background: linear-gradient(135deg, #ffe7a8, #ffb5d2);
+}
+
+.cow-custom-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.cow-avatar-heart {
+  background: linear-gradient(135deg, #ffe0ed, #ff7fb4);
+  color: white;
+}
+
+.cow-avatar-star {
+  background: linear-gradient(135deg, #fff7df, #ffd166);
+  color: #7a421f;
+}
+
+.cow-avatar-flower {
+  background: linear-gradient(135deg, #e5f8e9, #ffcadf);
+  color: #278257;
+}
+
+.cow-avatar-moon {
+  background: linear-gradient(135deg, #efe7ff, #d8c5ff);
+  color: #6747b8;
+}
+
+.cow-custom-avatar > span svg {
+  width: 46px;
+  height: 46px;
+  stroke-width: 2.4;
 }
 
 .cow-mini-dog,
@@ -624,6 +710,20 @@
   position: relative;
   width: 132px;
   height: 98px;
+  border-radius: 28px;
+}
+
+.cow-banner-dog.cow-avatar-image {
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.cow-banner-dog.cow-avatar-heart,
+.cow-banner-dog.cow-avatar-star,
+.cow-banner-dog.cow-avatar-flower,
+.cow-banner-dog.cow-avatar-moon {
+  width: 112px;
+  height: 92px;
 }
 
 .cow-dog-face {
@@ -846,10 +946,13 @@
 }
 
 .cow-focus-list li {
-  min-height: 30px;
-  padding: 4px 8px;
+  min-height: 34px;
+  padding: 6px 8px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.44);
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
 }
 
 .cow-focus-list input {
@@ -1101,8 +1204,25 @@
 .cow-calendar-day {
   display: grid;
   gap: 2px;
+  align-content: start;
+  justify-items: center;
   padding: 4px;
   color: var(--cow-ink);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cow-calendar-holiday {
+  max-width: 100%;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: rgba(255, 209, 102, 0.34);
+  color: var(--cow-pink-strong);
+  font-size: 9px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cow-calendar-day.is-today {
@@ -1114,6 +1234,7 @@
 .cow-calendar-dots {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 2px;
   min-height: 5px;
 }
@@ -1735,18 +1856,135 @@
 
 .cow-note-manager-item {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   width: 100%;
-  gap: 4px;
+  gap: 10px;
+  min-height: 58px;
+  box-sizing: border-box;
   color: var(--cow-ink);
   text-align: left;
   cursor: pointer;
 }
 
-.cow-note-manager-item span,
+.cow-note-manager-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cow-note-manager-body strong {
+  overflow-wrap: anywhere;
+}
+
+.cow-note-manager-body span,
 .cow-note-manager-item time {
   color: var(--cow-muted);
   font-size: 12px;
   overflow-wrap: anywhere;
+}
+
+.cow-note-manager-item time {
+  justify-self: end;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cow-notes-manager-modal {
+  width: min(760px, 92vw);
+}
+
+.cow-notes-manager-header {
+  display: grid;
+  gap: 4px;
+}
+
+.cow-notes-manager-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 2px 0 10px;
+  background: var(--background-primary);
+}
+
+.cow-notes-manager-list {
+  max-height: min(52vh, 520px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.cow-focus-stat-card,
+.cow-focus-records,
+.cow-focus-modal-timer {
+  display: grid;
+  gap: 10px;
+}
+
+.cow-focus-stat-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.cow-focus-stat-top strong {
+  display: block;
+  font-size: 24px;
+}
+
+.cow-focus-stat-top span,
+.cow-focus-status,
+.cow-focus-record-item span {
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-focus-timer {
+  padding: 10px 12px;
+  border: 1px solid rgba(74, 167, 255, 0.28);
+  border-radius: 14px;
+  background: rgba(225, 243, 255, 0.58);
+  color: var(--cow-ink);
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+}
+
+.cow-focus-actions,
+.cow-focus-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cow-focus-actions button,
+.cow-focus-modal-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cow-focus-modal-timer {
+  justify-items: center;
+  padding: 16px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 16px;
+  background: rgba(255, 248, 253, 0.72);
+}
+
+.cow-focus-modal-timer strong {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.cow-focus-record-item {
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid rgba(242, 59, 141, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.48);
 }
 
 .cow-feature-card {

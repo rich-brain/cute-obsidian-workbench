@@ -226,6 +226,39 @@
   cursor: pointer;
 }
 
+.cow-avatar-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.cow-avatar-choice-grid button {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-height: 118px;
+  padding: 10px;
+  border: 1px solid var(--cow-border);
+  border-radius: 14px;
+  background: rgba(255, 248, 253, 0.76);
+  color: var(--cow-ink);
+  cursor: pointer;
+}
+
+.cow-avatar-choice-grid button.is-active {
+  border-color: var(--cow-pink-strong);
+  box-shadow: inset 0 0 0 2px rgba(242, 59, 141, 0.18);
+}
+
+.cow-avatar-preview {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 22px;
+}
+
 .cow-choice-grid button.is-active,
 .cow-background-choice-grid button.is-active {
   border-color: var(--cow-pink-strong);

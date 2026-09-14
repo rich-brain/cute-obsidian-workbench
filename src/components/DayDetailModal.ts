@@ -23,13 +23,13 @@ export class DayDetailModal extends Modal {
     this.contentEl.addClass("cow-modal");
 
     const dateKey = this.calendar.getDateKey(this.date);
-    const holiday = this.holidays.getHoliday(this.date);
+    const holidays = this.holidays.getHolidays(this.date);
     const dailyNote = this.notes.getDailyNote(this.date);
     const isToday = this.calendar.isSameDate(this.date, new Date());
 
     this.contentEl.createEl("h2", { text: dateKey });
     this.contentEl.createEl("p", {
-      text: `${this.calendar.getWeekdayLabel(this.date)}${holiday ? ` · ${holiday}` : " · 暂无节日"}`
+      text: `${this.calendar.getWeekdayLabel(this.date)}${holidays.length > 0 ? ` · ${holidays.map((holiday) => holiday.name).join(" / ")}` : " · 暂无节日"}`
     });
 
     this.contentEl.createEl("h3", { text: "当天待办" });

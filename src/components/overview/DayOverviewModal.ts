@@ -30,10 +30,10 @@ export class DayOverviewModal extends Modal {
     this.contentEl.addClass("cow-modal");
 
     const dateKey = this.calendar.getDateKey(this.date);
-    const holiday = this.holidays.getHoliday(this.date);
+    const holidays = this.holidays.getHolidays(this.date);
     this.contentEl.createEl("h2", { text: dateKey });
     this.contentEl.createEl("p", {
-      text: `${this.calendar.getWeekdayLabel(this.date)}${holiday ? ` · ${holiday}` : " · 暂无节日"}`
+      text: `${this.calendar.getWeekdayLabel(this.date)}${holidays.length > 0 ? ` · ${holidays.map((holiday) => holiday.name).join(" / ")}` : " · 暂无节日"}`
     });
 
     this.renderTodos(dateKey);
