@@ -7,8 +7,35 @@
 
 .cow-mini-calendar h3,
 .cow-calendar-widget h4 {
-  margin: 0 0 8px;
+  margin: 0;
   text-align: center;
+}
+
+.cow-mini-calendar-header {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+.cow-mini-calendar-header button,
+.cow-mini-calendar-today {
+  display: grid;
+  place-items: center;
+  min-height: 28px;
+  border: 1px solid var(--cow-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.56);
+  color: var(--cow-ink);
+  cursor: pointer;
+}
+
+.cow-mini-calendar-today {
+  width: 100%;
+  margin: 0 0 8px;
+  color: var(--cow-pink-strong);
+  font-weight: 800;
 }
 
 .cow-mini-calendar-grid,
@@ -29,14 +56,26 @@
   display: grid;
   place-items: center;
   min-height: 24px;
+  border: 0;
   border-radius: 50%;
+  background: transparent;
+  color: var(--cow-ink);
   font-size: 12px;
+}
+
+.cow-day {
+  cursor: pointer;
 }
 
 .cow-day.is-today {
   background: var(--cow-pink-strong);
   color: white;
   font-weight: 800;
+}
+
+.cow-day.is-selected {
+  outline: 2px solid var(--cow-yellow);
+  outline-offset: 2px;
 }
 
 .cow-calendar-widget .cow-day {
@@ -380,8 +419,24 @@
   background: var(--cow-pink-strong);
 }
 
+.cow-calendar-dots .is-task-done {
+  background: var(--cow-green);
+}
+
 .cow-calendar-dots .is-event {
-  background: var(--cow-blue);
+  background: var(--cow-purple);
+}
+
+.cow-calendar-dots .is-more {
+  width: auto;
+  min-width: 16px;
+  height: 10px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: rgba(178, 140, 255, 0.22);
+  color: var(--cow-muted);
+  font-size: 9px;
+  line-height: 10px;
 }
 
 .cow-recent-notes button {
@@ -479,12 +534,74 @@
 .cow-data-card {
   display: grid;
   gap: 7px;
+  min-width: 0;
+  height: auto;
+  box-sizing: border-box;
   padding: 9px 10px;
   border: 1px solid rgba(242, 59, 141, 0.2);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.48);
   color: var(--cow-ink);
   text-align: left;
+}
+
+.cow-data-card strong,
+.cow-data-card span,
+.cow-data-card p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-list-item-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cow-list-item-head > strong,
+.cow-list-item-head > span,
+.cow-list-item-head > blockquote {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-list-item-actions,
+.cow-section-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+
+.cow-list-item-actions button,
+.cow-section-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid var(--cow-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--cow-pink-strong);
+  cursor: pointer;
+}
+
+.cow-list-item-actions button {
+  width: 28px;
+  padding: 0;
+}
+
+.cow-editable-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
 }
 
 .cow-click-card {
@@ -548,9 +665,12 @@
 
 .cow-timeline-item {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr) 44px;
+  grid-template-columns: 82px minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: center;
+  min-width: 0;
+  height: auto;
+  box-sizing: border-box;
   padding: 8px 10px;
   border-left: 4px solid var(--cow-yellow);
   border-radius: 10px;
@@ -565,6 +685,12 @@
 .cow-timeline-item span {
   color: var(--cow-muted);
   font-size: 12px;
+  min-width: 0;
+}
+
+.cow-timeline-item strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .cow-memo-list {
@@ -650,7 +776,7 @@
 
 .cow-book-controls {
   display: grid;
-  grid-template-columns: minmax(48px, 1fr) auto 30px 30px;
+  grid-template-columns: minmax(48px, 1fr) auto repeat(4, 30px);
   align-items: center;
   gap: 5px;
 }
@@ -743,6 +869,171 @@
 .cow-ai-review p {
   margin: 0;
   color: var(--cow-muted);
+}
+
+.cow-day-detail-list,
+.cow-notes-manager-list {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.cow-day-detail-list li,
+.cow-day-note-row,
+.cow-note-manager-item {
+  padding: 8px 10px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.cow-day-note-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.cow-day-note-row > span {
+  color: var(--cow-muted);
+  overflow-wrap: anywhere;
+}
+
+.cow-day-note-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--cow-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--cow-pink-strong);
+  font-weight: 800;
+}
+
+.cow-day-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.cow-day-section-header h3 {
+  margin: 0;
+}
+
+.cow-day-section-header button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--cow-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--cow-pink-strong);
+  font-weight: 800;
+}
+
+.cow-calendar-todo-list,
+.cow-day-note-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.cow-calendar-todo-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 30px 30px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.cow-calendar-todo-item input {
+  accent-color: var(--cow-green);
+}
+
+.cow-calendar-todo-item div {
+  display: grid;
+  gap: 2px;
+}
+
+.cow-calendar-todo-item span {
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-calendar-todo-item.is-complete strong {
+  color: var(--cow-muted);
+  text-decoration: line-through;
+}
+
+.cow-calendar-todo-item button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--cow-border);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.56);
+  color: var(--cow-ink);
+}
+
+.cow-day-note-group {
+  display: grid;
+  gap: 7px;
+}
+
+.cow-day-note-group h4 {
+  margin: 8px 0 0;
+  color: var(--cow-pink-strong);
+  font-size: 13px;
+}
+
+.cow-day-note-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--cow-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cow-day-note-item span,
+.cow-day-note-item time {
+  color: var(--cow-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.cow-notes-search {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.cow-note-manager-item {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  color: var(--cow-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cow-note-manager-item span,
+.cow-note-manager-item time {
+  color: var(--cow-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .cow-feature-card {
@@ -956,4 +1247,277 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.56);
   color: var(--cow-pink-strong);
+}
+
+.cow-section-manager {
+  display: grid;
+  gap: 12px;
+}
+
+.cow-section-manager-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cow-section-manager-picker button {
+  min-height: 32px;
+  border: 1px solid var(--cow-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.56);
+  color: var(--cow-ink);
+  font-weight: 700;
+}
+
+.cow-section-manager-picker button.is-active {
+  background: rgba(255, 127, 180, 0.24);
+  color: var(--cow-pink-strong);
+}
+
+.cow-section-manager-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cow-section-manager-panel {
+  min-width: 0;
+}
+
+.cow-section-manager-panel h4 {
+  margin: 0 0 8px;
+  color: var(--cow-pink-strong);
+}
+
+.cow-section-manager-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: auto;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.cow-section-manager-row.is-dragging {
+  opacity: 0.55;
+}
+
+.cow-section-manager-title {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.cow-section-manager-title > span:last-child {
+  grid-column: 1 / -1;
+  color: var(--cow-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.cow-section-manager-title strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-section-manager-controls {
+  display: flex;
+  gap: 5px;
+}
+
+.cow-section-manager-controls select {
+  max-width: 82px;
+}
+
+@media (max-width: 1100px) {
+  .cow-section-manager-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .cow-section-manager-row {
+    grid-template-columns: 1fr;
+  }
+
+  .cow-section-manager-controls,
+  .cow-list-item-actions {
+    justify-content: flex-start;
+  }
+}
+
+.cow-stats-modal-header {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cow-stats-modal-header h2 {
+  margin: 0;
+  text-align: center;
+}
+
+.cow-stats-modal-header button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--cow-border);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--cow-pink-strong);
+}
+
+.cow-stats-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.cow-stats-card {
+  display: grid;
+  gap: 4px;
+  place-items: center;
+  min-height: 78px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.cow-stats-card strong {
+  color: var(--cow-pink-strong);
+  font-size: 22px;
+}
+
+.cow-stats-card span,
+.cow-habit-day-row span:last-child,
+.cow-year-progress-card span {
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-habit-stats-heatmap {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.cow-habit-stats-heatmap button {
+  min-height: 32px;
+  border: 1px solid rgba(67, 199, 122, 0.18);
+  border-radius: 9px;
+  background: rgba(67, 199, 122, 0.12);
+  color: var(--cow-ink);
+  font-size: 12px;
+}
+
+.cow-habit-stats-heatmap .level-1 {
+  background: rgba(67, 199, 122, 0.24);
+}
+
+.cow-habit-stats-heatmap .level-2 {
+  background: rgba(67, 199, 122, 0.42);
+}
+
+.cow-habit-stats-heatmap .level-3 {
+  background: rgba(67, 199, 122, 0.62);
+}
+
+.cow-habit-stats-heatmap .level-4 {
+  background: rgba(67, 199, 122, 0.86);
+}
+
+.cow-habit-stats-heatmap button.is-selected {
+  outline: 2px solid var(--cow-pink-strong);
+  outline-offset: 2px;
+}
+
+.cow-habit-day-detail {
+  display: grid;
+  gap: 7px;
+}
+
+.cow-habit-day-detail h3 {
+  margin: 0 0 4px;
+}
+
+.cow-habit-day-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.cow-habit-day-row .is-done {
+  color: var(--cow-green) !important;
+  font-weight: 800;
+}
+
+.cow-progress-stats-table {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+
+.cow-progress-stats-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px 64px 72px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.cow-progress-stats-row.is-header {
+  color: var(--cow-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cow-progress-stats-row .is-up {
+  color: var(--cow-green);
+  font-weight: 800;
+}
+
+.cow-progress-stats-row .is-down {
+  color: var(--cow-pink-strong);
+  font-weight: 800;
+}
+
+.cow-year-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cow-year-progress-card {
+  display: grid;
+  gap: 6px;
+  padding: 9px 10px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 700px) {
+  .cow-stats-card-grid,
+  .cow-year-progress-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cow-progress-stats-row {
+    grid-template-columns: minmax(0, 1fr) repeat(3, auto);
+  }
 }

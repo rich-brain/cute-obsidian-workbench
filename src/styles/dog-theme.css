@@ -5,6 +5,23 @@
   padding: 14px;
 }
 
+.cow-sidebar-create-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--cow-border);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--cow-pink-strong);
+  cursor: pointer;
+}
+
 .cow-profile {
   text-align: center;
 }
@@ -188,6 +205,7 @@
 
 .cow-banner-button {
   position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 6px;

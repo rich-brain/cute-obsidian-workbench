@@ -11,6 +11,8 @@
 
 .cow-section {
   position: relative;
+  box-sizing: border-box;
+  height: auto;
   min-height: 150px;
   border-radius: var(--cow-radius);
   padding: 12px;
@@ -23,13 +25,39 @@
 .cow-section::after,
 .cow-top-banner::after,
 .cow-sidebar::after {
-  content: "+";
+  content: none;
   position: absolute;
   right: 18px;
   top: 14px;
   color: rgba(255, 185, 66, 0.65);
   font-size: 20px;
   pointer-events: none;
+}
+
+.cow-card-color-pink {
+  --cow-section-tint: rgba(255, 224, 237, var(--cute-card-opacity));
+}
+
+.cow-card-color-cream {
+  --cow-section-tint: rgba(255, 247, 223, var(--cute-card-opacity));
+}
+
+.cow-card-color-mint {
+  --cow-section-tint: rgba(224, 250, 231, var(--cute-card-opacity));
+}
+
+.cow-card-color-sky {
+  --cow-section-tint: rgba(225, 243, 255, var(--cute-card-opacity));
+}
+
+.cow-card-color-lavender {
+  --cow-section-tint: rgba(239, 231, 255, var(--cute-card-opacity));
+}
+
+.cow-section[class*="cow-card-color-"]:not(.cow-card-color-default) {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.58), var(--cow-section-tint)),
+    var(--cow-paper);
 }
 
 .cow-section::before {
@@ -131,6 +159,13 @@
   margin: 0 0 8px;
 }
 
+.cow-modal {
+  max-height: min(74vh, 720px);
+  overflow: auto;
+  padding-right: 4px;
+  box-sizing: border-box;
+}
+
 .cow-modal p {
   margin: 0 0 16px;
   color: var(--text-muted);
@@ -165,6 +200,58 @@
   font-size: 12px;
 }
 
+.cow-quick-create-grid,
+.cow-choice-grid,
+.cow-background-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.cow-quick-create-card,
+.cow-choice-grid button,
+.cow-background-choice-grid button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--cow-border);
+  border-radius: 12px;
+  background: rgba(255, 248, 253, 0.86);
+  color: var(--cow-ink);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cow-choice-grid button.is-active,
+.cow-background-choice-grid button.is-active {
+  border-color: var(--cow-pink-strong);
+  background: rgba(255, 127, 180, 0.22);
+}
+
+.cow-color-choice.cow-card-color-pink {
+  background: rgba(255, 224, 237, 0.92);
+}
+
+.cow-color-choice.cow-card-color-cream {
+  background: rgba(255, 247, 223, 0.92);
+}
+
+.cow-color-choice.cow-card-color-mint {
+  background: rgba(224, 250, 231, 0.92);
+}
+
+.cow-color-choice.cow-card-color-sky {
+  background: rgba(225, 243, 255, 0.92);
+}
+
+.cow-color-choice.cow-card-color-lavender {
+  background: rgba(239, 231, 255, 0.92);
+}
+
 @media (max-width: 900px) {
   .cow-section,
   .cow-section-md,
@@ -172,5 +259,45 @@
   .cow-section-lg,
   .cow-section-full {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1200px) {
+  .cow-section-sm,
+  .cow-section-md {
+    grid-column: span 6;
+  }
+
+  .cow-section-lg {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .cow-section,
+  .cow-section-md,
+  .cow-section-sm,
+  .cow-section-lg,
+  .cow-section-full {
+    grid-column: 1 / -1;
+  }
+
+  .cow-section-header,
+  .cow-page-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cow-section-actions,
+  .cow-modal-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .cow-add-module-grid,
+  .cow-quick-create-grid,
+  .cow-choice-grid,
+  .cow-background-choice-grid {
+    grid-template-columns: 1fr;
   }
 }

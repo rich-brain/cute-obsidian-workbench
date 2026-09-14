@@ -6,12 +6,17 @@ import type {
   BookItem,
   BodyMeasurement,
   Budget,
+  CalendarTodo,
+  CustomSectionInput,
+  DataAnalysisTask,
   DashboardPage,
   DashboardPageDefinition,
   DashboardSectionConfig,
   ExperimentPlan,
   FitnessGoal,
+  FinanceTodo,
   Goal,
+  HealthReminder,
   KeyResult,
   Milestone,
   Objective,
@@ -108,6 +113,7 @@ export const AVAILABLE_MODULES: AvailableModuleDefinition[] = [
   { type: "long-term-progress", title: "长期进展", description: "目标长期趋势和完成率。", page: "goals", icon: "trending-up", defaultWidth: "md" },
   { type: "enabled-modules-overview", title: "已启用模块概览", description: "统计当前页面和整个工作台启用模块。", page: "modules", icon: "panel-top", defaultWidth: "md" },
   { type: "home-layout-manager", title: "首页布局管理", description: "切换默认、紧凑或极简布局。", page: "modules", icon: "layout-template", defaultWidth: "md" },
+  { type: "section-manager", title: "功能分区管理", description: "按页面管理启用、隐藏、删除、排序、颜色、宽度和自定义分区。", page: "modules", icon: "rows-3", defaultWidth: "full", defaultHeight: "lg" },
   { type: "module-settings", title: "模块开关与排序", description: "管理模块启用状态和拖动排序。", page: "modules", icon: "sliders-horizontal", defaultWidth: "full" },
   { type: "banner-background-settings", title: "Banner 背景设置", description: "设置推荐壁纸、本地图片、纯色背景和遮罩。", page: "modules", icon: "image", defaultWidth: "md" },
   { type: "calendar-widget-settings", title: "日历组件设置", description: "控制日期标记、周起始日和高亮颜色。", page: "modules", icon: "calendar-days", defaultWidth: "md" },
@@ -483,16 +489,18 @@ const DEFAULT_DATA: WorkbenchData = {
     createSection("goals", "long-term-progress", "长期进展", 100),
     createSection("modules", "enabled-modules-overview", "已启用模块概览", 10),
     createSection("modules", "home-layout-manager", "首页布局管理", 20),
-    createSection("modules", "module-settings", "模块开关与排序", 30, "full", "lg"),
-    createSection("modules", "banner-background-settings", "Banner 背景设置", 40),
-    createSection("modules", "calendar-widget-settings", "日历组件设置", 50),
-    createSection("modules", "apex-habit-settings", "Apex 打卡模块设置", 60),
-    createSection("modules", "quick-action-settings", "快捷操作配置", 70),
-    createSection("modules", "theme-color-settings", "主题与配色", 80),
-    createSection("modules", "data-source-status", "数据源", 90)
+    createSection("modules", "section-manager", "功能分区管理", 30, "full", "lg"),
+    createSection("modules", "module-settings", "模块开关与排序", 40, "full", "lg"),
+    createSection("modules", "banner-background-settings", "Banner 背景设置", 50),
+    createSection("modules", "calendar-widget-settings", "日历组件设置", 60),
+    createSection("modules", "apex-habit-settings", "Apex 打卡模块设置", 70),
+    createSection("modules", "quick-action-settings", "快捷操作配置", 80),
+    createSection("modules", "theme-color-settings", "主题与配色", 90),
+    createSection("modules", "data-source-status", "数据源", 100)
   ],
   banner: {
     message: "要成功，先发疯，不顾一切向前冲。",
+    subtitle: "把想法变成行动，让每一天都更靠近理想的自己。",
     background: "pink-paper",
     backgroundPosition: "center",
     overlay: true,
@@ -560,6 +568,12 @@ const DEFAULT_DATA: WorkbenchData = {
     "对比学习框架也许可以作为论文方法部分的主线。",
     "组会前整理一次失败实验，可能比只展示成功结果更有价值。"
   ],
+  dataAnalysisTasks: [
+    { id: "analysis-scrna", title: "scRNA-seq 数据预处理", progress: 80, status: "进行中" },
+    { id: "analysis-deg", title: "差异基因分析", progress: 100, status: "已完成" },
+    { id: "analysis-chart", title: "可视化图表生成", progress: 30, status: "进行中" },
+    { id: "analysis-paper", title: "论文图表整理", progress: 50, status: "进行中" }
+  ],
   books: [
     {
       id: "book-deep-work",
@@ -613,6 +627,12 @@ const DEFAULT_DATA: WorkbenchData = {
     { id: "fitness-goal-cardio", title: "本月有氧", current: 210, target: 600, unit: "min", deadline: "2026-09-30" },
     { id: "fitness-goal-strength", title: "力量训练", current: 6, target: 12, unit: "次", deadline: "2026-09-30" }
   ],
+  healthReminders: [
+    { id: "health-warmup", title: "训练前热身 8 分钟。" },
+    { id: "health-stand", title: "久坐 50 分钟后起身活动。" },
+    { id: "health-protein", title: "力量日后补充蛋白质和睡眠。" },
+    { id: "health-recovery", title: "状态差时允许降强度，不硬扛。" }
+  ],
   transactions: [
     { id: "tx-1", type: "income", category: "工资", amount: 12000, date: "2026-09-01", note: "月收入" },
     { id: "tx-2", type: "expense", category: "餐饮", amount: 860, date: "2026-09-03", note: "外食与咖啡" },
@@ -639,6 +659,12 @@ const DEFAULT_DATA: WorkbenchData = {
     { id: "bill-rent", title: "房租", amount: 3000, dueDate: "2026-09-20", paid: false },
     { id: "bill-phone", title: "手机套餐", amount: 89, dueDate: "2026-09-18", paid: false },
     { id: "bill-card", title: "信用卡还款", amount: 1260, dueDate: "2026-09-25", paid: false }
+  ],
+  financeTodos: [
+    { id: "finance-todo-transport", title: "记录本周交通支出", completed: false },
+    { id: "finance-todo-food", title: "检查餐饮预算", completed: true },
+    { id: "finance-todo-bills", title: "确认账单提醒", completed: false },
+    { id: "finance-todo-invest", title: "整理投资观察笔记", completed: false }
   ],
   goals: [
     {
@@ -694,6 +720,7 @@ const DEFAULT_DATA: WorkbenchData = {
     weekStartsOn: "monday",
     highlightColor: "#f23b8d"
   },
+  calendarTodos: [],
   apexHabitSettings: {
     showOnOverview: true,
     showStreak: true,
@@ -802,6 +829,30 @@ export class DashboardStore {
     return section;
   }
 
+  async addCustomSection(input: CustomSectionInput): Promise<DashboardSectionConfig> {
+    const existingSections = this.data.sections.filter((section) => section.page === input.page);
+    const nextOrder = input.order ?? existingSections.reduce((max, section) => Math.max(max, section.order), 0) + 10;
+    const section: DashboardSectionConfig = {
+      id: input.id || `${input.page}-${input.type}-${Date.now()}`,
+      page: input.page,
+      type: input.type,
+      title: input.title,
+      order: nextOrder,
+      enabled: true,
+      width: "md",
+      height: "md",
+      config: {
+        description: input.description,
+        cardColor: input.color,
+        customType: input.type
+      }
+    };
+
+    this.data.sections.push(section);
+    await this.save();
+    return section;
+  }
+
   async removeSection(sectionId: string): Promise<void> {
     this.data.sections = this.data.sections.filter((section) => section.id !== sectionId);
     await this.save();
@@ -811,6 +862,38 @@ export class DashboardStore {
     const section = this.data.sections.find((item) => item.id === sectionId);
     if (!section) return;
     section.enabled = enabled;
+    await this.save();
+  }
+
+  async updateSection(sectionId: string, updates: Partial<DashboardSectionConfig>): Promise<void> {
+    const section = this.data.sections.find((item) => item.id === sectionId);
+    if (!section) return;
+    Object.assign(section, updates);
+    await this.save();
+  }
+
+  async updateSectionConfig(sectionId: string, updates: Record<string, unknown>): Promise<void> {
+    const section = this.data.sections.find((item) => item.id === sectionId);
+    if (!section) return;
+    section.config = { ...section.config, ...updates };
+    await this.save();
+  }
+
+  async moveSection(sectionId: string, direction: "up" | "down"): Promise<void> {
+    const section = this.data.sections.find((item) => item.id === sectionId);
+    if (!section) return;
+
+    const pageSections = this.data.sections
+      .filter((item) => item.page === section.page && item.enabled)
+      .sort((left, right) => left.order - right.order);
+    const currentIndex = pageSections.findIndex((item) => item.id === sectionId);
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    const target = pageSections[targetIndex];
+    if (!target) return;
+
+    const currentOrder = section.order;
+    section.order = target.order;
+    target.order = currentOrder;
     await this.save();
   }
 
@@ -843,6 +926,42 @@ export class DashboardStore {
   async updateCalendarSettings(updates: Partial<WorkbenchData["calendarSettings"]>): Promise<void> {
     this.data.calendarSettings = { ...this.data.calendarSettings, ...updates };
     this.data.userSettings.weekStartsOn = this.data.calendarSettings.weekStartsOn;
+    await this.save();
+  }
+
+  getCalendarTodos(date?: string): CalendarTodo[] {
+    const todos = [...this.data.calendarTodos].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    return date ? todos.filter((todo) => todo.date === date) : todos;
+  }
+
+  async addCalendarTodo(title: string, date: string, category = "待办"): Promise<void> {
+    this.data.calendarTodos.push({
+      id: `calendar-todo-${Date.now()}`,
+      title,
+      date,
+      completed: false,
+      category,
+      createdAt: new Date().toISOString()
+    });
+    await this.save();
+  }
+
+  async updateCalendarTodo(todoId: string, updates: Partial<CalendarTodo>): Promise<void> {
+    const todo = this.data.calendarTodos.find((item) => item.id === todoId);
+    if (!todo) return;
+    Object.assign(todo, updates);
+    await this.save();
+  }
+
+  async toggleCalendarTodo(todoId: string): Promise<void> {
+    const todo = this.data.calendarTodos.find((item) => item.id === todoId);
+    if (!todo) return;
+    todo.completed = !todo.completed;
+    await this.save();
+  }
+
+  async deleteCalendarTodo(todoId: string): Promise<void> {
+    this.data.calendarTodos = this.data.calendarTodos.filter((todo) => todo.id !== todoId);
     await this.save();
   }
 
@@ -959,8 +1078,42 @@ export class DashboardStore {
     return this.data.researchProjects;
   }
 
+  async addResearchProject(project: ResearchProject): Promise<void> {
+    this.data.researchProjects.push(project);
+    await this.save();
+  }
+
+  async updateResearchProject(projectId: string, updates: Partial<ResearchProject>): Promise<void> {
+    const project = this.data.researchProjects.find((item) => item.id === projectId);
+    if (!project) return;
+    Object.assign(project, updates);
+    await this.save();
+  }
+
+  async deleteResearchProject(projectId: string): Promise<void> {
+    this.data.researchProjects = this.data.researchProjects.filter((item) => item.id !== projectId);
+    await this.save();
+  }
+
   getResearchPapers(): ResearchPaper[] {
     return this.data.researchPapers;
+  }
+
+  async addResearchPaper(paper: ResearchPaper): Promise<void> {
+    this.data.researchPapers.push(paper);
+    await this.save();
+  }
+
+  async updateResearchPaper(paperId: string, updates: Partial<ResearchPaper>): Promise<void> {
+    const paper = this.data.researchPapers.find((item) => item.id === paperId);
+    if (!paper) return;
+    Object.assign(paper, updates);
+    await this.save();
+  }
+
+  async deleteResearchPaper(paperId: string): Promise<void> {
+    this.data.researchPapers = this.data.researchPapers.filter((item) => item.id !== paperId);
+    await this.save();
   }
 
   getExperimentPlans(): ExperimentPlan[] {
@@ -971,12 +1124,89 @@ export class DashboardStore {
     return this.data.experimentRecords;
   }
 
+  async addExperiment(mode: "plan" | "records", experiment: ExperimentPlan): Promise<void> {
+    const items = mode === "plan" ? this.data.experimentPlans : this.data.experimentRecords;
+    items.push(experiment);
+    await this.save();
+  }
+
+  async updateExperiment(mode: "plan" | "records", experimentId: string, updates: Partial<ExperimentPlan>): Promise<void> {
+    const items = mode === "plan" ? this.data.experimentPlans : this.data.experimentRecords;
+    const experiment = items.find((item) => item.id === experimentId);
+    if (!experiment) return;
+    Object.assign(experiment, updates);
+    await this.save();
+  }
+
+  async deleteExperiment(mode: "plan" | "records", experimentId: string): Promise<void> {
+    if (mode === "plan") {
+      this.data.experimentPlans = this.data.experimentPlans.filter((item) => item.id !== experimentId);
+    } else {
+      this.data.experimentRecords = this.data.experimentRecords.filter((item) => item.id !== experimentId);
+    }
+    await this.save();
+  }
+
   getResearchDeadlines(): ResearchDeadline[] {
     return this.data.researchDeadlines;
   }
 
+  async addResearchDeadline(deadline: ResearchDeadline): Promise<void> {
+    this.data.researchDeadlines.push(deadline);
+    await this.save();
+  }
+
+  async updateResearchDeadline(deadlineId: string, updates: Partial<ResearchDeadline>): Promise<void> {
+    const deadline = this.data.researchDeadlines.find((item) => item.id === deadlineId);
+    if (!deadline) return;
+    Object.assign(deadline, updates);
+    await this.save();
+  }
+
+  async deleteResearchDeadline(deadlineId: string): Promise<void> {
+    this.data.researchDeadlines = this.data.researchDeadlines.filter((item) => item.id !== deadlineId);
+    await this.save();
+  }
+
   getResearchMemos(): string[] {
     return this.data.researchMemos;
+  }
+
+  async addResearchMemo(memo: string): Promise<void> {
+    this.data.researchMemos.push(memo);
+    await this.save();
+  }
+
+  async updateResearchMemo(index: number, memo: string): Promise<void> {
+    if (!this.data.researchMemos[index]) return;
+    this.data.researchMemos[index] = memo;
+    await this.save();
+  }
+
+  async deleteResearchMemo(index: number): Promise<void> {
+    this.data.researchMemos.splice(index, 1);
+    await this.save();
+  }
+
+  getDataAnalysisTasks(): DataAnalysisTask[] {
+    return this.data.dataAnalysisTasks;
+  }
+
+  async addDataAnalysisTask(task: DataAnalysisTask): Promise<void> {
+    this.data.dataAnalysisTasks.push(task);
+    await this.save();
+  }
+
+  async updateDataAnalysisTask(taskId: string, updates: Partial<DataAnalysisTask>): Promise<void> {
+    const task = this.data.dataAnalysisTasks.find((item) => item.id === taskId);
+    if (!task) return;
+    Object.assign(task, updates);
+    await this.save();
+  }
+
+  async deleteDataAnalysisTask(taskId: string): Promise<void> {
+    this.data.dataAnalysisTasks = this.data.dataAnalysisTasks.filter((item) => item.id !== taskId);
+    await this.save();
   }
 
   getBooks(): BookItem[] {
@@ -987,8 +1217,37 @@ export class DashboardStore {
     return this.data.readingQuotes;
   }
 
+  async addReadingQuote(quote: ReadingQuote): Promise<void> {
+    this.data.readingQuotes.push(quote);
+    await this.save();
+  }
+
+  async updateReadingQuote(quoteId: string, updates: Partial<ReadingQuote>): Promise<void> {
+    const quote = this.data.readingQuotes.find((item) => item.id === quoteId);
+    if (!quote) return;
+    Object.assign(quote, updates);
+    await this.save();
+  }
+
+  async deleteReadingQuote(quoteId: string): Promise<void> {
+    this.data.readingQuotes = this.data.readingQuotes.filter((item) => item.id !== quoteId);
+    await this.save();
+  }
+
   async addBook(book: BookItem): Promise<void> {
     this.data.books.push(book);
+    await this.save();
+  }
+
+  async updateBook(bookId: string, updates: Partial<BookItem>): Promise<void> {
+    const book = this.data.books.find((item) => item.id === bookId);
+    if (!book) return;
+    Object.assign(book, updates);
+    await this.save();
+  }
+
+  async deleteBook(bookId: string): Promise<void> {
+    this.data.books = this.data.books.filter((item) => item.id !== bookId);
     await this.save();
   }
 
@@ -1018,12 +1277,50 @@ export class DashboardStore {
     return this.data.workouts;
   }
 
+  async addWorkout(workout: Workout): Promise<void> {
+    this.data.workouts.push(workout);
+    await this.save();
+  }
+
+  async updateWorkout(workoutId: string, updates: Partial<Workout>): Promise<void> {
+    const workout = this.data.workouts.find((item) => item.id === workoutId);
+    if (!workout) return;
+    Object.assign(workout, updates);
+    await this.save();
+  }
+
+  async deleteWorkout(workoutId: string): Promise<void> {
+    this.data.workouts = this.data.workouts.filter((item) => item.id !== workoutId);
+    await this.save();
+  }
+
   getBodyMeasurements(): BodyMeasurement[] {
     return this.data.bodyMeasurements;
   }
 
   getFitnessGoals(): FitnessGoal[] {
     return this.data.fitnessGoals;
+  }
+
+  getHealthReminders(): HealthReminder[] {
+    return this.data.healthReminders;
+  }
+
+  async addHealthReminder(title: string): Promise<void> {
+    this.data.healthReminders.push({ id: `health-${Date.now()}`, title });
+    await this.save();
+  }
+
+  async updateHealthReminder(reminderId: string, title: string): Promise<void> {
+    const reminder = this.data.healthReminders.find((item) => item.id === reminderId);
+    if (!reminder) return;
+    reminder.title = title;
+    await this.save();
+  }
+
+  async deleteHealthReminder(reminderId: string): Promise<void> {
+    this.data.healthReminders = this.data.healthReminders.filter((item) => item.id !== reminderId);
+    await this.save();
   }
 
   getTransactions(): Transaction[] {
@@ -1042,8 +1339,63 @@ export class DashboardStore {
     return this.data.savingGoals;
   }
 
+  async addSavingGoal(goal: SavingGoal): Promise<void> {
+    this.data.savingGoals.push(goal);
+    await this.save();
+  }
+
+  async updateSavingGoal(goalId: string, updates: Partial<SavingGoal>): Promise<void> {
+    const goal = this.data.savingGoals.find((item) => item.id === goalId);
+    if (!goal) return;
+    Object.assign(goal, updates);
+    await this.save();
+  }
+
+  async deleteSavingGoal(goalId: string): Promise<void> {
+    this.data.savingGoals = this.data.savingGoals.filter((item) => item.id !== goalId);
+    await this.save();
+  }
+
   getBills(): Bill[] {
     return this.data.bills;
+  }
+
+  async addBill(bill: Bill): Promise<void> {
+    this.data.bills.push(bill);
+    await this.save();
+  }
+
+  async updateBill(billId: string, updates: Partial<Bill>): Promise<void> {
+    const bill = this.data.bills.find((item) => item.id === billId);
+    if (!bill) return;
+    Object.assign(bill, updates);
+    await this.save();
+  }
+
+  async deleteBill(billId: string): Promise<void> {
+    this.data.bills = this.data.bills.filter((item) => item.id !== billId);
+    await this.save();
+  }
+
+  getFinanceTodos(): FinanceTodo[] {
+    return this.data.financeTodos;
+  }
+
+  async addFinanceTodo(title: string): Promise<void> {
+    this.data.financeTodos.push({ id: `finance-todo-${Date.now()}`, title, completed: false });
+    await this.save();
+  }
+
+  async updateFinanceTodo(todoId: string, updates: Partial<FinanceTodo>): Promise<void> {
+    const todo = this.data.financeTodos.find((item) => item.id === todoId);
+    if (!todo) return;
+    Object.assign(todo, updates);
+    await this.save();
+  }
+
+  async deleteFinanceTodo(todoId: string): Promise<void> {
+    this.data.financeTodos = this.data.financeTodos.filter((item) => item.id !== todoId);
+    await this.save();
   }
 
   getGoals(): Goal[] {
@@ -1052,6 +1404,24 @@ export class DashboardStore {
 
   getObjectives(): Objective[] {
     return this.data.objectives;
+  }
+
+  async addObjective(objective: Objective): Promise<void> {
+    this.data.objectives.push(objective);
+    await this.save();
+  }
+
+  async updateObjective(objectiveId: string, updates: Partial<Objective>): Promise<void> {
+    const objective = this.data.objectives.find((item) => item.id === objectiveId);
+    if (!objective) return;
+    Object.assign(objective, updates);
+    await this.save();
+  }
+
+  async deleteObjective(objectiveId: string): Promise<void> {
+    this.data.objectives = this.data.objectives.filter((item) => item.id !== objectiveId);
+    this.data.keyResults = this.data.keyResults.filter((item) => item.objectiveId !== objectiveId);
+    await this.save();
   }
 
   getKeyResults(): KeyResult[] {
@@ -1068,6 +1438,12 @@ export class DashboardStore {
 
   async addGoal(goal: Goal): Promise<void> {
     this.data.goals.push(goal);
+    await this.save();
+  }
+
+  async deleteGoal(goalId: string): Promise<void> {
+    this.data.goals = this.data.goals.filter((item) => item.id !== goalId);
+    this.data.milestones = this.data.milestones.filter((item) => item.goalId !== goalId);
     await this.save();
   }
 
@@ -1090,6 +1466,18 @@ export class DashboardStore {
     await this.save();
   }
 
+  async updateKeyResult(keyResultId: string, updates: Partial<KeyResult>): Promise<void> {
+    const keyResult = this.data.keyResults.find((item) => item.id === keyResultId);
+    if (!keyResult) return;
+    Object.assign(keyResult, updates);
+    await this.save();
+  }
+
+  async deleteKeyResult(keyResultId: string): Promise<void> {
+    this.data.keyResults = this.data.keyResults.filter((item) => item.id !== keyResultId);
+    await this.save();
+  }
+
   async toggleKeyResult(keyResultId: string): Promise<void> {
     const keyResult = this.data.keyResults.find((item) => item.id === keyResultId);
     if (!keyResult) {
@@ -1105,8 +1493,32 @@ export class DashboardStore {
     await this.save();
   }
 
+  async updateMilestone(milestoneId: string, updates: Partial<Milestone>): Promise<void> {
+    const milestone = this.data.milestones.find((item) => item.id === milestoneId);
+    if (!milestone) return;
+    Object.assign(milestone, updates);
+    await this.save();
+  }
+
+  async deleteMilestone(milestoneId: string): Promise<void> {
+    this.data.milestones = this.data.milestones.filter((item) => item.id !== milestoneId);
+    await this.save();
+  }
+
   async addRisk(risk: Risk): Promise<void> {
     this.data.risks.push(risk);
+    await this.save();
+  }
+
+  async updateRisk(riskId: string, updates: Partial<Risk>): Promise<void> {
+    const risk = this.data.risks.find((item) => item.id === riskId);
+    if (!risk) return;
+    Object.assign(risk, updates);
+    await this.save();
+  }
+
+  async deleteRisk(riskId: string): Promise<void> {
+    this.data.risks = this.data.risks.filter((item) => item.id !== riskId);
     await this.save();
   }
 
@@ -1261,6 +1673,9 @@ export class DashboardStore {
       researchMemos: Array.isArray(partial.researchMemos)
         ? partial.researchMemos
         : structuredClone(DEFAULT_DATA.researchMemos),
+      dataAnalysisTasks: Array.isArray(partial.dataAnalysisTasks)
+        ? partial.dataAnalysisTasks
+        : structuredClone(DEFAULT_DATA.dataAnalysisTasks),
       books: Array.isArray(partial.books) ? partial.books : structuredClone(DEFAULT_DATA.books),
       readingQuotes: Array.isArray(partial.readingQuotes)
         ? partial.readingQuotes
@@ -1272,6 +1687,9 @@ export class DashboardStore {
       fitnessGoals: Array.isArray(partial.fitnessGoals)
         ? partial.fitnessGoals
         : structuredClone(DEFAULT_DATA.fitnessGoals),
+      healthReminders: Array.isArray(partial.healthReminders)
+        ? partial.healthReminders
+        : structuredClone(DEFAULT_DATA.healthReminders),
       transactions: Array.isArray(partial.transactions)
         ? partial.transactions
         : structuredClone(DEFAULT_DATA.transactions),
@@ -1281,6 +1699,9 @@ export class DashboardStore {
         ? partial.savingGoals
         : structuredClone(DEFAULT_DATA.savingGoals),
       bills: Array.isArray(partial.bills) ? partial.bills : structuredClone(DEFAULT_DATA.bills),
+      financeTodos: Array.isArray(partial.financeTodos)
+        ? partial.financeTodos
+        : structuredClone(DEFAULT_DATA.financeTodos),
       goals: Array.isArray(partial.goals) ? partial.goals : structuredClone(DEFAULT_DATA.goals),
       objectives: Array.isArray(partial.objectives)
         ? partial.objectives
@@ -1296,6 +1717,9 @@ export class DashboardStore {
         ...DEFAULT_DATA.calendarSettings,
         ...partial.calendarSettings
       },
+      calendarTodos: Array.isArray(partial.calendarTodos)
+        ? partial.calendarTodos
+        : structuredClone(DEFAULT_DATA.calendarTodos),
       apexHabitSettings: {
         ...DEFAULT_DATA.apexHabitSettings,
         ...partial.apexHabitSettings,
@@ -1325,10 +1749,22 @@ export class DashboardStore {
 
     const hasNewOverviewLayout = migrated.some((section) => section.type === "weekly-completion");
     if (!hasNewOverviewLayout) {
-      return [
+      return this.withRequiredSections([
         ...structuredClone(DEFAULT_DATA.sections.filter((section) => section.page === "overview")),
         ...migrated.filter((section) => section.page !== "overview")
-      ];
+      ]);
+    }
+
+    return this.withRequiredSections(migrated);
+  }
+
+  private withRequiredSections(sections: DashboardSectionConfig[]): DashboardSectionConfig[] {
+    const migrated = [...sections];
+    if (!migrated.some((section) => section.type === "section-manager")) {
+      const sectionManager = DEFAULT_DATA.sections.find((section) => section.type === "section-manager");
+      if (sectionManager) {
+        migrated.push(structuredClone(sectionManager));
+      }
     }
 
     return migrated;

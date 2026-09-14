@@ -4,7 +4,7 @@ import type { WorkbenchData } from "../types/dashboard";
 export class TopBanner {
   constructor(
     private readonly getData: () => WorkbenchData,
-    private readonly onChangeBackground: () => void
+    private readonly onCustomize: () => void
   ) {}
 
   render(container: HTMLElement): void {
@@ -23,14 +23,14 @@ export class TopBanner {
     const copy = banner.createDiv({ cls: "cow-banner-copy" });
     copy.createEl("p", { cls: "cow-banner-kicker", text: "冲鸭！" });
     copy.createEl("h2", { text: data.banner.message });
-    copy.createEl("p", { text: "把想法变成行动，让每一天都更靠近理想的自己。" });
+    copy.createEl("p", { text: data.banner.subtitle ?? "把想法变成行动，让每一天都更靠近理想的自己。" });
 
     const button = banner.createEl("button", {
       cls: "cow-banner-button",
-      attr: { type: "button" }
+      attr: { type: "button", "aria-label": "自定义工作台" }
     });
-    setIcon(button.createSpan(), "image");
-    button.createSpan({ text: "更换背景" });
-    button.addEventListener("click", this.onChangeBackground);
+    setIcon(button.createSpan(), "plus");
+    button.createSpan({ text: "自定义" });
+    button.addEventListener("click", this.onCustomize);
   }
 }

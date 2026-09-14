@@ -1,5 +1,7 @@
 import { App, setIcon } from "obsidian";
 import type { DashboardPage } from "../types/dashboard";
+import { PAGE_LABELS } from "../core/PageLabels";
+import { CalendarService } from "../services/CalendarService";
 
 interface SidebarAction {
   label: string;
@@ -9,16 +11,29 @@ interface SidebarAction {
 
 export class Sidebar {
   private clockEl?: HTMLElement;
+  private calendarEl?: HTMLElement;
   private timer?: number;
+  private readonly calendar = new CalendarService();
+  private visibleMonth = new Date();
+  private selectedDate = new Date();
 
   constructor(
     private readonly app: App,
     private readonly currentPage: DashboardPage,
-    private readonly actions: SidebarAction[]
+    private readonly actions: SidebarAction[],
+    private readonly onQuickCreate: () => void,
+    private readonly onOpenDay: (date: Date) => void
   ) {}
 
   render(container: HTMLElement): void {
     const sidebar = container.createDiv({ cls: "cow-sidebar" });
+    const quickCreate = sidebar.createEl("button", {
+      cls: "cow-sidebar-create-button",
+      attr: { type: "button", "aria-label": "快速创建" }
+    });
+    setIcon(quickCreate, "plus");
+    quickCreate.addEventListener("click", this.onQuickCreate);
+
     const profile = sidebar.createDiv({ cls: "cow-profile" });
     profile.createDiv({ cls: "cow-profile-avatar" }).createDiv({ cls: "cow-mini-dog" });
     profile.createEl("h2", { text: "我的工作台" });
@@ -35,32 +50,71 @@ export class Sidebar {
   destroy(): void {
     if (this.timer) {
       window.clearInterval(this.timer);
+      this.timer = undefined;
     }
   }
 
   private renderMiniCalendar(container: HTMLElement): void {
-    const calendar = container.createDiv({ cls: "cow-mini-calendar" });
-    const now = new Date();
-    calendar.createEl("h3", {
-      text: `${now.getFullYear()}年${now.getMonth() + 1}月`
+    this.calendarEl = container.createDiv({ cls: "cow-mini-calendar" });
+    this.renderMiniCalendarContent();
+  }
+
+  private renderMiniCalendarContent(): void {
+    if (!this.calendarEl) return;
+    this.calendarEl.empty();
+
+    const header = this.calendarEl.createDiv({ cls: "cow-mini-calendar-header" });
+    const prev = header.createEl("button", { attr: { type: "button", "aria-label": "上一月" } });
+    setIcon(prev, "chevron-left");
+    prev.addEventListener("click", () => {
+      this.visibleMonth = this.calendar.addMonths(this.visibleMonth, -1);
+      this.renderMiniCalendarContent();
+    });
+
+    header.createEl("h3", { text: this.calendar.getMonthTitle(this.visibleMonth) });
+
+    const next = header.createEl("button", { attr: { type: "button", "aria-label": "下一月" } });
+    setIcon(next, "chevron-right");
+    next.addEventListener("click", () => {
+      this.visibleMonth = this.calendar.addMonths(this.visibleMonth, 1);
+      this.renderMiniCalendarContent();
+    });
+
+    const todayButton = this.calendarEl.createEl("button", {
+      cls: "cow-mini-calendar-today",
+      text: "今天",
+      attr: { type: "button" }
+    });
+    todayButton.addEventListener("click", () => {
+      const today = new Date();
+      this.visibleMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      this.selectedDate = today;
+      this.renderMiniCalendarContent();
+      this.onOpenDay(today);
     });
 
     const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
-    const grid = calendar.createDiv({ cls: "cow-mini-calendar-grid" });
+    const grid = this.calendarEl.createDiv({ cls: "cow-mini-calendar-grid" });
     weekdays.forEach((weekday) => grid.createSpan({ cls: "cow-weekday", text: weekday }));
 
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    for (let index = 0; index < firstDay.getDay(); index += 1) {
-      grid.createSpan({ cls: "cow-empty-day" });
-    }
+    this.calendar.getMonthCells(this.visibleMonth).forEach((date) => {
+      if (!date) {
+        grid.createSpan({ cls: "cow-empty-day" });
+        return;
+      }
 
-    for (let day = 1; day <= daysInMonth; day += 1) {
-      grid.createSpan({
-        cls: `cow-day ${day === now.getDate() ? "is-today" : ""}`,
-        text: String(day)
+      const today = new Date();
+      const button = grid.createEl("button", {
+        cls: `cow-day ${this.calendar.isSameDate(date, today) ? "is-today" : ""} ${this.calendar.isSameDate(date, this.selectedDate) ? "is-selected" : ""}`,
+        text: String(date.getDate()),
+        attr: { type: "button", "aria-label": this.calendar.getDateKey(date) }
       });
-    }
+      button.addEventListener("click", () => {
+        this.selectedDate = date;
+        this.renderMiniCalendarContent();
+        this.onOpenDay(date);
+      });
+    });
   }
 
   private renderActions(container: HTMLElement): void {
@@ -100,6 +154,6 @@ export class Sidebar {
     this.clockEl.empty();
     this.clockEl.createEl("p", { text: dateText });
     this.clockEl.createEl("strong", { text: timeText });
-    this.clockEl.createEl("span", { text: this.currentPage });
+    this.clockEl.createEl("span", { text: PAGE_LABELS[this.currentPage] });
   }
 }

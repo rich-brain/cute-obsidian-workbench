@@ -1,6 +1,7 @@
 import { App, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import { KeyResultModal } from "./GoalModals";
+import { CrudItemModal } from "../CrudItemModal";
 
 export class MonthlyKeyResultsSection {
   constructor(
@@ -31,6 +32,29 @@ export class MonthlyKeyResultsSection {
       });
       item.createSpan({ cls: "cow-pill is-purple", text: `${kr.progress}%` });
       item.createSpan({ cls: kr.completed ? "is-complete" : "", text: kr.title });
+      const actions = item.createDiv({ cls: "cow-list-item-actions" });
+      const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑 KR" } });
+      setIcon(edit, "pencil");
+      edit.addEventListener("click", () => {
+        new CrudItemModal(this.app, "编辑 KR", {
+          title: kr.title,
+          progress: kr.progress,
+          completed: kr.completed
+        }, [
+          { key: "title", name: "标题" },
+          { key: "progress", name: "进度", type: "number" },
+          { key: "completed", name: "已完成", type: "checkbox" }
+        ], async (values) => {
+          await this.store.updateKeyResult(kr.id, values);
+          this.onDataChanged();
+        }).open();
+      });
+      const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "删除 KR" } });
+      setIcon(remove, "trash-2");
+      remove.addEventListener("click", async () => {
+        await this.store.deleteKeyResult(kr.id);
+        this.onDataChanged();
+      });
     });
   }
 }

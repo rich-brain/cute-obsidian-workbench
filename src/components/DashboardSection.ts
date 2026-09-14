@@ -1,6 +1,11 @@
 import { App, Modal, setIcon } from "obsidian";
 import type { DashboardStore } from "../core/DashboardStore";
 import type { DashboardSectionConfig } from "../types/dashboard";
+import { SectionActionMenu } from "./SectionActionMenu";
+import { getSectionCapabilities } from "../core/SectionCapabilities";
+import { openAddContentModal } from "./SectionContentActions";
+import { HabitStatisticsModal } from "./overview/HabitStatisticsModal";
+import { MonthlyProgressStatisticsModal } from "./overview/MonthlyProgressStatisticsModal";
 import { ContributionHeatmapSection } from "./overview/ContributionHeatmapSection";
 import { HabitOverviewSection } from "./overview/HabitOverviewSection";
 import { MonthlyCalendarSection } from "./overview/MonthlyCalendarSection";
@@ -15,6 +20,7 @@ import {
   CalendarWidgetSettingsSection,
   DataSourceStatusSection,
   EnabledModulesOverviewSection,
+  FunctionalSectionManagerSection,
   HomeLayoutManagerSection,
   ModuleSwitchSortSection,
   QuickActionSettingsSection,
@@ -114,8 +120,9 @@ export class DashboardSection {
   ) {}
 
   render(container: HTMLElement): void {
+    const cardColor = typeof this.section.config?.cardColor === "string" ? this.section.config.cardColor : "default";
     const sectionEl = container.createDiv({
-      cls: `cow-section cow-section-${this.section.width ?? "md"} cow-section-height-${this.section.height ?? "sm"}`
+      cls: `cow-section cow-section-${this.section.width ?? "md"} cow-section-height-${this.section.height ?? "sm"} cow-card-color-${cardColor}`
     });
 
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
@@ -123,13 +130,35 @@ export class DashboardSection {
     setIcon(title.createSpan(), this.getIcon());
     title.createEl("h3", { text: this.section.title });
 
-    const removeButton = header.createEl("button", {
+    const actions = header.createDiv({ cls: "cow-section-actions" });
+    if (getSectionCapabilities(this.section.type).canAdd) {
+      const addButton = actions.createEl("button", {
+        cls: "cow-section-add-button",
+        attr: { type: "button", "aria-label": `添加${this.section.title}内容` }
+      });
+      setIcon(addButton.createSpan(), "plus");
+      addButton.createSpan({ text: "添加" });
+      addButton.addEventListener("click", () => {
+        openAddContentModal(this.app, this.store, this.section, this.onDataChanged);
+      });
+    }
+    if (getSectionCapabilities(this.section.type).canOpenStats) {
+      const statsButton = actions.createEl("button", {
+        cls: "cow-section-add-button",
+        attr: { type: "button", "aria-label": `${this.section.title}统计` }
+      });
+      setIcon(statsButton.createSpan(), "bar-chart-3");
+      statsButton.createSpan({ text: "统计" });
+      statsButton.addEventListener("click", () => this.openStats());
+    }
+
+    const menuButton = actions.createEl("button", {
       cls: "cow-icon-button",
-      attr: { type: "button", "aria-label": `删除${this.section.title}` }
+      attr: { type: "button", "aria-label": `${this.section.title}操作菜单` }
     });
-    setIcon(removeButton, "trash-2");
-    removeButton.addEventListener("click", () => {
-      new ConfirmDeleteSectionModal(this.app, this.section, () => this.onRemove(this.section)).open();
+    setIcon(menuButton, "more-horizontal");
+    menuButton.addEventListener("click", (event) => {
+      new SectionActionMenu(this.app, this.store, this.section, this.onRemove, this.onDataChanged).show(event);
     });
 
     const content = sectionEl.createDiv({ cls: "cow-section-content" });
@@ -153,11 +182,11 @@ export class DashboardSection {
         new HabitOverviewSection(this.store, this.onDataChanged).render(container);
         break;
       case "monthly-progress":
-        new MonthlyProgressSection().render(container);
+        new MonthlyProgressSection(this.store).render(container);
         break;
       case "monthly-calendar":
       case "month-calendar":
-        new MonthlyCalendarSection(this.app, this.store).render(container);
+        new MonthlyCalendarSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "recent-notes":
         new RecentNotesSection(this.app).render(container);
@@ -170,31 +199,31 @@ export class DashboardSection {
         new ContributionHeatmapSection(this.app).render(container);
         break;
       case "research-projects":
-        new ResearchProjectsSection(this.app, this.store).render(container);
+        new ResearchProjectsSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "reading-queue":
-        new PaperQueueSection(this.app, this.store).render(container);
+        new PaperQueueSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "research-checkin":
         new ResearchCheckinSection(this.store, this.onDataChanged).render(container);
         break;
       case "experiment-plan":
-        new ExperimentSection(this.app, this.store, "plan").render(container);
+        new ExperimentSection(this.app, this.store, "plan", this.onDataChanged).render(container);
         break;
       case "experiment-records":
-        new ExperimentSection(this.app, this.store, "records").render(container);
+        new ExperimentSection(this.app, this.store, "records", this.onDataChanged).render(container);
         break;
       case "data-analysis-tasks":
-        new DataAnalysisTasksSection().render(container);
+        new DataAnalysisTasksSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "literature-notes":
-        new LiteratureNotesSection(this.app, this.store).render(container);
+        new LiteratureNotesSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "research-timeline":
-        new ResearchTimelineSection(this.store).render(container);
+        new ResearchTimelineSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "research-memo":
-        new ResearchMemoSection(this.store).render(container);
+        new ResearchMemoSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "current-reading":
         new CurrentReadingSection(this.app, this.store, this.onDataChanged).render(container);
@@ -203,22 +232,22 @@ export class DashboardSection {
         new BookshelfSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "reading-plan":
-        new ReadingPlanSection(this.store).render(container);
+        new ReadingPlanSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "reading-checkin":
         new ReadingCheckinSection(this.store, this.onDataChanged).render(container);
         break;
       case "reading-notes":
-        new ReadingNotesSection(this.app, this.store).render(container);
+        new ReadingNotesSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "reading-quotes":
-        new ReadingQuotesSection(this.store).render(container);
+        new ReadingQuotesSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "finished-books":
-        new BookListSection(this.store, "已读").render(container);
+        new BookListSection(this.app, this.store, "已读", this.onDataChanged).render(container);
         break;
       case "wishlist-books":
-        new BookListSection(this.store, "想读").render(container);
+        new BookListSection(this.app, this.store, "想读", this.onDataChanged).render(container);
         break;
       case "reading-stats":
         new ReadingStatsSection(this.store).render(container);
@@ -233,7 +262,7 @@ export class DashboardSection {
         new TodayWorkoutSection(this.store).render(container);
         break;
       case "workout-plan":
-        new WorkoutPlanSection(this.store).render(container);
+        new WorkoutPlanSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "fitness-checkin":
         new FitnessCheckinSection(this.store, this.onDataChanged).render(container);
@@ -251,13 +280,13 @@ export class DashboardSection {
         new FitnessStatsSection(this.store).render(container);
         break;
       case "workout-log":
-        new WorkoutLogSection(this.store).render(container);
+        new WorkoutLogSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "fitness-goals":
         new FitnessGoalsSection(this.store).render(container);
         break;
       case "health-reminders":
-        new HealthRemindersSection().render(container);
+        new HealthRemindersSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "fitness-heatmap":
         new FitnessHeatmapSection(this.store).render(container);
@@ -272,10 +301,10 @@ export class DashboardSection {
         new AccountOverviewSection(this.store).render(container);
         break;
       case "saving-goals":
-        new SavingGoalsSection(this.store).render(container);
+        new SavingGoalsSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "bill-reminders":
-        new BillRemindersSection(this.store).render(container);
+        new BillRemindersSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "finance-checkin":
         new FinanceCheckinSection(this.store, this.onDataChanged).render(container);
@@ -296,7 +325,7 @@ export class DashboardSection {
         new YearlyGoalsSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "quarterly-okr":
-        new QuarterlyOkrSection(this.store).render(container);
+        new QuarterlyOkrSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "monthly-key-results":
         new MonthlyKeyResultsSection(this.app, this.store, this.onDataChanged).render(container);
@@ -325,6 +354,9 @@ export class DashboardSection {
       case "enabled-modules-overview":
         new EnabledModulesOverviewSection(this.store).render(container);
         break;
+      case "section-manager":
+        new FunctionalSectionManagerSection(this.app, this.store, this.onDataChanged).render(container);
+        break;
       case "home-layout-manager":
         new HomeLayoutManagerSection(this.store, this.onDataChanged).render(container);
         break;
@@ -349,8 +381,60 @@ export class DashboardSection {
       case "data-source-status":
         new DataSourceStatusSection().render(container);
         break;
+      case "custom-text":
+      case "custom-todo-list":
+      case "custom-link-list":
+      case "custom-memo":
+        this.renderCustomSection(container);
+        break;
       default:
         container.createEl("p", { text: "这是一个可配置功能分区，后续可以接入真实模块组件。" });
+    }
+  }
+
+  private openStats(): void {
+    if (this.section.type === "habit-overview") {
+      new HabitStatisticsModal(this.app, this.store).open();
+      return;
+    }
+
+    if (this.section.type === "monthly-progress") {
+      new MonthlyProgressStatisticsModal(this.app, this.store).open();
+    }
+  }
+
+  private renderCustomSection(container: HTMLElement): void {
+    const description = typeof this.section.config?.description === "string" ? this.section.config.description : "";
+    if (description) {
+      container.createEl("p", { text: description });
+    }
+
+    if (this.section.type === "custom-todo-list") {
+      const list = container.createEl("ul", { cls: "cow-focus-list" });
+      ["待补充 Todo", "继续完善这个分区"].forEach((item) => {
+        const row = list.createEl("li");
+        row.createEl("input", { type: "checkbox" });
+        row.createSpan({ text: item });
+      });
+      return;
+    }
+
+    if (this.section.type === "custom-link-list") {
+      const list = container.createDiv({ cls: "cow-data-list" });
+      const row = list.createDiv({ cls: "cow-data-card" });
+      row.createEl("strong", { text: "链接列表" });
+      row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: "后续可在模块内容管理中扩展链接项。" });
+      return;
+    }
+
+    if (this.section.type === "custom-memo") {
+      const list = container.createEl("ul", { cls: "cow-memo-list" });
+      list.createEl("li", { text: description || "记录一个可爱的想法。" });
+      return;
+    }
+
+    if (!description) {
+      container.createEl("p", { cls: "cow-empty-state", text: "这是一个自定义文本分区。" });
     }
   }
 
@@ -427,6 +511,7 @@ export class DashboardSection {
       "risks-blockers": "triangle-alert",
       "long-term-progress": "trending-up",
       "enabled-modules-overview": "panel-top",
+      "section-manager": "rows-3",
       "home-layout-manager": "layout-template",
       "module-settings": "sliders-horizontal"
       ,

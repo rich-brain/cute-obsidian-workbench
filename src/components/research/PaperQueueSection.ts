@@ -1,17 +1,37 @@
-import { App, Notice } from "obsidian";
+import { App, Notice, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
+import { openResearchPaperModal } from "../SectionContentActions";
 
 export class PaperQueueSection {
   constructor(
     private readonly app: App,
-    private readonly store: DashboardStore
+    private readonly store: DashboardStore,
+    private readonly onDataChanged: () => void
   ) {}
 
   render(container: HTMLElement): void {
     const list = container.createDiv({ cls: "cow-data-list" });
     this.store.getResearchPapers().forEach((paper) => {
       const button = list.createEl("button", { cls: "cow-data-card cow-click-card", attr: { type: "button" } });
-      button.createEl("strong", { text: paper.title });
+      const head = button.createDiv({ cls: "cow-list-item-head" });
+      head.createEl("strong", { text: paper.title });
+      const actions = head.createDiv({ cls: "cow-list-item-actions" });
+      const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑论文" } });
+      setIcon(edit, "pencil");
+      edit.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openResearchPaperModal(this.app, async (values) => {
+          await this.store.updateResearchPaper(paper.id, values);
+          this.onDataChanged();
+        }, paper);
+      });
+      const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "删除论文" } });
+      setIcon(remove, "trash-2");
+      remove.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        await this.store.deleteResearchPaper(paper.id);
+        this.onDataChanged();
+      });
       const meta = button.createDiv({ cls: "cow-meta-line" });
       meta.createSpan({ cls: "cow-status is-blue", text: paper.status });
       meta.createSpan({ text: `${paper.venue} ${paper.year}` });

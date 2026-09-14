@@ -1,5 +1,6 @@
 import { App, Modal, setIcon } from "obsidian";
 import type { AvailableModuleDefinition, DashboardPage } from "../types/dashboard";
+import { PAGE_LABELS } from "../core/PageLabels";
 
 export class AddSectionModal extends Modal {
   constructor(
@@ -33,7 +34,7 @@ export class AddSectionModal extends Modal {
     });
 
     if (this.modules.length === 0) {
-      grid.createEl("p", { text: `${this.page} 页面暂无可添加模块。` });
+      grid.createEl("p", { text: `${PAGE_LABELS[this.page]}页面暂无可添加模块。` });
     }
   }
 }

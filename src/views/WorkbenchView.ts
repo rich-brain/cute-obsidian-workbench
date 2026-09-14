@@ -13,6 +13,17 @@ import { FitnessPage } from "../pages/FitnessPage";
 import { FinancePage } from "../pages/FinancePage";
 import { GoalsPage } from "../pages/GoalsPage";
 import { ModulesPage } from "../pages/ModulesPage";
+import { QuickCreateModal } from "../components/QuickCreateModal";
+import { WorkbenchCustomizeModal } from "../components/WorkbenchCustomizeModal";
+import { DayDetailModal } from "../components/DayDetailModal";
+import { NotesManagerModal } from "../components/NotesManagerModal";
+import { NoteService } from "../services/NoteService";
+
+interface CommandEnabledApp {
+  commands?: {
+    executeCommandById(commandId: string): boolean;
+  };
+}
 
 export const WORKBENCH_VIEW_TYPE = "cute-obsidian-workbench-view";
 
@@ -64,20 +75,20 @@ export class WorkbenchView extends ItemView {
     const shell = container.createDiv({ cls: `cow-shell cow-layout-${this.plugin.store.getData().userSettings.overviewLayout}` });
     this.sidebar = new Sidebar(this.app, this.router.getCurrentPage(), [
       { label: "工作台", icon: "home", onClick: () => this.router.navigate("overview") },
-      { label: "每日笔记", icon: "calendar-days", onClick: () => new Notice("每日笔记服务将在下一阶段接入。") },
-      { label: "笔记管理", icon: "notebook-tabs", onClick: () => new Notice("笔记管理服务将在下一阶段接入。") },
-      { label: "全部文件", icon: "files", onClick: () => new Notice("文件目录快捷入口已预留。") },
+      { label: "每日笔记", icon: "calendar-days", onClick: () => void new NoteService(this.app).openOrCreateDailyNote(new Date()) },
+      { label: "笔记管理", icon: "notebook-tabs", onClick: () => new NotesManagerModal(this.app).open() },
+      { label: "全部文件", icon: "files", onClick: () => this.openFileExplorer() },
       { label: "模块管理", icon: "layout-grid", onClick: () => this.router.navigate("modules") }
-    ]);
+    ], () => {
+      new QuickCreateModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open();
+    }, (date) => {
+      new DayDetailModal(this.app, this.plugin.store, date).open();
+    });
     this.sidebar.render(shell);
 
     const main = shell.createDiv({ cls: "cow-main" });
-    new TopBanner(this.plugin.store.getData.bind(this.plugin.store), async () => {
-      const current = this.plugin.store.getData().banner.background;
-      const next = current === "pink-paper" ? "cream-stars" : current === "cream-stars" ? "soft-hearts" : "pink-paper";
-      await this.plugin.store.updateBanner({ background: next, imageDataUrl: undefined });
-      this.render();
-      new Notice("已更换 Banner 背景。");
+    new TopBanner(this.plugin.store.getData.bind(this.plugin.store), () => {
+      new WorkbenchCustomizeModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open();
     }).render(main);
 
     new TopNavigation(this.plugin.store.getPages(), () => this.router.getCurrentPage(), (page) => {
@@ -116,5 +127,12 @@ export class WorkbenchView extends ItemView {
     container.style.setProperty("--cute-card-opacity", String(theme.cardOpacity));
     container.style.setProperty("--cute-texture-strength", String(theme.textureStrength));
     container.style.setProperty("--cute-font-size", `${theme.fontSize}px`);
+  }
+
+  private openFileExplorer(): void {
+    const didRun = (this.app as CommandEnabledApp).commands?.executeCommandById("file-explorer:open");
+    if (!didRun) {
+      new Notice("未能激活 Obsidian 文件管理器。");
+    }
   }
 }

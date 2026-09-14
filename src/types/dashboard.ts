@@ -80,6 +80,13 @@ export interface ResearchDeadline {
   priority: "low" | "medium" | "high";
 }
 
+export interface DataAnalysisTask {
+  id: string;
+  title: string;
+  progress: number;
+  status: "未开始" | "进行中" | "已完成";
+}
+
 export interface BookItem {
   id: string;
   title: string;
@@ -109,6 +116,11 @@ export interface Workout {
   calories: number;
   completed: boolean;
   note: string;
+}
+
+export interface HealthReminder {
+  id: string;
+  title: string;
 }
 
 export interface BodyMeasurement {
@@ -168,6 +180,12 @@ export interface Bill {
   paid: boolean;
 }
 
+export interface FinanceTodo {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
 export interface Goal {
   id: string;
   title: string;
@@ -210,6 +228,7 @@ export interface Risk {
 
 export interface BannerSettings {
   message: string;
+  subtitle?: string;
   background: string;
   imageDataUrl?: string;
   backgroundPosition: string;
@@ -223,6 +242,15 @@ export interface CalendarSettings {
   showEventMarkers: boolean;
   weekStartsOn: "sunday" | "monday";
   highlightColor: string;
+}
+
+export interface CalendarTodo {
+  id: string;
+  title: string;
+  date: string;
+  completed: boolean;
+  category: string;
+  createdAt: string;
 }
 
 export interface CustomHabitItem {
@@ -274,22 +302,26 @@ export interface WorkbenchData {
   experimentRecords: ExperimentPlan[];
   researchDeadlines: ResearchDeadline[];
   researchMemos: string[];
+  dataAnalysisTasks: DataAnalysisTask[];
   books: BookItem[];
   readingQuotes: ReadingQuote[];
   workouts: Workout[];
   bodyMeasurements: BodyMeasurement[];
   fitnessGoals: FitnessGoal[];
+  healthReminders: HealthReminder[];
   transactions: Transaction[];
   budgets: Budget[];
   accounts: Account[];
   savingGoals: SavingGoal[];
   bills: Bill[];
+  financeTodos: FinanceTodo[];
   goals: Goal[];
   objectives: Objective[];
   keyResults: KeyResult[];
   milestones: Milestone[];
   risks: Risk[];
   calendarSettings: CalendarSettings;
+  calendarTodos: CalendarTodo[];
   apexHabitSettings: ApexHabitSettings;
   quickActions: QuickActionConfig[];
   theme: ThemeSettings;
@@ -304,4 +336,21 @@ export interface AvailableModuleDefinition {
   icon: string;
   defaultWidth?: DashboardSectionConfig["width"];
   defaultHeight?: DashboardSectionConfig["height"];
+}
+
+export interface SectionCapabilities {
+  canAdd?: boolean;
+  canEdit?: boolean;
+  canDeleteItems?: boolean;
+  canOpenStats?: boolean;
+}
+
+export interface CustomSectionInput {
+  id: string;
+  page: DashboardPage;
+  title: string;
+  description: string;
+  type: "custom-text" | "custom-todo-list" | "custom-link-list" | "custom-memo";
+  color: string;
+  order?: number;
 }

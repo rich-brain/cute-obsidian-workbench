@@ -1,6 +1,7 @@
 import { App, Notice, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import type { BookItem } from "../../types/dashboard";
+import { AddBookModal } from "./AddBookModal";
 
 export class BookCard {
   constructor(
@@ -46,6 +47,22 @@ export class BookCard {
     setIcon(done, "check");
     done.addEventListener("click", async () => {
       await this.store.completeBook(this.book.id);
+      this.onDataChanged();
+    });
+
+    const edit = controls.createEl("button", { attr: { type: "button", "aria-label": "编辑书籍" } });
+    setIcon(edit, "pencil");
+    edit.addEventListener("click", () => {
+      new AddBookModal(this.app, async (book) => {
+        await this.store.updateBook(this.book.id, book);
+        this.onDataChanged();
+      }, this.book).open();
+    });
+
+    const remove = controls.createEl("button", { attr: { type: "button", "aria-label": "删除书籍" } });
+    setIcon(remove, "trash-2");
+    remove.addEventListener("click", async () => {
+      await this.store.deleteBook(this.book.id);
       this.onDataChanged();
     });
   }

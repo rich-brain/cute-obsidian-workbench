@@ -1,7 +1,8 @@
-import { App, Notice, setIcon } from "obsidian";
+import { App, Modal, Notice, setIcon, Setting } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
-import { DASHBOARD_PAGES } from "../../core/DashboardStore";
-import type { DashboardPage, DashboardSectionConfig } from "../../types/dashboard";
+import { AVAILABLE_MODULES, DASHBOARD_PAGES } from "../../core/DashboardStore";
+import type { CustomSectionInput, DashboardPage, DashboardSectionConfig } from "../../types/dashboard";
+import { PAGE_LABELS } from "../../core/PageLabels";
 
 function renderSwitch(container: HTMLElement, checked: boolean, onChange: (checked: boolean) => void): HTMLInputElement {
   const input = container.createEl("input", { type: "checkbox", cls: "cow-switch" });
@@ -113,6 +114,273 @@ export class ModuleSwitchSortSection {
       const ids = Array.from(list.querySelectorAll<HTMLElement>(".cow-module-row")).map((item) => item.dataset.id ?? "");
       await this.store.reorderSections(section.page, ids);
       this.onDataChanged();
+    });
+  }
+}
+
+const MANAGED_PAGES: DashboardPage[] = ["overview", "research", "reading", "fitness", "finance", "goals"];
+const CARD_COLORS = [
+  { id: "default", label: "默认" },
+  { id: "pink", label: "粉色" },
+  { id: "cream", label: "奶油黄" },
+  { id: "mint", label: "薄荷绿" },
+  { id: "sky", label: "天蓝" },
+  { id: "lavender", label: "淡紫" }
+];
+const WIDTHS: Array<{ id: NonNullable<DashboardSectionConfig["width"]>; label: string }> = [
+  { id: "sm", label: "小" },
+  { id: "md", label: "中" },
+  { id: "lg", label: "大" },
+  { id: "full", label: "整行" }
+];
+
+export class FunctionalSectionManagerSection {
+  private selectedPage: DashboardPage = "overview";
+  private draggingId?: string;
+
+  constructor(
+    private readonly app: App,
+    private readonly store: DashboardStore,
+    private readonly onDataChanged: () => void
+  ) {
+    const currentPage = this.store.getData().currentPage;
+    this.selectedPage = MANAGED_PAGES.includes(currentPage) ? currentPage : "overview";
+  }
+
+  render(container: HTMLElement): void {
+    const root = container.createDiv({ cls: "cow-section-manager" });
+    this.renderPagePicker(root);
+    const columns = root.createDiv({ cls: "cow-section-manager-columns" });
+    this.renderEnabled(columns);
+    this.renderHidden(columns);
+    this.renderAddable(columns);
+  }
+
+  private renderPagePicker(container: HTMLElement): void {
+    const picker = container.createDiv({ cls: "cow-section-manager-picker" });
+    MANAGED_PAGES.forEach((page) => {
+      const button = picker.createEl("button", {
+        cls: page === this.selectedPage ? "is-active" : "",
+        attr: { type: "button" }
+      });
+      button.createSpan({ text: PAGE_LABELS[page] });
+      button.addEventListener("click", () => {
+        this.selectedPage = page;
+        container.empty();
+        this.renderPagePicker(container);
+        const columns = container.createDiv({ cls: "cow-section-manager-columns" });
+        this.renderEnabled(columns);
+        this.renderHidden(columns);
+        this.renderAddable(columns);
+      });
+    });
+  }
+
+  private renderEnabled(container: HTMLElement): void {
+    const panel = container.createDiv({ cls: "cow-section-manager-panel" });
+    panel.createEl("h4", { text: "当前启用模块" });
+    const list = panel.createDiv({ cls: "cow-module-sort-list" });
+    const sections = this.store.getAllSections().filter((section) => section.page === this.selectedPage && section.enabled);
+    if (sections.length === 0) {
+      list.createEl("p", { cls: "cow-empty-state", text: "暂无启用模块。" });
+    }
+    sections.forEach((section) => this.renderSectionRow(list, section, "enabled"));
+  }
+
+  private renderHidden(container: HTMLElement): void {
+    const panel = container.createDiv({ cls: "cow-section-manager-panel" });
+    panel.createEl("h4", { text: "隐藏模块" });
+    const list = panel.createDiv({ cls: "cow-module-sort-list" });
+    const sections = this.store.getAllSections().filter((section) => section.page === this.selectedPage && !section.enabled);
+    if (sections.length === 0) {
+      list.createEl("p", { cls: "cow-empty-state", text: "暂无隐藏模块。" });
+    }
+    sections.forEach((section) => this.renderSectionRow(list, section, "hidden"));
+  }
+
+  private renderAddable(container: HTMLElement): void {
+    const panel = container.createDiv({ cls: "cow-section-manager-panel" });
+    const header = panel.createDiv({ cls: "cow-list-item-head" });
+    header.createEl("h4", { text: "可添加模块" });
+    const custom = header.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
+    setIcon(custom.createSpan(), "plus");
+    custom.createSpan({ text: "自定义" });
+    custom.addEventListener("click", () => {
+      new CustomSectionModal(this.app, this.selectedPage, async (input) => {
+        await this.store.addCustomSection(input);
+        this.onDataChanged();
+      }).open();
+    });
+
+    const existingTypes = new Set(this.store.getAllSections().filter((section) => section.page === this.selectedPage).map((section) => section.type));
+    const addable = AVAILABLE_MODULES.filter((module) => module.page === this.selectedPage && !existingTypes.has(module.type));
+    const list = panel.createDiv({ cls: "cow-module-sort-list" });
+    if (addable.length === 0) {
+      list.createEl("p", { cls: "cow-empty-state", text: "默认模块都已在布局中，可继续创建自定义分区。" });
+    }
+    addable.forEach((module) => {
+      const row = list.createDiv({ cls: "cow-section-manager-row" });
+      row.createDiv().createEl("strong", { text: module.title });
+      row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: module.description });
+      const actions = row.createDiv({ cls: "cow-list-item-actions" });
+      const add = actions.createEl("button", { attr: { type: "button", "aria-label": "添加模块" } });
+      setIcon(add, "plus");
+      add.addEventListener("click", async () => {
+        await this.store.addSection(this.selectedPage, module.type);
+        this.onDataChanged();
+      });
+    });
+  }
+
+  private renderSectionRow(list: HTMLElement, section: DashboardSectionConfig, mode: "enabled" | "hidden"): void {
+    const row = list.createDiv({ cls: "cow-section-manager-row", attr: { draggable: mode === "enabled" ? "true" : "false", "data-id": section.id } });
+    const title = row.createDiv({ cls: "cow-section-manager-title" });
+    if (mode === "enabled") {
+      const handle = title.createSpan({ cls: "cow-drag-handle" });
+      setIcon(handle, "grip-vertical");
+    }
+    title.createEl("strong", { text: section.title });
+    title.createSpan({ text: this.getSectionDescription(section) });
+    const controls = row.createDiv({ cls: "cow-section-manager-controls" });
+    this.renderColorSelect(controls, section);
+    this.renderWidthSelect(controls, section);
+    const actions = row.createDiv({ cls: "cow-list-item-actions" });
+    if (mode === "enabled") {
+      this.renderIconButton(actions, "eye-off", "隐藏", async () => this.store.setSectionEnabled(section.id, false));
+    } else {
+      this.renderIconButton(actions, "eye", "恢复", async () => this.store.setSectionEnabled(section.id, true));
+    }
+    this.renderIconButton(actions, "trash-2", "删除", async () => this.store.removeSection(section.id));
+
+    if (mode === "enabled") {
+      row.addEventListener("dragstart", () => {
+        this.draggingId = section.id;
+        row.addClass("is-dragging");
+      });
+      row.addEventListener("dragend", () => {
+        this.draggingId = undefined;
+        row.removeClass("is-dragging");
+      });
+      row.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        if (!this.draggingId || this.draggingId === section.id) return;
+        const draggingEl = list.querySelector(`[data-id="${this.draggingId}"]`);
+        if (draggingEl) list.insertBefore(draggingEl, row);
+      });
+      row.addEventListener("drop", async () => {
+        const ids = Array.from(list.querySelectorAll<HTMLElement>(".cow-section-manager-row")).map((item) => item.dataset.id ?? "");
+        await this.store.reorderSections(this.selectedPage, ids);
+        this.onDataChanged();
+      });
+    }
+  }
+
+  private renderColorSelect(container: HTMLElement, section: DashboardSectionConfig): void {
+    const select = container.createEl("select", { attr: { "aria-label": "修改颜色" } });
+    CARD_COLORS.forEach((color) => select.createEl("option", { value: color.id, text: color.label }));
+    select.value = String(section.config?.cardColor ?? "default");
+    select.addEventListener("change", async () => {
+      await this.store.updateSectionConfig(section.id, { cardColor: select.value });
+      this.onDataChanged();
+    });
+  }
+
+  private renderWidthSelect(container: HTMLElement, section: DashboardSectionConfig): void {
+    const select = container.createEl("select", { attr: { "aria-label": "修改宽度" } });
+    WIDTHS.forEach((width) => select.createEl("option", { value: width.id, text: width.label }));
+    select.value = section.width ?? "md";
+    select.addEventListener("change", async () => {
+      await this.store.updateSection(section.id, { width: select.value as DashboardSectionConfig["width"] });
+      this.onDataChanged();
+    });
+  }
+
+  private renderIconButton(container: HTMLElement, icon: string, label: string, action: () => Promise<void>): void {
+    const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
+    setIcon(button, icon);
+    button.addEventListener("click", async () => {
+      await action();
+      this.onDataChanged();
+    });
+  }
+
+  private getSectionDescription(section: DashboardSectionConfig): string {
+    const definition = AVAILABLE_MODULES.find((module) => module.type === section.type);
+    return String(section.config?.description ?? definition?.description ?? section.type);
+  }
+}
+
+class CustomSectionModal extends Modal {
+  private title = "";
+  private description = "";
+  private type: CustomSectionInput["type"] = "custom-text";
+  private color = "default";
+
+  constructor(
+    app: App,
+    private readonly page: DashboardPage,
+    private readonly onSubmit: (input: CustomSectionInput) => Promise<void>
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal");
+    this.contentEl.createEl("h2", { text: "创建自定义功能分区" });
+    this.contentEl.createEl("p", { text: `将添加到 ${PAGE_LABELS[this.page]} 页面。` });
+
+    new Setting(this.contentEl)
+      .setName("标题")
+      .addText((text) => text.onChange((value) => {
+        this.title = value.trim();
+      }));
+
+    new Setting(this.contentEl)
+      .setName("描述")
+      .addTextArea((text) => text.onChange((value) => {
+        this.description = value.trim();
+      }));
+
+    new Setting(this.contentEl)
+      .setName("类型")
+      .addDropdown((dropdown) => {
+        [
+          ["custom-text", "文本"],
+          ["custom-todo-list", "Todo List"],
+          ["custom-link-list", "链接列表"],
+          ["custom-memo", "Memo"]
+        ].forEach(([value, label]) => dropdown.addOption(value, label));
+        dropdown.setValue(this.type);
+        dropdown.onChange((value) => {
+          this.type = value as CustomSectionInput["type"];
+        });
+      });
+
+    new Setting(this.contentEl)
+      .setName("颜色")
+      .addDropdown((dropdown) => {
+        CARD_COLORS.forEach((color) => dropdown.addOption(color.id, color.label));
+        dropdown.setValue(this.color);
+        dropdown.onChange((value) => {
+          this.color = value;
+        });
+      });
+
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    const save = actions.createEl("button", { text: "创建", cls: "mod-cta", attr: { type: "button" } });
+    save.addEventListener("click", async () => {
+      if (!this.title) return;
+      await this.onSubmit({
+        id: `custom-${Date.now()}`,
+        page: this.page,
+        title: this.title,
+        description: this.description,
+        type: this.type,
+        color: this.color
+      });
+      this.close();
     });
   }
 }

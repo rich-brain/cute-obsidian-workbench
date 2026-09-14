@@ -33,6 +33,12 @@ export class YearlyGoalsSection {
           this.onDataChanged();
         }).open();
       });
+      const remove = title.createEl("button", { attr: { type: "button", "aria-label": "删除目标" } });
+      setIcon(remove, "trash-2");
+      remove.addEventListener("click", async () => {
+        await this.store.deleteGoal(goal.id);
+        this.onDataChanged();
+      });
       row.createEl("p", { text: goal.description });
       const meta = row.createDiv({ cls: "cow-meta-line" });
       meta.createSpan({ cls: "cow-status is-green", text: goal.status });
