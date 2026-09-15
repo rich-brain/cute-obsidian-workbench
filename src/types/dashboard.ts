@@ -93,14 +93,38 @@ export interface BookItem {
   title: string;
   author: string;
   cover?: string;
+  coverUrl?: string;
+  coverPath?: string;
+  publisher?: string;
+  publishDate?: string;
+  isbn10?: string;
+  isbn13?: string;
+  category?: string;
+  description?: string;
   totalPages: number;
   currentPage: number;
   status: "在读" | "想读" | "已读";
+  readingStatus?: "want-to-read" | "reading" | "finished";
+  shelfStatus?: "on-shelf" | "off-shelf";
   rating?: number;
   startDate?: string;
   finishDate?: string;
   notePath?: string;
+  bookFilePath?: string;
   tags: string[];
+}
+
+export interface ReadingPlan {
+  id: string;
+  bookId: string;
+  startDate: string;
+  endDate: string;
+  targetPages?: number;
+  note?: string;
+  status: "planned" | "active" | "completed" | "overdue";
+  completedDate?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ReadingQuote {
@@ -510,6 +534,7 @@ export interface WorkbenchData {
   researchMemos: string[];
   dataAnalysisTasks: DataAnalysisTask[];
   books: BookItem[];
+  readingPlans: ReadingPlan[];
   readingQuotes: ReadingQuote[];
   workouts: Workout[];
   bodyMeasurements: BodyMeasurement[];

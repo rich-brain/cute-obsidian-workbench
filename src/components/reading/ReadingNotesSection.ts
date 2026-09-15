@@ -21,8 +21,7 @@ export class ReadingNotesSection {
       setIcon(edit, "pencil");
       edit.addEventListener("click", (event) => {
         event.stopPropagation();
-        new AddBookModal(this.app, async (updated) => {
-          await this.store.updateBook(book.id, updated);
+        new AddBookModal(this.app, this.store, () => {
           this.onDataChanged();
         }, book).open();
       });
@@ -30,7 +29,9 @@ export class ReadingNotesSection {
       setIcon(remove, "trash-2");
       remove.addEventListener("click", async (event) => {
         event.stopPropagation();
-        await this.store.deleteBook(book.id);
+        if (!book.notePath) return;
+        if (!confirm(`解绑《${book.title}》的阅读笔记？不会删除 Markdown 文件。`)) return;
+        await this.store.updateBook(book.id, { notePath: undefined });
         this.onDataChanged();
       });
       button.createDiv({ cls: "cow-meta-line" }).createSpan({ text: book.notePath ?? "未绑定阅读笔记" });

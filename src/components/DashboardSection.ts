@@ -100,6 +100,8 @@ import { WaterSleepHabitsSection } from "./fitness/WaterSleepHabitsSection";
 import { WorkoutLogSection } from "./fitness/WorkoutLogSection";
 import { WorkoutPlanSection } from "./fitness/WorkoutPlanSection";
 import { AiReadingReviewSection } from "./reading/AiReadingReviewSection";
+import { AddBookModal } from "./reading/AddBookModal";
+import { AllBooksModal } from "./reading/AllBooksModal";
 import { BookListSection } from "./reading/BookListSection";
 import { BookshelfSection } from "./reading/BookshelfSection";
 import { CurrentReadingSection } from "./reading/CurrentReadingSection";
@@ -107,6 +109,7 @@ import { ReadingCheckinSection } from "./reading/ReadingCheckinSection";
 import { ReadingHeatmapSection } from "./reading/ReadingHeatmapSection";
 import { ReadingNotesSection } from "./reading/ReadingNotesSection";
 import { ReadingPlanSection } from "./reading/ReadingPlanSection";
+import { ReadingPlanStatisticsModal, openReadingPlanModal } from "./reading/ReadingPlanModals";
 import { ReadingQuotesSection } from "./reading/ReadingQuotesSection";
 import { ReadingStatsSection } from "./reading/ReadingStatsSection";
 import { DataAnalysisTasksSection } from "./research/DataAnalysisTasksSection";
@@ -196,6 +199,7 @@ export class DashboardSection {
     this.renderFitnessHeaderActions(actions);
     this.renderFinanceHeaderActions(actions);
     this.renderGoalHeaderActions(actions);
+    this.renderReadingHeaderActions(actions);
 
     const menuButton = actions.createEl("button", {
       cls: "cow-icon-button",
@@ -236,6 +240,27 @@ export class DashboardSection {
     if (this.section.type === "health-reminders") {
       addAction("新增提醒", "plus", () => openHealthReminderModal(this.app, this.store, this.onDataChanged));
       addAction("统计", "bar-chart-3", () => new HealthReminderStatisticsModal(this.app, this.store).open());
+    }
+  }
+
+  private renderReadingHeaderActions(actions: HTMLElement): void {
+    const addAction = (label: string, icon: string, onClick: () => void): void => {
+      const button = actions.createEl("button", {
+        cls: "cow-section-add-button",
+        attr: { type: "button", "aria-label": label }
+      });
+      setIcon(button.createSpan(), icon);
+      button.createSpan({ text: label });
+      button.addEventListener("click", onClick);
+    };
+
+    if (this.section.type === "bookshelf") {
+      addAction("增加书籍", "plus", () => new AddBookModal(this.app, this.store, this.onDataChanged).open());
+      addAction("所有书籍", "library", () => new AllBooksModal(this.app, this.store, this.onDataChanged).open());
+    }
+    if (this.section.type === "reading-plan") {
+      addAction("新增计划", "plus", () => openReadingPlanModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new ReadingPlanStatisticsModal(this.app, this.store).open());
     }
   }
 
@@ -406,10 +431,10 @@ export class DashboardSection {
         new ReadingQuotesSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "finished-books":
-        new BookListSection(this.app, this.store, "已读", this.onDataChanged).render(container);
+        new BookListSection(this.app, this.store, "finished", this.onDataChanged).render(container);
         break;
       case "wishlist-books":
-        new BookListSection(this.app, this.store, "想读", this.onDataChanged).render(container);
+        new BookListSection(this.app, this.store, "want-to-read", this.onDataChanged).render(container);
         break;
       case "reading-stats":
         new ReadingStatsSection(this.store).render(container);

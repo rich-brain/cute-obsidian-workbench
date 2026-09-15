@@ -6,7 +6,7 @@ export class ReadingStatsSection {
   render(container: HTMLElement): void {
     const books = this.store.getBooks();
     const total = books.length;
-    const finished = books.filter((book) => book.status === "已读").length;
+    const finished = books.filter((book) => book.readingStatus === "finished").length;
     const pages = books.reduce((sum, book) => sum + book.currentPage, 0);
     const stats = [
       ["藏书", `${total}本`],

@@ -849,14 +849,18 @@
 
 .cow-book-controls {
   display: grid;
-  grid-template-columns: minmax(48px, 1fr) auto repeat(4, 30px);
+  grid-template-columns: minmax(72px, 1fr) minmax(48px, 0.8fr) auto repeat(5, 30px);
   align-items: center;
   gap: 5px;
 }
 
-.cow-book-controls input {
+.cow-book-controls input,
+.cow-book-controls select {
   width: 100%;
   min-width: 0;
+  border: 1px solid var(--cow-border);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.58);
 }
 
 .cow-book-controls button {
@@ -869,6 +873,494 @@
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.56);
   color: var(--cow-ink);
+}
+
+.cow-reading-plan-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cow-reading-plan-card {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.cow-reading-plan-card.is-active {
+  border-color: rgba(67, 199, 122, 0.26);
+  background: rgba(228, 255, 237, 0.5);
+}
+
+.cow-reading-plan-card.is-completed {
+  border-color: rgba(67, 199, 122, 0.3);
+  background: rgba(229, 252, 232, 0.64);
+}
+
+.cow-reading-plan-card.is-overdue {
+  border-color: rgba(255, 124, 124, 0.3);
+  background: rgba(255, 235, 233, 0.64);
+}
+
+.cow-reading-plan-cover,
+.cow-reading-plan-book-cover {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid rgba(91, 40, 28, 0.82);
+  border-radius: 10px;
+  background:
+    linear-gradient(145deg, rgba(255, 174, 205, 0.85), rgba(255, 222, 151, 0.8)),
+    var(--cow-cream);
+  color: #5b281c;
+  font-weight: 900;
+}
+
+.cow-reading-plan-cover {
+  width: 56px;
+  min-height: 78px;
+}
+
+.cow-reading-plan-cover img,
+.cow-reading-plan-book-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cow-reading-plan-body,
+.cow-reading-plan-title,
+.cow-reading-plan-progress {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cow-reading-plan-body strong,
+.cow-reading-plan-body span,
+.cow-reading-plan-body p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-reading-plan-title span {
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-reading-plan-body p {
+  margin: 0;
+  color: var(--cow-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cow-reading-plan-status {
+  align-self: start;
+  white-space: nowrap;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--cow-pink-strong);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.cow-reading-plan-status.is-active,
+.cow-reading-plan-status.is-completed {
+  color: #2f8c4d;
+}
+
+.cow-reading-plan-status.is-overdue {
+  color: #c64d55;
+}
+
+.cow-reading-plan-progress {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-reading-plan-progress .cow-month-progress-track {
+  grid-column: 1 / -1;
+}
+
+.cow-reading-plan-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 92px;
+}
+
+.cow-reading-plan-actions > button:not(.cow-section-add-button) {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--cow-border);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--cow-pink-strong);
+}
+
+.cute-reading-plan-modal {
+  resize: both;
+  overflow: hidden;
+}
+
+.cute-reading-plan-modal .modal-content,
+.cute-reading-plan-stats-modal .modal-content {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.cow-reading-plan-modal,
+.cow-reading-plan-modal-body,
+.cow-reading-plan-picker,
+.cow-reading-plan-form {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cow-reading-plan-book-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.cow-reading-plan-book-option {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(242, 59, 141, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.56);
+  color: var(--cow-ink);
+  text-align: left;
+}
+
+.cow-reading-plan-book-option.is-selected {
+  border-color: rgba(242, 59, 141, 0.34);
+  background: rgba(255, 224, 237, 0.7);
+}
+
+.cow-reading-plan-book-cover {
+  width: 46px;
+  min-height: 58px;
+  font-size: 14px;
+}
+
+.cow-reading-plan-book-meta {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cow-reading-plan-book-meta strong,
+.cow-reading-plan-book-meta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-reading-plan-book-meta span {
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-clickable-date-row {
+  cursor: pointer;
+}
+
+.cow-reading-plan-stats-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+}
+
+.cow-reading-plan-calendar-panel,
+.cow-reading-plan-detail-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(242, 59, 141, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.cow-reading-plan-year-months {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.cow-reading-plan-year-months button {
+  display: grid;
+  gap: 3px;
+  min-height: 60px;
+  padding: 8px;
+  border: 1px solid rgba(242, 59, 141, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--cow-ink);
+}
+
+.cow-reading-plan-year-months button.has-plan {
+  border-color: rgba(242, 59, 141, 0.3);
+  background: rgba(255, 224, 237, 0.68);
+}
+
+.cow-reading-plan-year-months span {
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cute-book-modal {
+  resize: both;
+  overflow: hidden;
+}
+
+.cute-book-modal .modal-content {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.cow-book-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cow-book-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cow-book-tabs button {
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid var(--cow-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--cow-pink-strong);
+  font-weight: 700;
+}
+
+.cow-book-tabs button.is-active {
+  background: rgba(255, 159, 190, 0.24);
+  border-color: rgba(242, 59, 141, 0.28);
+}
+
+.cow-book-modal-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cow-book-search,
+.cow-all-books-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cow-all-books-controls {
+  grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr);
+}
+
+.cow-book-search input,
+.cow-all-books-controls input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--cow-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.cow-book-search button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  border: 1px solid var(--cow-border);
+  border-radius: 999px;
+  background: rgba(255, 232, 241, 0.72);
+  color: var(--cow-pink-strong);
+  font-weight: 800;
+}
+
+.cow-book-search-results,
+.cow-all-books-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cow-book-search-result,
+.cow-all-book-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.54);
+  color: var(--cow-ink);
+  text-align: left;
+}
+
+.cow-book-search-result {
+  grid-template-columns: 58px minmax(0, 1fr);
+  width: 100%;
+}
+
+.cow-book-result-cover,
+.cow-book-form-cover {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border: 2px solid #5b281c;
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(255, 127, 180, 0.82), rgba(255, 209, 102, 0.72)), var(--cow-cream);
+  color: #5b281c;
+  font-weight: 900;
+}
+
+.cow-book-result-cover img,
+.cow-book-form-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cow-book-result-body,
+.cow-all-book-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cow-book-result-body strong,
+.cow-all-book-body strong,
+.cow-book-result-body span,
+.cow-all-book-body span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-book-result-body span,
+.cow-all-book-body span {
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-book-local-panel {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed rgba(242, 59, 141, 0.26);
+  border-radius: 14px;
+  background: rgba(255, 240, 247, 0.58);
+}
+
+.cow-book-local-panel p {
+  margin: 0;
+  color: var(--cow-muted);
+}
+
+.cow-book-form {
+  display: grid;
+  grid-template-columns: minmax(110px, 150px) minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+
+.cow-book-form-cover {
+  align-self: start;
+  position: relative;
+  min-height: 180px;
+}
+
+.cow-book-form-cover input {
+  position: absolute;
+  inset: auto 8px 8px 8px;
+  max-width: calc(100% - 16px);
+  font-size: 11px;
+}
+
+.cow-book-form-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.cow-book-form-row {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cow-book-form-row label {
+  color: var(--cow-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cow-book-form-row input,
+.cow-book-form-row select,
+.cow-book-form-row textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--cow-border);
+  border-radius: 12px;
+  background: rgba(255, 250, 253, 0.82);
+  color: var(--cow-ink);
+}
+
+.cow-book-form-row textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.cow-book-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
 }
 
 .cow-reading-stat-grid {
@@ -3261,7 +3753,14 @@
 
   .cow-book-card,
   .cow-book-controls,
+  .cow-reading-plan-card,
+  .cow-reading-plan-stats-layout,
   .cow-calendar-todo-item {
     grid-template-columns: 1fr;
+  }
+
+  .cow-reading-plan-actions {
+    justify-content: flex-start;
+    min-width: 0;
   }
 }

@@ -33,6 +33,7 @@ import type {
   QuickActionConfig,
   PriorityMatrixItem,
   ReadingQuote,
+  ReadingPlan,
   ResearchDeadline,
   ResearchPaper,
   ResearchProject,
@@ -165,7 +166,7 @@ function todayKey(): string {
 }
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.3.7",
+  dataVersion: "0.3.8",
   currentPage: "overview",
   sections: [
     {
@@ -636,6 +637,10 @@ const DEFAULT_DATA: WorkbenchData = {
   readingQuotes: [
     { id: "quote-1", text: "专注不是拒绝世界，而是选择此刻真正重要的事。", source: "深度工作" },
     { id: "quote-2", text: "微小习惯会在时间里复利。", source: "Atomic Habits" }
+  ],
+  readingPlans: [
+    { id: "plan-deep-work-sep", bookId: "book-deep-work", startDate: "2026-09-01", endDate: "2026-09-30", targetPages: 304, note: "完成全书并整理深度工作实践清单。", status: "active", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" },
+    { id: "plan-thinking-oct", bookId: "book-thinking", startDate: "2026-10-01", endDate: "2026-10-31", targetPages: 180, note: "先读判断与决策相关章节。", status: "planned", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" }
   ],
   workouts: [
     { id: "workout-1", date: "2026-09-14", type: "力量", duration: 45, calories: 320, completed: false, note: "下肢力量 + 核心" },
@@ -1483,6 +1488,40 @@ export class DashboardStore {
     return this.data.readingQuotes;
   }
 
+  getReadingPlans(): ReadingPlan[] {
+    return this.data.readingPlans.map((plan) => this.withComputedReadingPlanStatus(plan));
+  }
+
+  async addReadingPlan(plan: ReadingPlan): Promise<void> {
+    const normalized = this.normalizeReadingPlan(plan);
+    this.data.readingPlans.push(normalized);
+    await this.save();
+  }
+
+  async updateReadingPlan(planId: string, updates: Partial<ReadingPlan>): Promise<void> {
+    const plan = this.data.readingPlans.find((item) => item.id === planId);
+    if (!plan) return;
+    Object.assign(plan, updates, { updatedAt: new Date().toISOString() });
+    Object.assign(plan, this.normalizeReadingPlan(plan));
+    await this.save();
+  }
+
+  async deleteReadingPlan(planId: string): Promise<void> {
+    this.data.readingPlans = this.data.readingPlans.filter((item) => item.id !== planId);
+    await this.save();
+  }
+
+  async completeReadingPlan(planId: string): Promise<void> {
+    const plan = this.data.readingPlans.find((item) => item.id === planId);
+    if (!plan) return;
+    Object.assign(plan, { status: "completed" as const, completedDate: formatDateKey(new Date()), updatedAt: new Date().toISOString() });
+    await this.save();
+  }
+
+  shouldShowActiveReadingPlan(plan: ReadingPlan, dateKey = formatDateKey(new Date())): boolean {
+    return !plan.completedDate || plan.completedDate >= dateKey;
+  }
+
   async addReadingQuote(quote: ReadingQuote): Promise<void> {
     this.data.readingQuotes.push(quote);
     await this.save();
@@ -1501,7 +1540,7 @@ export class DashboardStore {
   }
 
   async addBook(book: BookItem): Promise<void> {
-    this.data.books.push(book);
+    this.data.books.push(this.normalizeBook(book));
     await this.save();
   }
 
@@ -1509,6 +1548,7 @@ export class DashboardStore {
     const book = this.data.books.find((item) => item.id === bookId);
     if (!book) return;
     Object.assign(book, updates);
+    Object.assign(book, this.normalizeBook(book));
     await this.save();
   }
 
@@ -1524,6 +1564,11 @@ export class DashboardStore {
     }
 
     book.currentPage = Math.max(0, Math.min(currentPage, book.totalPages));
+    if (book.currentPage > 0 && book.readingStatus === "want-to-read") {
+      book.readingStatus = "reading";
+      book.status = "在读";
+      book.startDate = book.startDate || formatDateKey(new Date());
+    }
     await this.save();
   }
 
@@ -1534,8 +1579,31 @@ export class DashboardStore {
     }
 
     book.status = "已读";
+    book.readingStatus = "finished";
     book.currentPage = book.totalPages;
     book.finishDate = formatDateKey(new Date());
+    book.startDate = book.startDate || book.finishDate;
+    await this.save();
+  }
+
+  async updateBookReadingStatus(bookId: string, readingStatus: BookItem["readingStatus"]): Promise<void> {
+    const book = this.data.books.find((item) => item.id === bookId);
+    if (!book || !readingStatus) return;
+    book.readingStatus = readingStatus;
+    book.status = this.legacyBookStatus(readingStatus);
+    if (readingStatus === "reading") book.startDate = book.startDate || formatDateKey(new Date());
+    if (readingStatus === "finished") {
+      book.currentPage = book.totalPages;
+      book.startDate = book.startDate || formatDateKey(new Date());
+      book.finishDate = book.finishDate || formatDateKey(new Date());
+    }
+    await this.save();
+  }
+
+  async updateBookShelfStatus(bookId: string, shelfStatus: BookItem["shelfStatus"]): Promise<void> {
+    const book = this.data.books.find((item) => item.id === bookId);
+    if (!book || !shelfStatus) return;
+    book.shelfStatus = shelfStatus;
     await this.save();
   }
 
@@ -2504,7 +2572,7 @@ export class DashboardStore {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.7",
+      dataVersion: "0.3.8",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2539,10 +2607,15 @@ export class DashboardStore {
       dataAnalysisTasks: Array.isArray(partial.dataAnalysisTasks)
         ? partial.dataAnalysisTasks
         : structuredClone(DEFAULT_DATA.dataAnalysisTasks),
-      books: Array.isArray(partial.books) ? partial.books : structuredClone(DEFAULT_DATA.books),
+      books: Array.isArray(partial.books)
+        ? partial.books.map((book) => this.normalizeBook(book))
+        : structuredClone(DEFAULT_DATA.books).map((book) => this.normalizeBook(book)),
       readingQuotes: Array.isArray(partial.readingQuotes)
         ? partial.readingQuotes
         : structuredClone(DEFAULT_DATA.readingQuotes),
+      readingPlans: Array.isArray(partial.readingPlans)
+        ? partial.readingPlans.map((plan) => this.normalizeReadingPlan(plan))
+        : this.createInitialReadingPlans(partial),
       workouts: Array.isArray(partial.workouts) ? partial.workouts : structuredClone(DEFAULT_DATA.workouts),
       bodyMeasurements: Array.isArray(partial.bodyMeasurements)
         ? partial.bodyMeasurements.map((item) => this.normalizeBodyMeasurement(item))
@@ -2741,6 +2814,99 @@ export class DashboardStore {
       createdAt: timestamp,
       updatedAt: todo.updatedAt ?? timestamp
     };
+  }
+
+  private normalizeBook(book: BookItem): BookItem {
+    const readingStatus = book.readingStatus ?? this.readingStatusFromLegacy(book.status);
+    const normalized: BookItem = {
+      ...book,
+      id: book.id ?? `book-${Date.now()}`,
+      title: book.title || "未命名书籍",
+      author: book.author || "未知作者",
+      totalPages: Math.max(1, Number(book.totalPages) || 1),
+      currentPage: Math.max(0, Math.min(Number(book.currentPage) || 0, Math.max(1, Number(book.totalPages) || 1))),
+      status: this.legacyBookStatus(readingStatus),
+      readingStatus,
+      shelfStatus: book.shelfStatus ?? "on-shelf",
+      coverPath: book.coverPath,
+      coverUrl: book.coverUrl ?? book.cover,
+      bookFilePath: book.bookFilePath,
+      notePath: book.notePath,
+      startDate: book.startDate,
+      finishDate: readingStatus === "finished" ? book.finishDate : book.finishDate,
+      tags: Array.isArray(book.tags) ? book.tags : []
+    };
+    if (normalized.readingStatus === "reading") normalized.startDate = normalized.startDate || formatDateKey(new Date());
+    if (normalized.readingStatus === "finished") {
+      normalized.currentPage = normalized.totalPages;
+      normalized.startDate = normalized.startDate || formatDateKey(new Date());
+      normalized.finishDate = normalized.finishDate || formatDateKey(new Date());
+    }
+    return normalized;
+  }
+
+  private readingStatusFromLegacy(status: BookItem["status"] | undefined): NonNullable<BookItem["readingStatus"]> {
+    if (status === "在读") return "reading";
+    if (status === "已读") return "finished";
+    return "want-to-read";
+  }
+
+  private legacyBookStatus(status: BookItem["readingStatus"]): BookItem["status"] {
+    if (status === "reading") return "在读";
+    if (status === "finished") return "已读";
+    return "想读";
+  }
+
+  private normalizeReadingPlan(plan: ReadingPlan): ReadingPlan {
+    const timestamp = plan.createdAt ?? nowIso();
+    const today = todayKey();
+    const startDate = plan.startDate || today;
+    const endDate = plan.endDate && plan.endDate >= startDate ? plan.endDate : startDate;
+    const status = plan.status ?? "planned";
+    return {
+      ...plan,
+      id: plan.id ?? `reading-plan-${Date.now()}`,
+      bookId: plan.bookId,
+      startDate,
+      endDate,
+      targetPages: plan.targetPages === undefined ? undefined : Math.max(0, Number(plan.targetPages) || 0),
+      note: plan.note ?? "",
+      status,
+      completedDate: status === "completed" ? plan.completedDate ?? today : plan.completedDate,
+      createdAt: timestamp,
+      updatedAt: plan.updatedAt ?? timestamp
+    };
+  }
+
+  private withComputedReadingPlanStatus(plan: ReadingPlan): ReadingPlan {
+    if (plan.status === "completed" || plan.completedDate) {
+      return { ...plan, status: "completed" };
+    }
+    const today = todayKey();
+    if (today < plan.startDate) return { ...plan, status: "planned" };
+    if (today > plan.endDate) return { ...plan, status: "overdue" };
+    return { ...plan, status: "active" };
+  }
+
+  private createInitialReadingPlans(partial: Partial<WorkbenchData>): ReadingPlan[] {
+    if (!Array.isArray(partial.books)) {
+      return structuredClone(DEFAULT_DATA.readingPlans).map((plan) => this.normalizeReadingPlan(plan));
+    }
+    const timestamp = nowIso();
+    return partial.books
+      .map((book) => this.normalizeBook(book))
+      .filter((book) => book.readingStatus === "reading")
+      .map((book) => this.normalizeReadingPlan({
+        id: `reading-plan-${book.id}`,
+        bookId: book.id,
+        startDate: book.startDate || todayKey(),
+        endDate: book.finishDate || todayKey(),
+        targetPages: book.totalPages,
+        note: "由旧阅读状态迁移生成。",
+        status: "active",
+        createdAt: timestamp,
+        updatedAt: timestamp
+      }));
   }
 
   private createInitialGoalActions(partial: Partial<WorkbenchData>): GoalAction[] {

@@ -23,7 +23,7 @@ __export(main_exports, {
   default: () => CuteObsidianWorkbenchPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian77 = require("obsidian");
+var import_obsidian78 = require("obsidian");
 
 // src/core/DashboardStore.ts
 var DASHBOARD_PAGES = [
@@ -133,7 +133,7 @@ function todayKey() {
   return formatDateKey(/* @__PURE__ */ new Date());
 }
 var DEFAULT_DATA = {
-  dataVersion: "0.3.7",
+  dataVersion: "0.3.8",
   currentPage: "overview",
   sections: [
     {
@@ -604,6 +604,10 @@ var DEFAULT_DATA = {
   readingQuotes: [
     { id: "quote-1", text: "\u4E13\u6CE8\u4E0D\u662F\u62D2\u7EDD\u4E16\u754C\uFF0C\u800C\u662F\u9009\u62E9\u6B64\u523B\u771F\u6B63\u91CD\u8981\u7684\u4E8B\u3002", source: "\u6DF1\u5EA6\u5DE5\u4F5C" },
     { id: "quote-2", text: "\u5FAE\u5C0F\u4E60\u60EF\u4F1A\u5728\u65F6\u95F4\u91CC\u590D\u5229\u3002", source: "Atomic Habits" }
+  ],
+  readingPlans: [
+    { id: "plan-deep-work-sep", bookId: "book-deep-work", startDate: "2026-09-01", endDate: "2026-09-30", targetPages: 304, note: "\u5B8C\u6210\u5168\u4E66\u5E76\u6574\u7406\u6DF1\u5EA6\u5DE5\u4F5C\u5B9E\u8DF5\u6E05\u5355\u3002", status: "active", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" },
+    { id: "plan-thinking-oct", bookId: "book-thinking", startDate: "2026-10-01", endDate: "2026-10-31", targetPages: 180, note: "\u5148\u8BFB\u5224\u65AD\u4E0E\u51B3\u7B56\u76F8\u5173\u7AE0\u8282\u3002", status: "planned", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" }
   ],
   workouts: [
     { id: "workout-1", date: "2026-09-14", type: "\u529B\u91CF", duration: 45, calories: 320, completed: false, note: "\u4E0B\u80A2\u529B\u91CF + \u6838\u5FC3" },
@@ -1356,6 +1360,34 @@ var DashboardStore = class {
   getReadingQuotes() {
     return this.data.readingQuotes;
   }
+  getReadingPlans() {
+    return this.data.readingPlans.map((plan) => this.withComputedReadingPlanStatus(plan));
+  }
+  async addReadingPlan(plan) {
+    const normalized = this.normalizeReadingPlan(plan);
+    this.data.readingPlans.push(normalized);
+    await this.save();
+  }
+  async updateReadingPlan(planId, updates) {
+    const plan = this.data.readingPlans.find((item) => item.id === planId);
+    if (!plan) return;
+    Object.assign(plan, updates, { updatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+    Object.assign(plan, this.normalizeReadingPlan(plan));
+    await this.save();
+  }
+  async deleteReadingPlan(planId) {
+    this.data.readingPlans = this.data.readingPlans.filter((item) => item.id !== planId);
+    await this.save();
+  }
+  async completeReadingPlan(planId) {
+    const plan = this.data.readingPlans.find((item) => item.id === planId);
+    if (!plan) return;
+    Object.assign(plan, { status: "completed", completedDate: formatDateKey(/* @__PURE__ */ new Date()), updatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+    await this.save();
+  }
+  shouldShowActiveReadingPlan(plan, dateKey = formatDateKey(/* @__PURE__ */ new Date())) {
+    return !plan.completedDate || plan.completedDate >= dateKey;
+  }
   async addReadingQuote(quote) {
     this.data.readingQuotes.push(quote);
     await this.save();
@@ -1371,13 +1403,14 @@ var DashboardStore = class {
     await this.save();
   }
   async addBook(book) {
-    this.data.books.push(book);
+    this.data.books.push(this.normalizeBook(book));
     await this.save();
   }
   async updateBook(bookId, updates) {
     const book = this.data.books.find((item) => item.id === bookId);
     if (!book) return;
     Object.assign(book, updates);
+    Object.assign(book, this.normalizeBook(book));
     await this.save();
   }
   async deleteBook(bookId) {
@@ -1390,6 +1423,11 @@ var DashboardStore = class {
       return;
     }
     book.currentPage = Math.max(0, Math.min(currentPage, book.totalPages));
+    if (book.currentPage > 0 && book.readingStatus === "want-to-read") {
+      book.readingStatus = "reading";
+      book.status = "\u5728\u8BFB";
+      book.startDate = book.startDate || formatDateKey(/* @__PURE__ */ new Date());
+    }
     await this.save();
   }
   async completeBook(bookId) {
@@ -1398,8 +1436,29 @@ var DashboardStore = class {
       return;
     }
     book.status = "\u5DF2\u8BFB";
+    book.readingStatus = "finished";
     book.currentPage = book.totalPages;
     book.finishDate = formatDateKey(/* @__PURE__ */ new Date());
+    book.startDate = book.startDate || book.finishDate;
+    await this.save();
+  }
+  async updateBookReadingStatus(bookId, readingStatus) {
+    const book = this.data.books.find((item) => item.id === bookId);
+    if (!book || !readingStatus) return;
+    book.readingStatus = readingStatus;
+    book.status = this.legacyBookStatus(readingStatus);
+    if (readingStatus === "reading") book.startDate = book.startDate || formatDateKey(/* @__PURE__ */ new Date());
+    if (readingStatus === "finished") {
+      book.currentPage = book.totalPages;
+      book.startDate = book.startDate || formatDateKey(/* @__PURE__ */ new Date());
+      book.finishDate = book.finishDate || formatDateKey(/* @__PURE__ */ new Date());
+    }
+    await this.save();
+  }
+  async updateBookShelfStatus(bookId, shelfStatus) {
+    const book = this.data.books.find((item) => item.id === bookId);
+    if (!book || !shelfStatus) return;
+    book.shelfStatus = shelfStatus;
     await this.save();
   }
   getWorkouts() {
@@ -2254,7 +2313,7 @@ var DashboardStore = class {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.7",
+      dataVersion: "0.3.8",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2273,8 +2332,9 @@ var DashboardStore = class {
       researchDeadlines: Array.isArray(partial.researchDeadlines) ? partial.researchDeadlines : structuredClone(DEFAULT_DATA.researchDeadlines),
       researchMemos: Array.isArray(partial.researchMemos) ? partial.researchMemos : structuredClone(DEFAULT_DATA.researchMemos),
       dataAnalysisTasks: Array.isArray(partial.dataAnalysisTasks) ? partial.dataAnalysisTasks : structuredClone(DEFAULT_DATA.dataAnalysisTasks),
-      books: Array.isArray(partial.books) ? partial.books : structuredClone(DEFAULT_DATA.books),
+      books: Array.isArray(partial.books) ? partial.books.map((book) => this.normalizeBook(book)) : structuredClone(DEFAULT_DATA.books).map((book) => this.normalizeBook(book)),
       readingQuotes: Array.isArray(partial.readingQuotes) ? partial.readingQuotes : structuredClone(DEFAULT_DATA.readingQuotes),
+      readingPlans: Array.isArray(partial.readingPlans) ? partial.readingPlans.map((plan) => this.normalizeReadingPlan(plan)) : this.createInitialReadingPlans(partial),
       workouts: Array.isArray(partial.workouts) ? partial.workouts : structuredClone(DEFAULT_DATA.workouts),
       bodyMeasurements: Array.isArray(partial.bodyMeasurements) ? partial.bodyMeasurements.map((item) => this.normalizeBodyMeasurement(item)) : structuredClone(DEFAULT_DATA.bodyMeasurements),
       fitnessGoals: Array.isArray(partial.fitnessGoals) ? partial.fitnessGoals.map((item) => this.normalizeFitnessGoal(item)) : structuredClone(DEFAULT_DATA.fitnessGoals),
@@ -2428,6 +2488,92 @@ var DashboardStore = class {
       createdAt: timestamp,
       updatedAt: (_f = todo.updatedAt) != null ? _f : timestamp
     };
+  }
+  normalizeBook(book) {
+    var _a, _b, _c, _d;
+    const readingStatus = (_a = book.readingStatus) != null ? _a : this.readingStatusFromLegacy(book.status);
+    const normalized = {
+      ...book,
+      id: (_b = book.id) != null ? _b : `book-${Date.now()}`,
+      title: book.title || "\u672A\u547D\u540D\u4E66\u7C4D",
+      author: book.author || "\u672A\u77E5\u4F5C\u8005",
+      totalPages: Math.max(1, Number(book.totalPages) || 1),
+      currentPage: Math.max(0, Math.min(Number(book.currentPage) || 0, Math.max(1, Number(book.totalPages) || 1))),
+      status: this.legacyBookStatus(readingStatus),
+      readingStatus,
+      shelfStatus: (_c = book.shelfStatus) != null ? _c : "on-shelf",
+      coverPath: book.coverPath,
+      coverUrl: (_d = book.coverUrl) != null ? _d : book.cover,
+      bookFilePath: book.bookFilePath,
+      notePath: book.notePath,
+      startDate: book.startDate,
+      finishDate: readingStatus === "finished" ? book.finishDate : book.finishDate,
+      tags: Array.isArray(book.tags) ? book.tags : []
+    };
+    if (normalized.readingStatus === "reading") normalized.startDate = normalized.startDate || formatDateKey(/* @__PURE__ */ new Date());
+    if (normalized.readingStatus === "finished") {
+      normalized.currentPage = normalized.totalPages;
+      normalized.startDate = normalized.startDate || formatDateKey(/* @__PURE__ */ new Date());
+      normalized.finishDate = normalized.finishDate || formatDateKey(/* @__PURE__ */ new Date());
+    }
+    return normalized;
+  }
+  readingStatusFromLegacy(status) {
+    if (status === "\u5728\u8BFB") return "reading";
+    if (status === "\u5DF2\u8BFB") return "finished";
+    return "want-to-read";
+  }
+  legacyBookStatus(status) {
+    if (status === "reading") return "\u5728\u8BFB";
+    if (status === "finished") return "\u5DF2\u8BFB";
+    return "\u60F3\u8BFB";
+  }
+  normalizeReadingPlan(plan) {
+    var _a, _b, _c, _d, _e, _f;
+    const timestamp = (_a = plan.createdAt) != null ? _a : nowIso();
+    const today5 = todayKey();
+    const startDate = plan.startDate || today5;
+    const endDate = plan.endDate && plan.endDate >= startDate ? plan.endDate : startDate;
+    const status = (_b = plan.status) != null ? _b : "planned";
+    return {
+      ...plan,
+      id: (_c = plan.id) != null ? _c : `reading-plan-${Date.now()}`,
+      bookId: plan.bookId,
+      startDate,
+      endDate,
+      targetPages: plan.targetPages === void 0 ? void 0 : Math.max(0, Number(plan.targetPages) || 0),
+      note: (_d = plan.note) != null ? _d : "",
+      status,
+      completedDate: status === "completed" ? (_e = plan.completedDate) != null ? _e : today5 : plan.completedDate,
+      createdAt: timestamp,
+      updatedAt: (_f = plan.updatedAt) != null ? _f : timestamp
+    };
+  }
+  withComputedReadingPlanStatus(plan) {
+    if (plan.status === "completed" || plan.completedDate) {
+      return { ...plan, status: "completed" };
+    }
+    const today5 = todayKey();
+    if (today5 < plan.startDate) return { ...plan, status: "planned" };
+    if (today5 > plan.endDate) return { ...plan, status: "overdue" };
+    return { ...plan, status: "active" };
+  }
+  createInitialReadingPlans(partial) {
+    if (!Array.isArray(partial.books)) {
+      return structuredClone(DEFAULT_DATA.readingPlans).map((plan) => this.normalizeReadingPlan(plan));
+    }
+    const timestamp = nowIso();
+    return partial.books.map((book) => this.normalizeBook(book)).filter((book) => book.readingStatus === "reading").map((book) => this.normalizeReadingPlan({
+      id: `reading-plan-${book.id}`,
+      bookId: book.id,
+      startDate: book.startDate || todayKey(),
+      endDate: book.finishDate || todayKey(),
+      targetPages: book.totalPages,
+      note: "\u7531\u65E7\u9605\u8BFB\u72B6\u6001\u8FC1\u79FB\u751F\u6210\u3002",
+      status: "active",
+      createdAt: timestamp,
+      updatedAt: timestamp
+    }));
   }
   createInitialGoalActions(partial) {
     const goals = Array.isArray(partial.goals) ? partial.goals : DEFAULT_DATA.goals;
@@ -2842,7 +2988,7 @@ var HealthReminderService = class {
 };
 
 // src/views/WorkbenchView.ts
-var import_obsidian76 = require("obsidian");
+var import_obsidian77 = require("obsidian");
 
 // src/core/DashboardRouter.ts
 var ROUTE_CHANGED_EVENT = "route-changed";
@@ -3224,7 +3370,7 @@ var TopNavigation = class {
 };
 
 // src/components/DashboardSection.ts
-var import_obsidian69 = require("obsidian");
+var import_obsidian70 = require("obsidian");
 
 // src/components/SectionActionMenu.ts
 var import_obsidian13 = require("obsidian");
@@ -3239,8 +3385,6 @@ var ADDABLE_SECTION_TYPES = /* @__PURE__ */ new Set([
   "literature-notes",
   "research-timeline",
   "research-memo",
-  "reading-plan",
-  "bookshelf",
   "reading-notes",
   "reading-quotes",
   "wishlist-books",
@@ -3331,95 +3475,432 @@ var CrudItemModal = class extends import_obsidian7.Modal {
 
 // src/components/reading/AddBookModal.ts
 var import_obsidian8 = require("obsidian");
+
+// src/components/ResizableModal.ts
+function applyResizableModal(modal, options) {
+  modal.modalEl.addClass("cute-resizable-modal", options.className);
+  modal.modalEl.style.width = options.width;
+  if (options.height) {
+    modal.modalEl.style.height = options.height;
+  } else {
+    modal.modalEl.style.removeProperty("height");
+  }
+  modal.modalEl.style.maxWidth = options.maxWidth;
+  modal.modalEl.style.maxHeight = options.maxHeight;
+  if (options.minWidth) {
+    modal.modalEl.style.minWidth = options.minWidth;
+  }
+  if (options.minHeight) {
+    modal.modalEl.style.minHeight = options.minHeight;
+  }
+}
+
+// src/components/reading/AddBookModal.ts
 var AddBookModal = class extends import_obsidian8.Modal {
-  constructor(app, onSubmit, book) {
+  constructor(app, store, onDataChanged, book) {
     var _a, _b, _c, _d, _e, _f, _g;
     super(app);
-    this.onSubmit = onSubmit;
+    this.store = store;
+    this.onDataChanged = onDataChanged;
     this.book = book;
-    this.title = "";
-    this.author = "";
-    this.totalPages = 200;
-    this.currentPage = 0;
-    this.status = "\u60F3\u8BFB";
-    this.notePath = "";
-    this.tags = "";
-    this.title = (_a = book == null ? void 0 : book.title) != null ? _a : "";
-    this.author = (_b = book == null ? void 0 : book.author) != null ? _b : "";
-    this.totalPages = (_c = book == null ? void 0 : book.totalPages) != null ? _c : 200;
-    this.currentPage = (_d = book == null ? void 0 : book.currentPage) != null ? _d : 0;
-    this.status = (_e = book == null ? void 0 : book.status) != null ? _e : "\u60F3\u8BFB";
-    this.notePath = (_f = book == null ? void 0 : book.notePath) != null ? _f : "";
-    this.tags = (_g = book == null ? void 0 : book.tags.join(", ")) != null ? _g : "";
+    this.activeTab = "search";
+    this.searchResults = [];
+    this.draft = {
+      ...book,
+      title: (_a = book == null ? void 0 : book.title) != null ? _a : "",
+      author: (_b = book == null ? void 0 : book.author) != null ? _b : "",
+      totalPages: (_c = book == null ? void 0 : book.totalPages) != null ? _c : 200,
+      currentPage: (_d = book == null ? void 0 : book.currentPage) != null ? _d : 0,
+      readingStatus: (_e = book == null ? void 0 : book.readingStatus) != null ? _e : (book == null ? void 0 : book.status) === "\u5728\u8BFB" ? "reading" : (book == null ? void 0 : book.status) === "\u5DF2\u8BFB" ? "finished" : "want-to-read",
+      shelfStatus: (_f = book == null ? void 0 : book.shelfStatus) != null ? _f : "on-shelf",
+      tags: (_g = book == null ? void 0 : book.tags) != null ? _g : []
+    };
+    if (book) this.activeTab = "manual";
+  }
+  onOpen() {
+    applyResizableModal(this, {
+      className: "cute-book-modal",
+      width: "min(760px, 90vw)",
+      maxWidth: "96vw",
+      maxHeight: "90vh",
+      minWidth: "min(520px, 92vw)",
+      minHeight: "min(430px, 82vh)"
+    });
+    this.render();
+  }
+  render() {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-book-modal");
+    this.contentEl.createEl("h2", { text: this.book ? "\u7F16\u8F91\u4E66\u7C4D" : "\u589E\u52A0\u4E66\u7C4D" });
+    this.renderTabs();
+    const body = this.contentEl.createDiv({ cls: "cow-book-modal-body" });
+    if (this.activeTab === "search") this.renderSearchTab(body);
+    if (this.activeTab === "local") this.renderLocalTab(body);
+    this.renderBookForm(body);
+    this.renderActions();
+  }
+  renderTabs() {
+    const tabs = this.contentEl.createDiv({ cls: "cow-book-tabs" });
+    [
+      { id: "search", label: "\u641C\u7D22\u5BFC\u5165" },
+      { id: "local", label: "\u672C\u5730\u6587\u4EF6" },
+      { id: "manual", label: "\u624B\u52A8\u6DFB\u52A0" }
+    ].forEach((tab) => {
+      const button = tabs.createEl("button", { text: tab.label, cls: this.activeTab === tab.id ? "is-active" : "", attr: { type: "button" } });
+      button.addEventListener("click", () => {
+        this.activeTab = tab.id;
+        this.render();
+      });
+    });
+  }
+  renderSearchTab(container) {
+    const search = container.createDiv({ cls: "cow-book-search" });
+    const input = search.createEl("input", { attr: { type: "search", placeholder: "\u8F93\u5165\u4E66\u540D\u3001\u4F5C\u8005\u6216 ISBN" } });
+    input.value = [this.draft.title, this.draft.author].filter(Boolean).join(" ");
+    const button = search.createEl("button", { attr: { type: "button" } });
+    (0, import_obsidian8.setIcon)(button.createSpan(), "search");
+    button.createSpan({ text: "\u641C\u7D22" });
+    button.addEventListener("click", async () => {
+      this.searchResults = await this.searchBooks(input.value.trim());
+      this.render();
+    });
+    const results = container.createDiv({ cls: "cow-book-search-results" });
+    this.searchResults.forEach((result) => this.renderSearchResult(results, result));
+  }
+  renderSearchResult(container, result) {
+    var _a, _b;
+    const item = container.createEl("button", { cls: "cow-book-search-result", attr: { type: "button" } });
+    const cover = item.createDiv({ cls: "cow-book-result-cover" });
+    if (result.coverUrl) cover.createEl("img", { attr: { src: result.coverUrl, alt: result.title } });
+    else cover.createSpan({ text: result.title.slice(0, 2) });
+    const body = item.createDiv({ cls: "cow-book-result-body" });
+    body.createEl("strong", { text: result.title });
+    body.createSpan({ text: [result.author, result.publisher, result.publishDate].filter(Boolean).join(" \xB7 ") || "\u672A\u77E5\u4F5C\u8005" });
+    body.createSpan({ text: [`ISBN ${(_b = (_a = result.isbn13) != null ? _a : result.isbn10) != null ? _b : "--"}`, result.totalPages ? `${result.totalPages} \u9875` : ""].filter(Boolean).join(" \xB7 ") });
+    item.addEventListener("click", () => {
+      var _a2, _b2;
+      this.draft = { ...this.draft, ...result, author: result.author || this.draft.author, totalPages: (_b2 = (_a2 = result.totalPages) != null ? _a2 : this.draft.totalPages) != null ? _b2 : 200 };
+      new import_obsidian8.Notice("\u5DF2\u586B\u5165\u4E66\u7C4D\u5143\u6570\u636E\uFF0C\u53EF\u7EE7\u7EED\u4FEE\u6539\u3002");
+      this.activeTab = "manual";
+      this.render();
+    });
+  }
+  renderLocalTab(container) {
+    const panel = container.createDiv({ cls: "cow-book-local-panel" });
+    panel.createEl("p", { text: "\u9009\u62E9 PDF / EPUB / FB2 / MOBI / AZW3 \u6587\u4EF6\u540E\uFF0C\u4F1A\u590D\u5236\u5230\u5F53\u524D Vault \u7684 Books/Files/\uFF0C\u4E0D\u4F1A\u4FDD\u5B58\u672C\u673A\u7EDD\u5BF9\u8DEF\u5F84\u3002" });
+    const input = panel.createEl("input", { attr: { type: "file", accept: ".pdf,.epub,.fb2,.mobi,.azw3,application/pdf" } });
+    input.addEventListener("change", async () => {
+      var _a;
+      const file = (_a = input.files) == null ? void 0 : _a[0];
+      if (!file) return;
+      const path = await this.copyBookFile(file);
+      if (!path) return;
+      this.draft.bookFilePath = path;
+      if (!this.draft.title) this.draft.title = file.name.replace(/\.[^.]+$/, "");
+      await this.ensureMetadataFromQuery(this.draft.title);
+      this.render();
+    });
+  }
+  renderBookForm(container) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
+    const form = container.createDiv({ cls: "cow-book-form" });
+    const cover = form.createDiv({ cls: "cow-book-form-cover" });
+    const coverSrc = this.draft.coverPath ? this.app.vault.adapter.getResourcePath(this.draft.coverPath) : (_a = this.draft.coverUrl) != null ? _a : this.draft.cover;
+    if (coverSrc) cover.createEl("img", { attr: { src: coverSrc, alt: this.draft.title || "\u5C01\u9762" } });
+    else cover.createSpan({ text: (this.draft.title || "\u4E66").slice(0, 2) });
+    const coverInput = cover.createEl("input", { attr: { type: "file", accept: "image/*" } });
+    coverInput.addEventListener("change", async () => {
+      var _a2;
+      const file = (_a2 = coverInput.files) == null ? void 0 : _a2[0];
+      if (!file) return;
+      this.draft.coverPath = await this.copyCoverFile(file);
+      this.render();
+    });
+    const fields = form.createDiv({ cls: "cow-book-form-fields" });
+    this.bindInput(this.textField(fields, "\u4E66\u540D", this.draft.title), (value) => this.draft.title = value);
+    this.bindInput(this.textField(fields, "\u4F5C\u8005", this.draft.author), (value) => this.draft.author = value);
+    this.bindInput(this.textField(fields, "\u51FA\u7248\u793E", (_b = this.draft.publisher) != null ? _b : ""), (value) => this.draft.publisher = value);
+    this.bindInput(this.textField(fields, "\u51FA\u7248\u65E5\u671F", (_c = this.draft.publishDate) != null ? _c : ""), (value) => this.draft.publishDate = value);
+    this.bindInput(this.textField(fields, "ISBN", (_e = (_d = this.draft.isbn13) != null ? _d : this.draft.isbn10) != null ? _e : ""), (value) => {
+      if (value.length === 10) this.draft.isbn10 = value;
+      else this.draft.isbn13 = value;
+    });
+    this.bindInput(this.textField(fields, "\u603B\u9875\u6570", String((_f = this.draft.totalPages) != null ? _f : 200), "number"), (value) => this.draft.totalPages = Number(value) || 1);
+    this.bindInput(this.textField(fields, "\u5F53\u524D\u9875", String((_g = this.draft.currentPage) != null ? _g : 0), "number"), (value) => this.draft.currentPage = Number(value) || 0);
+    this.bindInput(this.textField(fields, "\u5206\u7C7B", (_h = this.draft.category) != null ? _h : ""), (value) => this.draft.category = value);
+    this.renderDateField(fields, "\u5F00\u59CB\u9605\u8BFB\u65E5\u671F", "startDate");
+    this.renderDateField(fields, "\u7ED3\u675F\u9605\u8BFB\u65E5\u671F", "finishDate");
+    this.renderSelect(fields, "\u9605\u8BFB\u72B6\u6001", (_i = this.draft.readingStatus) != null ? _i : "want-to-read", [
+      { value: "want-to-read", label: "\u60F3\u8BFB" },
+      { value: "reading", label: "\u5728\u8BFB" },
+      { value: "finished", label: "\u5DF2\u8BFB" }
+    ], (value) => {
+      var _a2, _b2;
+      this.draft.readingStatus = value;
+      if (value === "reading") this.draft.startDate = this.draft.startDate || this.today();
+      if (value === "finished") {
+        this.draft.startDate = this.draft.startDate || this.today();
+        this.draft.finishDate = this.draft.finishDate || this.today();
+        this.draft.currentPage = (_b2 = (_a2 = this.draft.totalPages) != null ? _a2 : this.draft.currentPage) != null ? _b2 : 0;
+      }
+      this.render();
+    });
+    this.renderSelect(fields, "\u4E66\u67B6\u72B6\u6001", (_j = this.draft.shelfStatus) != null ? _j : "on-shelf", [
+      { value: "on-shelf", label: "\u4E0A\u67B6" },
+      { value: "off-shelf", label: "\u4E0B\u67B6" }
+    ], (value) => this.draft.shelfStatus = value);
+    this.bindInput(this.textField(fields, "\u6807\u7B7E", ((_k = this.draft.tags) != null ? _k : []).join(", ")), (value) => this.draft.tags = value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean));
+    this.bindInput(this.textareaField(fields, "\u7B80\u4ECB", (_l = this.draft.description) != null ? _l : ""), (value) => this.draft.description = value);
+  }
+  renderActions() {
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: this.book ? "\u4FDD\u5B58" : "\u6DFB\u52A0", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.saveBook());
+  }
+  async saveBook() {
+    if (!this.draft.title.trim()) {
+      new import_obsidian8.Notice("\u8BF7\u8F93\u5165\u4E66\u540D\u3002");
+      return;
+    }
+    const book = await this.prepareBook();
+    if (this.book) await this.store.updateBook(this.book.id, book);
+    else await this.store.addBook(book);
+    this.onDataChanged();
+    this.close();
+  }
+  async prepareBook() {
+    var _a, _b, _c, _d, _e;
+    const readingStatus = (_a = this.draft.readingStatus) != null ? _a : "want-to-read";
+    if (this.draft.coverUrl && !this.draft.coverPath) {
+      this.draft.coverPath = await this.downloadCover(this.draft.coverUrl, this.draft.title);
+    }
+    const notePath = this.draft.notePath || await this.ensureBookNote();
+    return {
+      id: (_c = (_b = this.book) == null ? void 0 : _b.id) != null ? _c : `book-${Date.now()}`,
+      ...this.book,
+      ...this.draft,
+      title: this.draft.title.trim(),
+      author: this.draft.author.trim() || "\u672A\u77E5\u4F5C\u8005",
+      totalPages: Math.max(1, Number(this.draft.totalPages) || 1),
+      currentPage: Math.max(0, Math.min(Number(this.draft.currentPage) || 0, Math.max(1, Number(this.draft.totalPages) || 1))),
+      status: readingStatus === "reading" ? "\u5728\u8BFB" : readingStatus === "finished" ? "\u5DF2\u8BFB" : "\u60F3\u8BFB",
+      readingStatus,
+      shelfStatus: (_d = this.draft.shelfStatus) != null ? _d : "on-shelf",
+      notePath,
+      tags: (_e = this.draft.tags) != null ? _e : []
+    };
+  }
+  async searchBooks(query) {
+    var _a, _b, _c, _d;
+    if (!query) return [];
+    const results = [];
+    try {
+      const google = await (0, import_obsidian8.requestUrl)({ url: `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=8` });
+      const items = (_b = (_a = google.json) == null ? void 0 : _a.items) != null ? _b : [];
+      items.forEach((item) => {
+        var _a2, _b2, _c2, _d2, _e, _f, _g;
+        const info = (_a2 = item.volumeInfo) != null ? _a2 : {};
+        const identifiers = Array.isArray(info.industryIdentifiers) ? info.industryIdentifiers : [];
+        const imageLinks = info.imageLinks;
+        results.push({
+          title: String((_b2 = info.title) != null ? _b2 : ""),
+          author: Array.isArray(info.authors) ? info.authors.join(", ") : "",
+          publisher: String((_c2 = info.publisher) != null ? _c2 : ""),
+          publishDate: String((_d2 = info.publishedDate) != null ? _d2 : ""),
+          isbn10: (_e = identifiers.find((id) => id.type === "ISBN_10")) == null ? void 0 : _e.identifier,
+          isbn13: (_f = identifiers.find((id) => id.type === "ISBN_13")) == null ? void 0 : _f.identifier,
+          totalPages: Number(info.pageCount) || void 0,
+          category: Array.isArray(info.categories) ? String(info.categories[0]) : "",
+          description: String((_g = info.description) != null ? _g : ""),
+          coverUrl: typeof (imageLinks == null ? void 0 : imageLinks.thumbnail) === "string" ? imageLinks.thumbnail.replace("http://", "https://") : void 0
+        });
+      });
+    } catch (e) {
+      new import_obsidian8.Notice("Google Books \u641C\u7D22\u5931\u8D25\uFF0C\u5DF2\u5C1D\u8BD5\u7EE7\u7EED\u4F7F\u7528\u5176\u5B83\u6570\u636E\u6E90\u3002");
+    }
+    try {
+      const openLibrary = await (0, import_obsidian8.requestUrl)({ url: `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8` });
+      const docs = (_d = (_c = openLibrary.json) == null ? void 0 : _c.docs) != null ? _d : [];
+      docs.forEach((doc) => {
+        var _a2;
+        return results.push({
+          title: String((_a2 = doc.title) != null ? _a2 : ""),
+          author: Array.isArray(doc.author_name) ? doc.author_name.join(", ") : "",
+          publisher: Array.isArray(doc.publisher) ? String(doc.publisher[0]) : "",
+          publishDate: doc.first_publish_year ? String(doc.first_publish_year) : "",
+          isbn10: Array.isArray(doc.isbn) ? doc.isbn.find((value) => String(value).length === 10) : void 0,
+          isbn13: Array.isArray(doc.isbn) ? doc.isbn.find((value) => String(value).length === 13) : void 0,
+          totalPages: Number(doc.number_of_pages_median) || void 0,
+          coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : void 0
+        });
+      });
+    } catch (e) {
+      new import_obsidian8.Notice("Open Library \u641C\u7D22\u5931\u8D25\uFF0C\u53EF\u7EE7\u7EED\u624B\u52A8\u6DFB\u52A0\u3002");
+    }
+    return results.filter((item) => item.title).slice(0, 10);
+  }
+  async ensureMetadataFromQuery(query) {
+    var _a;
+    const results = await this.searchBooks(query);
+    this.searchResults = results;
+    if (results[0]) this.draft = { ...this.draft, ...results[0], totalPages: (_a = results[0].totalPages) != null ? _a : this.draft.totalPages };
+  }
+  async copyBookFile(file) {
+    await this.ensureFolder("Books/Files");
+    const target = await this.resolveConflict(`Books/Files/${this.safeName(file.name)}`);
+    if (!target) return void 0;
+    await this.app.vault.adapter.writeBinary(target, await file.arrayBuffer());
+    return target;
+  }
+  async copyCoverFile(file) {
+    await this.ensureFolder("Books/Covers");
+    const target = await this.uniquePath(`Books/Covers/${this.safeName(file.name)}`);
+    await this.app.vault.adapter.writeBinary(target, await file.arrayBuffer());
+    return target;
+  }
+  async downloadCover(url, title) {
+    var _a;
+    try {
+      await this.ensureFolder("Books/Covers");
+      const response = await (0, import_obsidian8.requestUrl)({ url });
+      const contentType = (_a = response.headers["content-type"]) != null ? _a : "";
+      const extension = contentType.includes("png") ? "png" : "jpg";
+      const target = await this.uniquePath(`Books/Covers/${this.safeName(title)}.${extension}`);
+      await this.app.vault.adapter.writeBinary(target, response.arrayBuffer);
+      return target;
+    } catch (e) {
+      new import_obsidian8.Notice("\u5C01\u9762\u4FDD\u5B58\u5931\u8D25\uFF0C\u5C06\u4F7F\u7528\u9ED8\u8BA4\u5360\u4F4D\u5C01\u9762\u3002");
+      return void 0;
+    }
+  }
+  async ensureBookNote() {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+    await this.ensureFolder("Books/Notes");
+    const path = await this.uniquePath(`Books/Notes/${this.safeName(this.draft.title)}.md`);
+    const isbn = (_b = (_a = this.draft.isbn13) != null ? _a : this.draft.isbn10) != null ? _b : "";
+    const content = [
+      "---",
+      "type: book",
+      `title: ${this.escapeYaml(this.draft.title)}`,
+      `author: ${this.escapeYaml(this.draft.author)}`,
+      `status: ${(_c = this.draft.readingStatus) != null ? _c : "want-to-read"}`,
+      `startDate: ${(_d = this.draft.startDate) != null ? _d : ""}`,
+      `finishDate: ${(_e = this.draft.finishDate) != null ? _e : ""}`,
+      `isbn: ${isbn}`,
+      `publisher: ${this.escapeYaml((_f = this.draft.publisher) != null ? _f : "")}`,
+      `totalPages: ${(_g = this.draft.totalPages) != null ? _g : ""}`,
+      `cover: ${(_h = this.draft.coverPath) != null ? _h : ""}`,
+      `bookFile: ${(_i = this.draft.bookFilePath) != null ? _i : ""}`,
+      "---",
+      "",
+      `# ${this.draft.title}`,
+      "",
+      this.draft.bookFilePath ? `\u4E66\u7C4D\u6587\u4EF6\uFF1A[[${this.draft.bookFilePath}]]` : "\u4E66\u7C4D\u6587\u4EF6\uFF1A",
+      "",
+      "## \u9605\u8BFB\u8FDB\u5EA6",
+      "",
+      "## \u9605\u8BFB\u7B14\u8BB0",
+      "",
+      "## \u91D1\u53E5",
+      ""
+    ].join("\n");
+    await this.app.vault.create(path, content);
+    return path;
+  }
+  textField(container, label, value, type = "text") {
+    const row = container.createDiv({ cls: "cow-book-form-row" });
+    row.createEl("label", { text: label });
+    return row.createEl("input", { attr: { type, value } });
+  }
+  textareaField(container, label, value) {
+    const row = container.createDiv({ cls: "cow-book-form-row" });
+    row.createEl("label", { text: label });
+    return row.createEl("textarea", { text: value });
+  }
+  bindInput(input, onInput) {
+    input.addEventListener("input", () => onInput(input.value));
+  }
+  renderDateField(container, label, key) {
+    var _a;
+    const row = container.createDiv({ cls: "cow-book-form-row is-picker" });
+    row.createEl("label", { text: label });
+    const input = row.createEl("input", { attr: { type: "date", value: (_a = this.draft[key]) != null ? _a : "" } });
+    row.addEventListener("click", () => {
+      var _a2;
+      input.focus();
+      try {
+        (_a2 = input.showPicker) == null ? void 0 : _a2.call(input);
+      } catch (e) {
+        input.focus();
+      }
+    });
+    input.addEventListener("change", () => this.draft[key] = input.value);
+  }
+  renderSelect(container, label, value, options, onChange) {
+    const row = container.createDiv({ cls: "cow-book-form-row" });
+    row.createEl("label", { text: label });
+    const select = row.createEl("select");
+    options.forEach((option) => select.createEl("option", { value: option.value, text: option.label }));
+    select.value = value;
+    select.addEventListener("change", () => onChange(select.value));
+  }
+  async resolveConflict(path) {
+    if (!await this.app.vault.adapter.exists(path)) return path;
+    const choice = await new Promise((resolve) => new FileConflictModal(this.app, path, resolve).open());
+    if (choice === "cancel") return void 0;
+    if (choice === "overwrite") return path;
+    return this.uniquePath(path);
+  }
+  async uniquePath(path) {
+    if (!await this.app.vault.adapter.exists(path)) return path;
+    const dot = path.lastIndexOf(".");
+    const base = dot > -1 ? path.slice(0, dot) : path;
+    const ext = dot > -1 ? path.slice(dot) : "";
+    let index = 2;
+    let candidate = `${base}-${index}${ext}`;
+    while (await this.app.vault.adapter.exists(candidate)) {
+      index += 1;
+      candidate = `${base}-${index}${ext}`;
+    }
+    return candidate;
+  }
+  async ensureFolder(path) {
+    const parts = path.split("/");
+    let current = "";
+    for (const part of parts) {
+      current = current ? `${current}/${part}` : part;
+      if (!await this.app.vault.adapter.exists(current)) await this.app.vault.createFolder(current);
+    }
+  }
+  safeName(value) {
+    return value.replace(/[\\/:*?"<>|#^[\]]/g, " ").replace(/\s+/g, " ").trim() || "book";
+  }
+  escapeYaml(value) {
+    return `"${value.replace(/"/g, '\\"')}"`;
+  }
+  today() {
+    return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  }
+};
+var FileConflictModal = class extends import_obsidian8.Modal {
+  constructor(app, path, resolve) {
+    super(app);
+    this.path = path;
+    this.resolve = resolve;
   }
   onOpen() {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
-    this.contentEl.createEl("h2", { text: this.book ? "\u7F16\u8F91\u4E66\u7C4D" : "\u589E\u52A0\u4E66\u7C4D" });
-    new import_obsidian8.Setting(this.contentEl).setName("\u4E66\u540D").addText((text) => {
-      text.setValue(this.title);
-      text.onChange((value) => {
-        this.title = value.trim();
-      });
-    });
-    new import_obsidian8.Setting(this.contentEl).setName("\u4F5C\u8005").addText((text) => {
-      text.setValue(this.author);
-      text.onChange((value) => {
-        this.author = value.trim();
-      });
-    });
-    new import_obsidian8.Setting(this.contentEl).setName("\u603B\u9875\u6570").addText((text) => {
-      text.inputEl.type = "number";
-      text.setValue(String(this.totalPages));
-      text.onChange((value) => {
-        this.totalPages = Number(value) || 0;
-      });
-    });
-    new import_obsidian8.Setting(this.contentEl).setName("\u5F53\u524D\u9875").addText((text) => {
-      text.inputEl.type = "number";
-      text.setValue(String(this.currentPage));
-      text.onChange((value) => {
-        this.currentPage = Number(value) || 0;
-      });
-    });
-    new import_obsidian8.Setting(this.contentEl).setName("\u72B6\u6001").addDropdown((dropdown) => {
-      ["\u5728\u8BFB", "\u60F3\u8BFB", "\u5DF2\u8BFB"].forEach((status) => dropdown.addOption(status, status));
-      dropdown.setValue(this.status);
-      dropdown.onChange((value) => {
-        this.status = value;
-      });
-    });
-    new import_obsidian8.Setting(this.contentEl).setName("\u7B14\u8BB0\u8DEF\u5F84").addText((text) => {
-      text.setValue(this.notePath);
-      text.onChange((value) => {
-        this.notePath = value.trim();
-      });
-    });
-    new import_obsidian8.Setting(this.contentEl).setName("\u6807\u7B7E").addText((text) => {
-      text.setValue(this.tags);
-      text.onChange((value) => {
-        this.tags = value;
-      });
-    });
+    this.contentEl.createEl("h2", { text: "\u6587\u4EF6\u5DF2\u5B58\u5728" });
+    this.contentEl.createEl("p", { text: this.path });
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
-    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
-    actions.createEl("button", { text: "\u6DFB\u52A0", attr: { type: "button" } }).addEventListener("click", async () => {
-      if (!this.title) {
-        return;
-      }
-      await this.onSubmit({
-        id: `book-${Date.now()}`,
-        ...this.book,
-        title: this.title,
-        author: this.author || "\u672A\u77E5\u4F5C\u8005",
-        totalPages: Math.max(1, this.totalPages),
-        currentPage: Math.max(0, Math.min(this.currentPage, Math.max(1, this.totalPages))),
-        status: this.status,
-        notePath: this.notePath || void 0,
-        tags: this.tags.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean)
-      });
-      this.close();
-    });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.closeWith("cancel"));
+    actions.createEl("button", { text: "\u81EA\u52A8\u91CD\u547D\u540D", attr: { type: "button" } }).addEventListener("click", () => this.closeWith("rename"));
+    actions.createEl("button", { text: "\u8986\u76D6", cls: "mod-warning", attr: { type: "button" } }).addEventListener("click", () => this.closeWith("overwrite"));
+  }
+  closeWith(choice) {
+    this.resolve(choice);
+    this.close();
   }
 };
 
@@ -3923,8 +4404,7 @@ function openAddContentModal(app, store, section, onDataChanged) {
     case "reading-plan":
     case "reading-notes":
     case "wishlist-books":
-      new AddBookModal(app, async (book) => {
-        await store.addBook(section.type === "wishlist-books" ? { ...book, status: "\u60F3\u8BFB" } : book);
+      new AddBookModal(app, store, async () => {
         refresh();
       }).open();
       break;
@@ -5110,7 +5590,7 @@ var MonthlyCalendarSection = class {
     const settings = this.store.getData().calendarSettings;
     const weekdays = settings.weekStartsOn === "monday" ? ["\u4E00", "\u4E8C", "\u4E09", "\u56DB", "\u4E94", "\u516D", "\u65E5"] : ["\u65E5", "\u4E00", "\u4E8C", "\u4E09", "\u56DB", "\u4E94", "\u516D"];
     weekdays.forEach((weekday) => grid.createSpan({ cls: "cow-weekday", text: weekday }));
-    const todayKey2 = this.calendar.getDateKey(/* @__PURE__ */ new Date());
+    const todayKey4 = this.calendar.getDateKey(/* @__PURE__ */ new Date());
     this.calendar.getMonthCells(this.displayDate, settings.weekStartsOn).forEach((date) => {
       if (!date) {
         grid.createSpan({ cls: "cow-calendar-empty" });
@@ -5118,10 +5598,10 @@ var MonthlyCalendarSection = class {
       }
       const dateKey = this.calendar.getDateKey(date);
       const button = grid.createEl("button", {
-        cls: `cow-calendar-day ${dateKey === todayKey2 ? "is-today" : ""}`,
+        cls: `cow-calendar-day ${dateKey === todayKey4 ? "is-today" : ""}`,
         attr: { type: "button", "aria-label": dateKey }
       });
-      if (dateKey === todayKey2) {
+      if (dateKey === todayKey4) {
         button.style.borderColor = settings.highlightColor;
         button.style.background = `${settings.highlightColor}44`;
       }
@@ -6668,25 +7148,6 @@ var import_obsidian28 = require("obsidian");
 
 // src/components/finance/FinanceModals.ts
 var import_obsidian27 = require("obsidian");
-
-// src/components/ResizableModal.ts
-function applyResizableModal(modal, options) {
-  modal.modalEl.addClass("cute-resizable-modal", options.className);
-  modal.modalEl.style.width = options.width;
-  if (options.height) {
-    modal.modalEl.style.height = options.height;
-  } else {
-    modal.modalEl.style.removeProperty("height");
-  }
-  modal.modalEl.style.maxWidth = options.maxWidth;
-  modal.modalEl.style.maxHeight = options.maxHeight;
-  if (options.minWidth) {
-    modal.modalEl.style.minWidth = options.minWidth;
-  }
-  if (options.minHeight) {
-    modal.modalEl.style.minHeight = options.minHeight;
-  }
-}
 
 // src/components/finance/AddTransactionModal.ts
 var import_obsidian26 = require("obsidian");
@@ -9206,11 +9667,11 @@ var PriorityStatisticsModal = class extends import_obsidian40.Modal {
   }
   render() {
     const items = this.store.getGoalActions().filter((item) => item.importance && item.urgency);
-    const todayKey2 = today4();
+    const todayKey4 = today4();
     const filteredByState = items.filter((item) => {
       if (this.filter === "all") return true;
       if (this.filter === "completed") return item.status === "completed";
-      return !item.completedDate || item.completedDate >= todayKey2;
+      return !item.completedDate || item.completedDate >= todayKey4;
     });
     const selectedItems = filteredByState.filter((item) => getQuadrant(item) === this.selectedQuadrant);
     this.contentEl.empty();
@@ -10265,31 +10726,192 @@ var AiReadingReviewSection = class {
   }
 };
 
-// src/components/reading/BookListSection.ts
+// src/components/reading/AllBooksModal.ts
 var import_obsidian54 = require("obsidian");
+var AllBooksModal = class extends import_obsidian54.Modal {
+  constructor(app, store, onDataChanged) {
+    super(app);
+    this.store = store;
+    this.onDataChanged = onDataChanged;
+    this.filter = "all";
+    this.query = "";
+  }
+  onOpen() {
+    applyResizableModal(this, {
+      className: "cute-book-modal",
+      width: "min(1050px, 92vw)",
+      height: "min(720px, 86vh)",
+      maxWidth: "96vw",
+      maxHeight: "92vh",
+      minWidth: "min(560px, 92vw)",
+      minHeight: "min(430px, 82vh)"
+    });
+    this.render();
+  }
+  render() {
+    const books = this.filterBooks();
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-book-modal", "cow-all-books-modal");
+    this.contentEl.createEl("h2", { text: "\u6240\u6709\u4E66\u7C4D" });
+    this.renderStats();
+    this.renderFilters();
+    const list = this.contentEl.createDiv({ cls: "cow-all-books-list" });
+    if (books.length === 0) {
+      list.createDiv({ cls: "cow-empty-state", text: "\u6CA1\u6709\u627E\u5230\u5339\u914D\u7684\u4E66\u7C4D\u3002" });
+      return;
+    }
+    books.forEach((book) => this.renderBookRow(list, book));
+  }
+  renderStats() {
+    const books = this.store.getBooks();
+    const stats = [
+      ["\u603B\u4E66\u7C4D\u6570", books.length],
+      ["\u60F3\u8BFB", books.filter((book) => book.readingStatus === "want-to-read").length],
+      ["\u5728\u8BFB", books.filter((book) => book.readingStatus === "reading").length],
+      ["\u5DF2\u8BFB", books.filter((book) => book.readingStatus === "finished").length],
+      ["\u4E66\u67B6\u4E0A", books.filter((book) => book.shelfStatus !== "off-shelf").length],
+      ["\u5DF2\u4E0B\u67B6", books.filter((book) => book.shelfStatus === "off-shelf").length]
+    ];
+    const grid = this.contentEl.createDiv({ cls: "cow-book-stats-grid" });
+    stats.forEach(([label, value]) => {
+      const card = grid.createDiv({ cls: "cow-stats-card" });
+      card.createEl("strong", { text: String(value) });
+      card.createSpan({ text: String(label) });
+    });
+  }
+  renderFilters() {
+    const controls = this.contentEl.createDiv({ cls: "cow-all-books-controls" });
+    const search = controls.createEl("input", { attr: { type: "search", placeholder: "\u641C\u7D22\u6807\u9898\u3001\u4F5C\u8005\u3001ISBN" } });
+    search.value = this.query;
+    search.addEventListener("input", () => {
+      this.query = search.value;
+      this.render();
+    });
+    const filters = controls.createDiv({ cls: "cow-book-tabs" });
+    [
+      { id: "all", label: "\u5168\u90E8" },
+      { id: "want-to-read", label: "\u60F3\u8BFB" },
+      { id: "reading", label: "\u5728\u8BFB" },
+      { id: "finished", label: "\u5DF2\u8BFB" },
+      { id: "on-shelf", label: "\u4E66\u67B6\u4E0A" },
+      { id: "off-shelf", label: "\u5DF2\u4E0B\u67B6" }
+    ].forEach((option) => {
+      const button = filters.createEl("button", { text: option.label, cls: this.filter === option.id ? "is-active" : "", attr: { type: "button" } });
+      button.addEventListener("click", () => {
+        this.filter = option.id;
+        this.render();
+      });
+    });
+  }
+  renderBookRow(container, book) {
+    const row = container.createDiv({ cls: "cow-all-book-row" });
+    const cover = row.createDiv({ cls: "cow-book-result-cover" });
+    const src = this.getCoverSrc(book);
+    if (src) cover.createEl("img", { attr: { src, alt: book.title } });
+    else cover.createSpan({ text: book.title.slice(0, 2) });
+    const body = row.createDiv({ cls: "cow-all-book-body" });
+    body.createEl("strong", { text: book.title });
+    body.createSpan({ text: `${book.author} \xB7 ${this.statusLabel(book)} \xB7 ${book.shelfStatus === "off-shelf" ? "\u5DF2\u4E0B\u67B6" : "\u4E66\u67B6\u4E0A"}` });
+    body.createSpan({ text: [book.bookFilePath, book.notePath].filter(Boolean).join(" \xB7 ") || "\u6682\u65E0\u6587\u4EF6\u8DEF\u5F84" });
+    const actions = row.createDiv({ cls: "cow-list-item-actions" });
+    this.iconButton(actions, "book-open", "\u6253\u5F00\u4E66\u7C4D", () => void this.openBook(book));
+    this.iconButton(actions, "notebook-tabs", "\u6253\u5F00\u7B14\u8BB0", () => void this.openNote(book));
+    this.iconButton(actions, "pencil", "\u7F16\u8F91", () => new AddBookModal(this.app, this.store, () => {
+      this.onDataChanged();
+      this.render();
+    }, book).open());
+    this.iconButton(actions, book.shelfStatus === "off-shelf" ? "archive-restore" : "archive", book.shelfStatus === "off-shelf" ? "\u4E0A\u67B6" : "\u4E0B\u67B6", async () => {
+      await this.store.updateBookShelfStatus(book.id, book.shelfStatus === "off-shelf" ? "on-shelf" : "off-shelf");
+      this.onDataChanged();
+      this.render();
+    });
+    this.iconButton(actions, "trash-2", "\u5220\u9664\u4E66\u7C4D\u8BB0\u5F55", async () => {
+      if (!confirm(`\u5220\u9664\u201C${book.title}\u201D\u4E66\u7C4D\u8BB0\u5F55\uFF1F\u4E0D\u4F1A\u5220\u9664\u7535\u5B50\u4E66\u3001\u7B14\u8BB0\u6216\u5C01\u9762\u6587\u4EF6\u3002`)) return;
+      await this.store.deleteBook(book.id);
+      this.onDataChanged();
+      this.render();
+    });
+  }
+  filterBooks() {
+    const query = this.query.trim().toLowerCase();
+    return this.store.getBooks().filter((book) => {
+      const statusMatch = this.filter === "all" || book.readingStatus === this.filter || book.shelfStatus === this.filter;
+      const queryMatch = !query || [book.title, book.author, book.isbn10, book.isbn13].some((value) => (value != null ? value : "").toLowerCase().includes(query));
+      return statusMatch && queryMatch;
+    });
+  }
+  iconButton(container, icon, label, onClick) {
+    const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
+    (0, import_obsidian54.setIcon)(button, icon);
+    button.addEventListener("click", onClick);
+  }
+  async openBook(book) {
+    var _a, _b;
+    if (!book.bookFilePath) {
+      new import_obsidian54.Notice("\u8FD9\u672C\u4E66\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u7535\u5B50\u4E66\u6587\u4EF6\u3002");
+      return;
+    }
+    const file = this.app.vault.getFileByPath(book.bookFilePath);
+    if (!file) {
+      new import_obsidian54.Notice(`\u6CA1\u6709\u627E\u5230\u4E66\u7C4D\u6587\u4EF6\uFF1A${book.bookFilePath}`);
+      return;
+    }
+    try {
+      await this.app.workspace.getLeaf(false).openFile(file);
+    } catch (e) {
+      const ext = (_b = (_a = book.bookFilePath.split(".").pop()) == null ? void 0 : _a.toUpperCase()) != null ? _b : "\u8BE5\u683C\u5F0F";
+      new import_obsidian54.Notice(`\u5F53\u524D\u672A\u68C0\u6D4B\u5230 ${ext} \u9605\u8BFB\u5668\u63D2\u4EF6\u3002\u6587\u4EF6\u5DF2\u4FDD\u7559\u5728 Vault \u4E2D\u3002`);
+    }
+  }
+  async openNote(book) {
+    if (!book.notePath) {
+      new import_obsidian54.Notice("\u8FD9\u672C\u4E66\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u9605\u8BFB\u7B14\u8BB0\u3002");
+      return;
+    }
+    const file = this.app.vault.getFileByPath(book.notePath);
+    if (!file) {
+      new import_obsidian54.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${book.notePath}`);
+      return;
+    }
+    await this.app.workspace.getLeaf(false).openFile(file);
+  }
+  getCoverSrc(book) {
+    var _a;
+    if (book.coverPath) return this.app.vault.adapter.getResourcePath(book.coverPath);
+    return (_a = book.cover) != null ? _a : book.coverUrl;
+  }
+  statusLabel(book) {
+    if (book.readingStatus === "reading") return "\u5728\u8BFB";
+    if (book.readingStatus === "finished") return "\u5DF2\u8BFB";
+    return "\u60F3\u8BFB";
+  }
+};
+
+// src/components/reading/BookListSection.ts
+var import_obsidian55 = require("obsidian");
 var BookListSection = class {
-  constructor(app, store, status, onDataChanged) {
+  constructor(app, store, readingStatus, onDataChanged) {
     this.app = app;
     this.store = store;
-    this.status = status;
+    this.readingStatus = readingStatus;
     this.onDataChanged = onDataChanged;
   }
   render(container) {
     const list = container.createDiv({ cls: "cow-data-list" });
-    this.store.getBooks().filter((book) => book.status === this.status).forEach((book) => {
+    this.store.getBooks().filter((book) => book.readingStatus === this.readingStatus).forEach((book) => {
       const row = list.createDiv({ cls: "cow-data-card" });
       const head = row.createDiv({ cls: "cow-list-item-head" });
       head.createEl("strong", { text: book.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u4E66\u7C4D" } });
-      (0, import_obsidian54.setIcon)(edit, "pencil");
-      edit.addEventListener("click", () => new AddBookModal(this.app, async (updated) => {
-        await this.store.updateBook(book.id, updated);
+      (0, import_obsidian55.setIcon)(edit, "pencil");
+      edit.addEventListener("click", () => new AddBookModal(this.app, this.store, () => {
         this.onDataChanged();
       }, book).open());
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u4E66\u7C4D" } });
-      (0, import_obsidian54.setIcon)(remove, "trash-2");
+      (0, import_obsidian55.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
+        if (!confirm(`\u5220\u9664\u300A${book.title}\u300B\u4E66\u7C4D\u8BB0\u5F55\uFF1F\u4E0D\u4F1A\u5220\u9664 PDF\u3001EPUB\u3001\u5C01\u9762\u6216 Markdown \u7B14\u8BB0\u6587\u4EF6\u3002`)) return;
         await this.store.deleteBook(book.id);
         this.onDataChanged();
       });
@@ -10298,11 +10920,8 @@ var BookListSection = class {
   }
 };
 
-// src/components/reading/BookshelfSection.ts
-var import_obsidian56 = require("obsidian");
-
 // src/components/reading/BookCard.ts
-var import_obsidian55 = require("obsidian");
+var import_obsidian56 = require("obsidian");
 var BookCard = class {
   constructor(app, store, book, onDataChanged) {
     this.app = app;
@@ -10311,20 +10930,40 @@ var BookCard = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
+    var _a;
     const card = container.createDiv({ cls: "cow-book-card" });
     const cover = card.createDiv({ cls: "cow-book-cover" });
-    if (this.book.cover) {
-      cover.createEl("img", { attr: { src: this.book.cover, alt: this.book.title } });
+    const coverSrc = this.getCoverSrc();
+    if (coverSrc) {
+      cover.createEl("img", { attr: { src: coverSrc, alt: this.book.title } });
     } else {
       cover.createSpan({ text: this.book.title.slice(0, 2) });
     }
     const body = card.createDiv({ cls: "cow-book-body" });
     body.createEl("strong", { text: this.book.title });
-    body.createSpan({ text: this.book.author });
+    body.createSpan({ text: `${this.book.author} \xB7 ${this.statusLabel()}` });
+    if (this.book.startDate) body.createSpan({ text: `\u5F00\u59CB\uFF1A${this.book.startDate}` });
+    if (this.book.readingStatus === "finished" && this.book.finishDate) body.createSpan({ text: `\u5B8C\u6210\uFF1A${this.book.finishDate}` });
     const progress = this.book.totalPages === 0 ? 0 : Math.round(this.book.currentPage / this.book.totalPages * 100);
     const track = body.createDiv({ cls: "cow-month-progress-track" });
     track.createDiv({ cls: "cow-month-progress-fill is-pink", attr: { style: `width: ${progress}%` } });
     const controls = body.createDiv({ cls: "cow-book-controls" });
+    const status = controls.createEl("select", { attr: { "aria-label": "\u9605\u8BFB\u72B6\u6001" } });
+    [
+      { value: "want-to-read", label: "\u60F3\u8BFB" },
+      { value: "reading", label: "\u5728\u8BFB" },
+      { value: "finished", label: "\u5DF2\u8BFB" }
+    ].forEach((option) => status.createEl("option", { value: option.value, text: option.label }));
+    status.value = (_a = this.book.readingStatus) != null ? _a : "want-to-read";
+    status.addEventListener("change", async () => {
+      const nextStatus = status.value;
+      const shouldCompletePlans = nextStatus === "finished" ? this.shouldCompleteRelatedPlans() : false;
+      await this.store.updateBookReadingStatus(this.book.id, nextStatus);
+      if (nextStatus === "finished") {
+        await this.completeRelatedPlansIfConfirmed(shouldCompletePlans);
+      }
+      this.onDataChanged();
+    });
     const pageInput = controls.createEl("input", {
       type: "number",
       value: String(this.book.currentPage),
@@ -10335,41 +10974,84 @@ var BookCard = class {
       this.onDataChanged();
     });
     controls.createSpan({ text: `/ ${this.book.totalPages}` });
-    const open = controls.createEl("button", { attr: { type: "button", "aria-label": "\u6253\u5F00\u9605\u8BFB\u7B14\u8BB0" } });
-    (0, import_obsidian55.setIcon)(open, "notebook-tabs");
-    open.addEventListener("click", () => void this.openNote());
+    const openBook = controls.createEl("button", { attr: { type: "button", "aria-label": "\u9605\u8BFB\u4E66\u7C4D" } });
+    (0, import_obsidian56.setIcon)(openBook, "book-open");
+    openBook.addEventListener("click", () => void this.openBook());
+    const openNote = controls.createEl("button", { attr: { type: "button", "aria-label": "\u6253\u5F00\u9605\u8BFB\u7B14\u8BB0" } });
+    (0, import_obsidian56.setIcon)(openNote, "notebook-tabs");
+    openNote.addEventListener("click", () => void this.openNote());
     const done = controls.createEl("button", { attr: { type: "button", "aria-label": "\u5B8C\u6210\u9605\u8BFB" } });
-    (0, import_obsidian55.setIcon)(done, "check");
+    (0, import_obsidian56.setIcon)(done, "check");
     done.addEventListener("click", async () => {
+      const shouldCompletePlans = this.shouldCompleteRelatedPlans();
       await this.store.completeBook(this.book.id);
+      await this.completeRelatedPlansIfConfirmed(shouldCompletePlans);
       this.onDataChanged();
     });
     const edit = controls.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u4E66\u7C4D" } });
-    (0, import_obsidian55.setIcon)(edit, "pencil");
+    (0, import_obsidian56.setIcon)(edit, "pencil");
     edit.addEventListener("click", () => {
-      new AddBookModal(this.app, async (book) => {
-        await this.store.updateBook(this.book.id, book);
+      new AddBookModal(this.app, this.store, () => {
         this.onDataChanged();
       }, this.book).open();
     });
-    const remove = controls.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u4E66\u7C4D" } });
-    (0, import_obsidian55.setIcon)(remove, "trash-2");
+    const remove = controls.createEl("button", { attr: { type: "button", "aria-label": "\u4E0B\u67B6" } });
+    (0, import_obsidian56.setIcon)(remove, "archive");
     remove.addEventListener("click", async () => {
-      await this.store.deleteBook(this.book.id);
+      await this.store.updateBookShelfStatus(this.book.id, "off-shelf");
       this.onDataChanged();
     });
   }
+  async openBook() {
+    var _a, _b;
+    if (!this.book.bookFilePath) {
+      new import_obsidian56.Notice("\u8FD9\u672C\u4E66\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u7535\u5B50\u4E66\u6587\u4EF6\u3002");
+      return;
+    }
+    const file = this.app.vault.getFileByPath(this.book.bookFilePath);
+    if (!file) {
+      new import_obsidian56.Notice(`\u6CA1\u6709\u627E\u5230\u4E66\u7C4D\u6587\u4EF6\uFF1A${this.book.bookFilePath}`);
+      return;
+    }
+    try {
+      await this.app.workspace.getLeaf(false).openFile(file);
+    } catch (e) {
+      const ext = (_b = (_a = this.book.bookFilePath.split(".").pop()) == null ? void 0 : _a.toUpperCase()) != null ? _b : "\u8BE5\u683C\u5F0F";
+      new import_obsidian56.Notice(`\u5F53\u524D\u672A\u68C0\u6D4B\u5230 ${ext} \u9605\u8BFB\u5668\u63D2\u4EF6\u3002\u6587\u4EF6\u5DF2\u4FDD\u7559\u5728 Vault \u4E2D\u3002`);
+    }
+  }
   async openNote() {
     if (!this.book.notePath) {
-      new import_obsidian55.Notice("\u8FD9\u672C\u4E66\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u9605\u8BFB\u7B14\u8BB0\u3002");
+      new import_obsidian56.Notice("\u8FD9\u672C\u4E66\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u9605\u8BFB\u7B14\u8BB0\u3002");
       return;
     }
     const file = this.app.vault.getFileByPath(this.book.notePath);
     if (!file) {
-      new import_obsidian55.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${this.book.notePath}`);
+      new import_obsidian56.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${this.book.notePath}`);
       return;
     }
     await this.app.workspace.getLeaf(false).openFile(file);
+  }
+  getCoverSrc() {
+    var _a;
+    if (this.book.coverPath) return this.app.vault.adapter.getResourcePath(this.book.coverPath);
+    return (_a = this.book.cover) != null ? _a : this.book.coverUrl;
+  }
+  statusLabel() {
+    if (this.book.readingStatus === "reading") return "\u5728\u8BFB";
+    if (this.book.readingStatus === "finished") return "\u5DF2\u8BFB";
+    return "\u60F3\u8BFB";
+  }
+  shouldCompleteRelatedPlans() {
+    const relatedPlans = this.store.getReadingPlans().filter((plan) => plan.bookId === this.book.id && plan.status !== "completed");
+    if (relatedPlans.length === 0) return false;
+    return confirm(`\u300A${this.book.title}\u300B\u5DF2\u6709 ${relatedPlans.length} \u6761\u672A\u5B8C\u6210\u9605\u8BFB\u8BA1\u5212\uFF0C\u662F\u5426\u540C\u65F6\u6807\u8BB0\u5B8C\u6210\uFF1F`);
+  }
+  async completeRelatedPlansIfConfirmed(confirmed) {
+    if (!confirmed) return;
+    const relatedPlans = this.store.getReadingPlans().filter((plan) => plan.bookId === this.book.id && !plan.completedDate);
+    await Promise.all(relatedPlans.map((plan) => this.store.completeReadingPlan(plan.id)));
+    new import_obsidian56.Notice("\u5173\u8054\u9605\u8BFB\u8BA1\u5212\u5DF2\u6807\u8BB0\u5B8C\u6210\u3002");
   }
 };
 
@@ -10381,17 +11063,8 @@ var BookshelfSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    const add = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    (0, import_obsidian56.setIcon)(add.createSpan(), "plus");
-    add.createSpan({ text: "\u589E\u52A0\u4E66\u7C4D" });
-    add.addEventListener("click", () => {
-      new AddBookModal(this.app, async (book) => {
-        await this.store.addBook(book);
-        this.onDataChanged();
-      }).open();
-    });
     const grid = container.createDiv({ cls: "cow-book-grid" });
-    this.store.getBooks().forEach((book) => new BookCard(this.app, this.store, book, this.onDataChanged).render(grid));
+    this.store.getBooks().filter((book) => book.shelfStatus !== "off-shelf").forEach((book) => new BookCard(this.app, this.store, book, this.onDataChanged).render(grid));
   }
 };
 
@@ -10403,7 +11076,7 @@ var CurrentReadingSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    const current = this.store.getBooks().filter((book) => book.status === "\u5728\u8BFB").slice(0, 2);
+    const current = this.store.getBooks().filter((book) => book.readingStatus === "reading" && book.shelfStatus !== "off-shelf").slice(0, 2);
     const grid = container.createDiv({ cls: "cow-book-grid" });
     current.forEach((book) => new BookCard(this.app, this.store, book, this.onDataChanged).render(grid));
   }
@@ -10477,8 +11150,7 @@ var ReadingNotesSection = class {
       (0, import_obsidian58.setIcon)(edit, "pencil");
       edit.addEventListener("click", (event) => {
         event.stopPropagation();
-        new AddBookModal(this.app, async (updated) => {
-          await this.store.updateBook(book.id, updated);
+        new AddBookModal(this.app, this.store, () => {
           this.onDataChanged();
         }, book).open();
       });
@@ -10486,7 +11158,9 @@ var ReadingNotesSection = class {
       (0, import_obsidian58.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async (event) => {
         event.stopPropagation();
-        await this.store.deleteBook(book.id);
+        if (!book.notePath) return;
+        if (!confirm(`\u89E3\u7ED1\u300A${book.title}\u300B\u7684\u9605\u8BFB\u7B14\u8BB0\uFF1F\u4E0D\u4F1A\u5220\u9664 Markdown \u6587\u4EF6\u3002`)) return;
+        await this.store.updateBook(book.id, { notePath: void 0 });
         this.onDataChanged();
       });
       button.createDiv({ cls: "cow-meta-line" }).createSpan({ text: (_a = book.notePath) != null ? _a : "\u672A\u7ED1\u5B9A\u9605\u8BFB\u7B14\u8BB0" });
@@ -10504,7 +11178,398 @@ var ReadingNotesSection = class {
 };
 
 // src/components/reading/ReadingPlanSection.ts
+var import_obsidian60 = require("obsidian");
+
+// src/components/reading/ReadingPlanModals.ts
 var import_obsidian59 = require("obsidian");
+function openReadingPlanModal(app, store, onDataChanged, plan) {
+  new ReadingPlanModal(app, store, onDataChanged, plan).open();
+}
+var ReadingPlanModal = class extends import_obsidian59.Modal {
+  constructor(app, store, onDataChanged, plan) {
+    var _a, _b, _c, _d, _e, _f, _g;
+    super(app);
+    this.store = store;
+    this.onDataChanged = onDataChanged;
+    this.plan = plan;
+    this.query = "";
+    const today5 = todayKey2();
+    this.selectedBookId = (_c = (_b = plan == null ? void 0 : plan.bookId) != null ? _b : (_a = store.getBooks()[0]) == null ? void 0 : _a.id) != null ? _c : "";
+    this.startDate = (_d = plan == null ? void 0 : plan.startDate) != null ? _d : today5;
+    this.endDate = (_e = plan == null ? void 0 : plan.endDate) != null ? _e : today5;
+    this.targetPages = plan == null ? void 0 : plan.targetPages;
+    this.note = (_f = plan == null ? void 0 : plan.note) != null ? _f : "";
+    this.status = (_g = plan == null ? void 0 : plan.status) != null ? _g : "planned";
+  }
+  onOpen() {
+    applyResizableModal(this, {
+      className: "cute-reading-plan-modal",
+      width: "min(760px, 90vw)",
+      height: "min(680px, 86vh)",
+      maxWidth: "96vw",
+      maxHeight: "92vh",
+      minWidth: "min(520px, 92vw)",
+      minHeight: "min(430px, 82vh)"
+    });
+    this.render();
+  }
+  render() {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-reading-plan-modal");
+    this.contentEl.createEl("h2", { text: this.plan ? "\u7F16\u8F91\u9605\u8BFB\u8BA1\u5212" : "\u65B0\u589E\u9605\u8BFB\u8BA1\u5212" });
+    const body = this.contentEl.createDiv({ cls: "cow-reading-plan-modal-body" });
+    this.renderBookPicker(body);
+    this.renderPlanForm(body);
+    this.renderActions();
+  }
+  renderBookPicker(container) {
+    const section = container.createDiv({ cls: "cow-reading-plan-picker" });
+    const head = section.createDiv({ cls: "cow-list-item-head" });
+    head.createEl("strong", { text: "\u9009\u62E9\u4E66\u7C4D" });
+    const addBook = head.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
+    (0, import_obsidian59.setIcon)(addBook.createSpan(), "plus");
+    addBook.createSpan({ text: "\u589E\u52A0\u4E66\u7C4D" });
+    addBook.addEventListener("click", () => {
+      new AddBookModal(this.app, this.store, () => {
+        var _a, _b;
+        this.onDataChanged();
+        const books2 = this.store.getBooks();
+        this.selectedBookId = (_b = (_a = books2[books2.length - 1]) == null ? void 0 : _a.id) != null ? _b : this.selectedBookId;
+        this.render();
+      }).open();
+    });
+    const search = section.createEl("input", {
+      value: this.query,
+      attr: { type: "search", placeholder: "\u641C\u7D22\u4E66\u540D\u6216\u4F5C\u8005" }
+    });
+    search.addEventListener("input", () => {
+      this.query = search.value;
+      this.render();
+    });
+    const list = section.createDiv({ cls: "cow-reading-plan-book-list" });
+    const books = this.filterBooks();
+    if (books.length === 0) {
+      list.createDiv({ cls: "cow-empty-state", text: "\u8FD8\u6CA1\u6709\u53EF\u9009\u62E9\u7684\u4E66\u7C4D\uFF0C\u53EF\u4EE5\u5148\u589E\u52A0\u4E00\u672C\u3002" });
+      return;
+    }
+    books.forEach((book) => {
+      const row = list.createEl("button", {
+        cls: `cow-reading-plan-book-option ${this.selectedBookId === book.id ? "is-selected" : ""}`,
+        attr: { type: "button" }
+      });
+      const cover = row.createDiv({ cls: "cow-reading-plan-book-cover" });
+      const src = this.getCoverSrc(book);
+      if (src) cover.createEl("img", { attr: { src, alt: book.title } });
+      else cover.createSpan({ text: book.title.slice(0, 2) });
+      const body = row.createDiv({ cls: "cow-reading-plan-book-meta" });
+      body.createEl("strong", { text: book.title });
+      body.createSpan({ text: `${book.author} \xB7 ${bookStatusLabel(book)}` });
+      row.addEventListener("click", () => {
+        this.selectedBookId = book.id;
+        this.render();
+      });
+    });
+  }
+  renderPlanForm(container) {
+    const form = container.createDiv({ cls: "cow-reading-plan-form" });
+    this.renderDateField(form, "\u5F00\u59CB\u65E5\u671F", this.startDate, (value) => {
+      this.startDate = value;
+      if (this.endDate < this.startDate) this.endDate = this.startDate;
+      this.render();
+    });
+    this.renderDateField(form, "\u7ED3\u675F\u65E5\u671F", this.endDate, (value) => {
+      this.endDate = value;
+      this.render();
+    });
+    const pages = form.createDiv({ cls: "cow-book-form-row" });
+    pages.createEl("label", { text: "\u76EE\u6807\u9875\u6570" });
+    const input = pages.createEl("input", {
+      value: this.targetPages === void 0 ? "" : String(this.targetPages),
+      attr: { type: "number", min: "0", placeholder: "\u7559\u7A7A\u8868\u793A\u8BFB\u5B8C\u672C\u4E66" }
+    });
+    input.addEventListener("input", () => {
+      this.targetPages = input.value ? Math.max(0, Number(input.value) || 0) : void 0;
+    });
+    const statusRow = form.createDiv({ cls: "cow-book-form-row" });
+    statusRow.createEl("label", { text: "\u8BA1\u5212\u72B6\u6001" });
+    const status = statusRow.createEl("select");
+    [
+      ["planned", "\u8BA1\u5212\u4E2D"],
+      ["active", "\u8FDB\u884C\u4E2D"],
+      ["completed", "\u5DF2\u5B8C\u6210"],
+      ["overdue", "\u5DF2\u903E\u671F"]
+    ].forEach(([value, label]) => status.createEl("option", { value, text: label }));
+    status.value = this.status;
+    status.addEventListener("change", () => {
+      this.status = status.value;
+    });
+    const noteRow = form.createDiv({ cls: "cow-book-form-row" });
+    noteRow.createEl("label", { text: "\u5907\u6CE8" });
+    const note = noteRow.createEl("textarea", { text: this.note });
+    note.addEventListener("input", () => {
+      this.note = note.value;
+    });
+  }
+  renderDateField(container, label, value, onChange) {
+    const row = container.createDiv({ cls: "cow-book-form-row cow-clickable-date-row" });
+    row.createEl("label", { text: label });
+    const input = row.createEl("input", { value, attr: { type: "date" } });
+    row.addEventListener("click", () => {
+      var _a;
+      const dateInput = input;
+      (_a = dateInput.showPicker) == null ? void 0 : _a.call(dateInput);
+      dateInput.focus();
+    });
+    input.addEventListener("change", () => onChange(input.value));
+  }
+  renderActions() {
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    const cancel = actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } });
+    cancel.addEventListener("click", () => this.close());
+    const save = actions.createEl("button", { text: "\u4FDD\u5B58\u8BA1\u5212", cls: "mod-cta", attr: { type: "button" } });
+    save.addEventListener("click", async () => {
+      var _a, _b, _c, _d, _e, _f;
+      if (!this.selectedBookId) {
+        new import_obsidian59.Notice("\u8BF7\u5148\u9009\u62E9\u4E00\u672C\u4E66\u3002");
+        return;
+      }
+      if (this.endDate < this.startDate) {
+        new import_obsidian59.Notice("\u7ED3\u675F\u65E5\u671F\u4E0D\u80FD\u65E9\u4E8E\u5F00\u59CB\u65E5\u671F\u3002");
+        return;
+      }
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      const payload = {
+        id: (_b = (_a = this.plan) == null ? void 0 : _a.id) != null ? _b : `reading-plan-${Date.now()}`,
+        bookId: this.selectedBookId,
+        startDate: this.startDate,
+        endDate: this.endDate,
+        targetPages: this.targetPages,
+        note: this.note.trim(),
+        status: this.status,
+        completedDate: this.status === "completed" ? (_d = (_c = this.plan) == null ? void 0 : _c.completedDate) != null ? _d : todayKey2() : void 0,
+        createdAt: (_f = (_e = this.plan) == null ? void 0 : _e.createdAt) != null ? _f : now,
+        updatedAt: now
+      };
+      if (this.plan) await this.store.updateReadingPlan(this.plan.id, payload);
+      else await this.store.addReadingPlan(payload);
+      this.onDataChanged();
+      this.close();
+    });
+  }
+  filterBooks() {
+    const query = this.query.trim().toLowerCase();
+    return this.store.getBooks().filter((book) => {
+      if (!query) return true;
+      return `${book.title} ${book.author}`.toLowerCase().includes(query);
+    });
+  }
+  getCoverSrc(book) {
+    var _a;
+    if (book.coverPath) return this.app.vault.adapter.getResourcePath(book.coverPath);
+    return (_a = book.cover) != null ? _a : book.coverUrl;
+  }
+};
+var ReadingPlanStatisticsModal = class extends import_obsidian59.Modal {
+  constructor(app, store) {
+    super(app);
+    this.store = store;
+    this.year = (/* @__PURE__ */ new Date()).getFullYear();
+    this.month = (/* @__PURE__ */ new Date()).getMonth() + 1;
+    this.selectedDate = todayKey2();
+    this.statusFilter = "all";
+  }
+  onOpen() {
+    applyResizableModal(this, {
+      className: "cute-goal-stats-modal cute-reading-plan-stats-modal",
+      width: "min(1050px, 92vw)",
+      height: "min(720px, 86vh)",
+      maxWidth: "96vw",
+      maxHeight: "92vh",
+      minWidth: "min(560px, 92vw)",
+      minHeight: "min(460px, 82vh)"
+    });
+    this.render();
+  }
+  render() {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-goal-stats-modal", "cow-reading-plan-stats");
+    const content = renderGoalStatisticsLayout(
+      this.contentEl,
+      "\u9605\u8BFB\u8BA1\u5212\u7EDF\u8BA1",
+      [
+        { label: "<", onClick: () => {
+          this.year -= 1;
+          this.render();
+        } },
+        { label: String(this.year), active: true },
+        { label: ">", onClick: () => {
+          this.year += 1;
+          this.render();
+        } }
+      ],
+      (toolbar) => {
+        const months = toolbar.createDiv({ cls: "cow-goal-period-tabs is-months" });
+        const all = months.createEl("button", { text: "\u5168\u90E8\u6708\u4EFD", cls: this.month === "all" ? "is-active" : "", attr: { type: "button" } });
+        all.addEventListener("click", () => {
+          this.month = "all";
+          this.render();
+        });
+        for (let month = 1; month <= 12; month += 1) {
+          const button = months.createEl("button", { text: `${month}\u6708`, cls: this.month === month ? "is-active" : "", attr: { type: "button" } });
+          button.addEventListener("click", () => {
+            this.month = month;
+            this.render();
+          });
+        }
+      }
+    );
+    this.renderStats(content);
+    const layout = content.createDiv({ cls: "cow-reading-plan-stats-layout" });
+    this.renderCalendar(layout);
+    this.renderPlanDetails(layout);
+  }
+  renderStats(container) {
+    const plans = this.getPeriodPlans();
+    const completed = plans.filter((plan) => this.resolveStatus(plan) === "completed").length;
+    const active = plans.filter((plan) => this.resolveStatus(plan) === "active").length;
+    const overdue = plans.filter((plan) => this.resolveStatus(plan) === "overdue").length;
+    const rate = plans.length === 0 ? 0 : Math.round(completed / plans.length * 100);
+    const stats = [
+      ["\u8BA1\u5212\u603B\u6570", plans.length],
+      ["\u5B8C\u6210", completed],
+      ["\u8FDB\u884C\u4E2D", active],
+      ["\u903E\u671F", overdue],
+      ["\u5B8C\u6210\u7387", `${rate}%`]
+    ];
+    const grid = container.createDiv({ cls: "cow-stats-card-grid" });
+    stats.forEach(([label, value]) => {
+      const card = grid.createDiv({ cls: "cow-stats-card" });
+      card.createEl("strong", { text: String(value) });
+      card.createSpan({ text: String(label) });
+    });
+  }
+  renderCalendar(container) {
+    const shell = container.createDiv({ cls: "cow-reading-plan-calendar-panel" });
+    shell.createEl("strong", { text: this.month === "all" ? `${this.year} \u5168\u5E74\u8BA1\u5212\u5206\u5E03` : `${this.year}\u5E74${this.month}\u6708\u8BA1\u5212\u65E5\u5386` });
+    if (this.month === "all") {
+      const months = shell.createDiv({ cls: "cow-reading-plan-year-months" });
+      for (let month = 1; month <= 12; month += 1) {
+        const count = this.store.getReadingPlans().filter((plan) => planOverlapsMonth(plan, this.year, month)).length;
+        const button = months.createEl("button", { cls: count > 0 ? "has-plan" : "", attr: { type: "button" } });
+        button.createEl("strong", { text: `${month}\u6708` });
+        button.createSpan({ text: count > 0 ? `${count} \u4E2A\u8BA1\u5212` : "\u65E0\u8BA1\u5212" });
+        button.addEventListener("click", () => {
+          this.month = month;
+          this.selectedDate = `${this.year}-${String(month).padStart(2, "0")}-01`;
+          this.render();
+        });
+      }
+      return;
+    }
+    const grid = shell.createDiv({ cls: "cow-review-calendar cow-reading-plan-calendar" });
+    ["\u4E00", "\u4E8C", "\u4E09", "\u56DB", "\u4E94", "\u516D", "\u65E5"].forEach((day) => grid.createDiv({ cls: "cow-review-calendar-week", text: day }));
+    const first = new Date(this.year, this.month - 1, 1);
+    const firstDay = first.getDay() === 0 ? 6 : first.getDay() - 1;
+    for (let index = 0; index < firstDay; index += 1) grid.createDiv({ cls: "cow-review-calendar-empty" });
+    const days = new Date(this.year, this.month, 0).getDate();
+    for (let day = 1; day <= days; day += 1) {
+      const key = `${this.year}-${String(this.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const hasPlan = this.store.getReadingPlans().some((plan) => dateInRange(key, plan.startDate, plan.endDate));
+      const button = grid.createEl("button", {
+        cls: `cow-review-calendar-day ${hasPlan ? "has-review" : ""} ${this.selectedDate === key ? "is-selected" : ""}`,
+        attr: { type: "button" }
+      });
+      button.createSpan({ text: String(day) });
+      if (hasPlan) button.createSpan({ cls: "cow-calendar-dot" });
+      button.addEventListener("click", () => {
+        this.selectedDate = key;
+        this.render();
+      });
+    }
+  }
+  renderPlanDetails(container) {
+    const shell = container.createDiv({ cls: "cow-goal-stats-list cow-reading-plan-detail-list" });
+    const title = this.month === "all" ? `${this.year} \u5E74\u9605\u8BFB\u8BA1\u5212` : `${formatMonthDay(this.selectedDate)} \u6D89\u53CA\u7684\u8BA1\u5212`;
+    shell.createEl("strong", { text: title });
+    const filters = shell.createDiv({ cls: "cow-goal-period-tabs" });
+    [
+      ["all", "\u5168\u90E8"],
+      ["planned", "\u8BA1\u5212\u4E2D"],
+      ["active", "\u8FDB\u884C\u4E2D"],
+      ["completed", "\u5DF2\u5B8C\u6210"],
+      ["overdue", "\u5DF2\u903E\u671F"]
+    ].forEach(([value, label]) => {
+      const button = filters.createEl("button", { text: label, cls: this.statusFilter === value ? "is-active" : "", attr: { type: "button" } });
+      button.addEventListener("click", () => {
+        this.statusFilter = value;
+        this.render();
+      });
+    });
+    const plans = this.getVisibleDetailPlans();
+    if (plans.length === 0) {
+      shell.createDiv({ cls: "cow-empty-state", text: "\u8FD9\u4E2A\u65F6\u95F4\u8303\u56F4\u6682\u65E0\u9605\u8BFB\u8BA1\u5212\u3002" });
+      return;
+    }
+    plans.forEach((plan) => {
+      var _a, _b;
+      const book = this.findBook(plan.bookId);
+      const card = shell.createDiv({ cls: `cow-data-card ${this.resolveStatus(plan) === "completed" ? "is-complete" : ""}` });
+      card.createEl("strong", { text: (_a = book == null ? void 0 : book.title) != null ? _a : "\u672A\u77E5\u4E66\u7C4D" });
+      card.createDiv({ cls: "cow-meta-line", text: `${formatDateRange(plan.startDate, plan.endDate)} \xB7 ${readingPlanStatusLabel(this.resolveStatus(plan))}` });
+      card.createDiv({ cls: "cow-meta-line", text: `${(_b = book == null ? void 0 : book.author) != null ? _b : "\u672A\u77E5\u4F5C\u8005"} \xB7 ${plan.targetPages ? `${plan.targetPages}\u9875` : "\u8BFB\u5B8C\u672C\u4E66"}` });
+      if (plan.note) card.createEl("p", { text: plan.note });
+    });
+  }
+  getPeriodPlans() {
+    return this.store.getReadingPlans().filter((plan) => {
+      if (this.month === "all") return plan.startDate.slice(0, 4) <= String(this.year) && plan.endDate.slice(0, 4) >= String(this.year);
+      return planOverlapsMonth(plan, this.year, this.month);
+    });
+  }
+  getVisibleDetailPlans() {
+    const plans = this.month === "all" ? this.getPeriodPlans() : this.store.getReadingPlans().filter((plan) => dateInRange(this.selectedDate, plan.startDate, plan.endDate));
+    return plans.filter((plan) => this.statusFilter === "all" || this.resolveStatus(plan) === this.statusFilter);
+  }
+  resolveStatus(plan) {
+    var _a, _b;
+    return (_b = (_a = this.store.getReadingPlans().find((item) => item.id === plan.id)) == null ? void 0 : _a.status) != null ? _b : plan.status;
+  }
+  findBook(bookId) {
+    return this.store.getBooks().find((book) => book.id === bookId);
+  }
+};
+function todayKey2() {
+  const date = /* @__PURE__ */ new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+function dateInRange(date, startDate, endDate) {
+  return date >= startDate && date <= endDate;
+}
+function planOverlapsMonth(plan, year, month) {
+  const start = `${year}-${String(month).padStart(2, "0")}-01`;
+  const end = `${year}-${String(month).padStart(2, "0")}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+  return plan.startDate <= end && plan.endDate >= start;
+}
+function formatMonthDay(date) {
+  const [, month, day] = date.split("-");
+  return `${Number(month)}\u6708${Number(day)}\u65E5`;
+}
+function formatDateRange(startDate, endDate) {
+  return `${formatMonthDay(startDate)} - ${formatMonthDay(endDate)}`;
+}
+function readingPlanStatusLabel(status) {
+  if (status === "active") return "\u8FDB\u884C\u4E2D";
+  if (status === "completed") return "\u5DF2\u5B8C\u6210";
+  if (status === "overdue") return "\u5DF2\u903E\u671F";
+  return "\u8BA1\u5212\u4E2D";
+}
+function bookStatusLabel(book) {
+  if (book.readingStatus === "reading") return "\u5728\u8BFB";
+  if (book.readingStatus === "finished") return "\u5DF2\u8BFB";
+  return "\u60F3\u8BFB";
+}
+
+// src/components/reading/ReadingPlanSection.ts
 var ReadingPlanSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -10512,33 +11577,107 @@ var ReadingPlanSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    const list = container.createDiv({ cls: "cow-data-list" });
-    this.store.getBooks().filter((book) => book.status !== "\u5DF2\u8BFB").forEach((book) => {
-      const row = list.createDiv({ cls: "cow-data-card" });
-      const head = row.createDiv({ cls: "cow-list-item-head" });
-      head.createEl("strong", { text: book.title });
-      const actions = head.createDiv({ cls: "cow-list-item-actions" });
-      const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u9605\u8BFB\u8BA1\u5212" } });
-      (0, import_obsidian59.setIcon)(edit, "pencil");
-      edit.addEventListener("click", () => new AddBookModal(this.app, async (updated) => {
-        await this.store.updateBook(book.id, updated);
-        this.onDataChanged();
-      }, book).open());
-      const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u9605\u8BFB\u8BA1\u5212" } });
-      (0, import_obsidian59.setIcon)(remove, "trash-2");
-      remove.addEventListener("click", async () => {
-        await this.store.deleteBook(book.id);
+    const plans = this.store.getReadingPlans().filter((plan) => this.store.shouldShowActiveReadingPlan(plan)).sort((a, b) => a.startDate.localeCompare(b.startDate));
+    if (plans.length === 0) {
+      const empty = container.createDiv({ cls: "cow-empty-state" });
+      empty.createSpan({ text: "\u5F53\u524D\u6CA1\u6709\u9605\u8BFB\u8BA1\u5212\uFF0C\u53EF\u4EE5\u4ECE\u53F3\u4E0A\u89D2\u65B0\u589E\u4E00\u672C\u4E66\u7684\u9605\u8BFB\u65E5\u671F\u8303\u56F4\u3002" });
+      return;
+    }
+    const list = container.createDiv({ cls: "cow-reading-plan-list" });
+    plans.forEach((plan) => this.renderPlanCard(list, plan));
+  }
+  renderPlanCard(container, plan) {
+    var _a, _b, _c;
+    const book = this.store.getBooks().find((item) => item.id === plan.bookId);
+    const status = this.resolveStatus(plan);
+    const card = container.createDiv({ cls: `cow-reading-plan-card is-${status}` });
+    const cover = card.createDiv({ cls: "cow-reading-plan-cover" });
+    const src = book ? this.getCoverSrc(book) : void 0;
+    if (src) cover.createEl("img", { attr: { src, alt: (_a = book == null ? void 0 : book.title) != null ? _a : "\u9605\u8BFB\u8BA1\u5212" } });
+    else cover.createSpan({ text: ((_b = book == null ? void 0 : book.title) != null ? _b : "\u8BA1\u5212").slice(0, 2) });
+    const body = card.createDiv({ cls: "cow-reading-plan-body" });
+    const head = body.createDiv({ cls: "cow-list-item-head" });
+    const title = head.createDiv({ cls: "cow-reading-plan-title" });
+    title.createEl("strong", { text: (_c = book == null ? void 0 : book.title) != null ? _c : "\u672A\u627E\u5230\u5173\u8054\u4E66\u7C4D" });
+    title.createSpan({ text: book ? book.author : "\u8FD9\u6761\u8BA1\u5212\u4FDD\u7559\u4E86\u6570\u636E\uFF0C\u4F46\u4E66\u7C4D\u8BB0\u5F55\u53EF\u80FD\u5DF2\u88AB\u5220\u9664\u3002" });
+    const badge = head.createSpan({ cls: `cow-reading-plan-status is-${status}`, text: status === "completed" ? `\u2713 ${readingPlanStatusLabel(status)}` : readingPlanStatusLabel(status) });
+    body.createDiv({ cls: "cow-meta-line", text: `${formatDateRange2(plan.startDate, plan.endDate)} \xB7 ${plan.targetPages ? `${plan.targetPages} \u9875` : "\u8BFB\u5B8C\u672C\u4E66"}` });
+    if (plan.note) body.createEl("p", { text: plan.note });
+    this.renderProgress(body, book, plan);
+    const actions = card.createDiv({ cls: "cow-reading-plan-actions" });
+    if (status === "active" && (book == null ? void 0 : book.readingStatus) === "want-to-read") {
+      this.textButton(actions, "\u8BBE\u4E3A\u5728\u8BFB", "play", async () => {
+        if (!confirm(`\u9605\u8BFB\u8BA1\u5212\u5DF2\u5F00\u59CB\uFF0C\u662F\u5426\u5C06\u300A${book.title}\u300B\u8BBE\u4E3A\u5728\u8BFB\uFF1F`)) return;
+        await this.store.updateBookReadingStatus(book.id, "reading");
+        new import_obsidian60.Notice(`\u300A${book.title}\u300B\u5DF2\u8BBE\u4E3A\u5728\u8BFB\u3002`);
         this.onDataChanged();
       });
-      row.createDiv({ cls: "cow-meta-line" }).createSpan({
-        text: `${book.currentPage}/${book.totalPages} \u9875 \xB7 ${book.status}`
+    }
+    this.iconButton(actions, "pencil", "\u7F16\u8F91\u8BA1\u5212", () => openReadingPlanModal(this.app, this.store, this.onDataChanged, plan));
+    if (status !== "completed") {
+      this.iconButton(actions, "check", "\u5B8C\u6210\u8BA1\u5212", async () => {
+        await this.store.completeReadingPlan(plan.id);
+        this.onDataChanged();
       });
+    }
+    this.iconButton(actions, "trash-2", "\u5220\u9664\u8BA1\u5212", async () => {
+      if (!confirm("\u5220\u9664\u8FD9\u6761\u9605\u8BFB\u8BA1\u5212\uFF1F\u4E0D\u4F1A\u5220\u9664\u5BF9\u5E94\u4E66\u7C4D\u3002")) return;
+      await this.store.deleteReadingPlan(plan.id);
+      this.onDataChanged();
     });
+    if (badge && status === "overdue") {
+      badge.setText("\u5DF2\u903E\u671F");
+    }
+  }
+  renderProgress(container, book, plan) {
+    var _a, _b, _c;
+    const current = (_a = book == null ? void 0 : book.currentPage) != null ? _a : 0;
+    const total = (_c = (_b = plan.targetPages) != null ? _b : book == null ? void 0 : book.totalPages) != null ? _c : 0;
+    const progress = total <= 0 ? 0 : Math.min(100, Math.round(current / total * 100));
+    const row = container.createDiv({ cls: "cow-reading-plan-progress" });
+    row.createSpan({ text: `\u9605\u8BFB\u8FDB\u5EA6 ${progress}%` });
+    row.createSpan({ text: `${current}/${total || 0} \u9875` });
+    const track = row.createDiv({ cls: "cow-month-progress-track" });
+    track.createDiv({ cls: "cow-month-progress-fill is-pink", attr: { style: `width: ${progress}%` } });
+  }
+  resolveStatus(plan) {
+    if (plan.status === "completed" || plan.completedDate) return "completed";
+    const today5 = todayKey3();
+    if (today5 < plan.startDate) return "planned";
+    if (today5 > plan.endDate) return "overdue";
+    return "active";
+  }
+  getCoverSrc(book) {
+    var _a;
+    if (book.coverPath) return this.app.vault.adapter.getResourcePath(book.coverPath);
+    return (_a = book.cover) != null ? _a : book.coverUrl;
+  }
+  iconButton(container, icon, label, onClick) {
+    const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
+    (0, import_obsidian60.setIcon)(button, icon);
+    button.addEventListener("click", onClick);
+  }
+  textButton(container, label, icon, onClick) {
+    const button = container.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
+    (0, import_obsidian60.setIcon)(button.createSpan(), icon);
+    button.createSpan({ text: label });
+    button.addEventListener("click", onClick);
   }
 };
+function todayKey3() {
+  const date = /* @__PURE__ */ new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+function formatMonthDay2(date) {
+  const [, month, day] = date.split("-");
+  return `${Number(month)}\u6708${Number(day)}\u65E5`;
+}
+function formatDateRange2(startDate, endDate) {
+  return `${formatMonthDay2(startDate)} - ${formatMonthDay2(endDate)}`;
+}
 
 // src/components/reading/ReadingQuotesSection.ts
-var import_obsidian60 = require("obsidian");
+var import_obsidian61 = require("obsidian");
 var ReadingQuotesSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -10553,13 +11692,13 @@ var ReadingQuotesSection = class {
       head.createEl("blockquote", { text: quote.text });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u91D1\u53E5" } });
-      (0, import_obsidian60.setIcon)(edit, "pencil");
+      (0, import_obsidian61.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openQuoteModal(this.app, async (values) => {
         await this.store.updateReadingQuote(quote.id, values);
         this.onDataChanged();
       }, quote));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u91D1\u53E5" } });
-      (0, import_obsidian60.setIcon)(remove, "trash-2");
+      (0, import_obsidian61.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteReadingQuote(quote.id);
         this.onDataChanged();
@@ -10577,7 +11716,7 @@ var ReadingStatsSection = class {
   render(container) {
     const books = this.store.getBooks();
     const total = books.length;
-    const finished = books.filter((book) => book.status === "\u5DF2\u8BFB").length;
+    const finished = books.filter((book) => book.readingStatus === "finished").length;
     const pages = books.reduce((sum, book) => sum + book.currentPage, 0);
     const stats = [
       ["\u85CF\u4E66", `${total}\u672C`],
@@ -10595,7 +11734,7 @@ var ReadingStatsSection = class {
 };
 
 // src/components/research/DataAnalysisTasksSection.ts
-var import_obsidian61 = require("obsidian");
+var import_obsidian62 = require("obsidian");
 var DataAnalysisTasksSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -10610,13 +11749,13 @@ var DataAnalysisTasksSection = class {
       head.createEl("strong", { text: task.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u4EFB\u52A1" } });
-      (0, import_obsidian61.setIcon)(edit, "pencil");
+      (0, import_obsidian62.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openDataAnalysisTaskModal(this.app, async (values) => {
         await this.store.updateDataAnalysisTask(task.id, values);
         this.onDataChanged();
       }, task));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u4EFB\u52A1" } });
-      (0, import_obsidian61.setIcon)(remove, "trash-2");
+      (0, import_obsidian62.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteDataAnalysisTask(task.id);
         this.onDataChanged();
@@ -10631,7 +11770,7 @@ var DataAnalysisTasksSection = class {
 };
 
 // src/components/research/ExperimentSection.ts
-var import_obsidian62 = require("obsidian");
+var import_obsidian63 = require("obsidian");
 var ExperimentSection = class {
   constructor(app, store, mode, onDataChanged) {
     this.app = app;
@@ -10648,7 +11787,7 @@ var ExperimentSection = class {
       head.createEl("strong", { text: item.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u5B9E\u9A8C" } });
-      (0, import_obsidian62.setIcon)(edit, "pencil");
+      (0, import_obsidian63.setIcon)(edit, "pencil");
       edit.addEventListener("click", (event) => {
         event.stopPropagation();
         openExperimentModal(this.app, async (values) => {
@@ -10657,7 +11796,7 @@ var ExperimentSection = class {
         }, item);
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u5B9E\u9A8C" } });
-      (0, import_obsidian62.setIcon)(remove, "trash-2");
+      (0, import_obsidian63.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async (event) => {
         event.stopPropagation();
         await this.store.deleteExperiment(this.mode, item.id);
@@ -10671,12 +11810,12 @@ var ExperimentSection = class {
   }
   async openNote(notePath) {
     if (!notePath) {
-      new import_obsidian62.Notice("\u8FD9\u6761\u5B9E\u9A8C\u8BB0\u5F55\u8FD8\u6CA1\u6709\u7ED1\u5B9A Markdown\u3002");
+      new import_obsidian63.Notice("\u8FD9\u6761\u5B9E\u9A8C\u8BB0\u5F55\u8FD8\u6CA1\u6709\u7ED1\u5B9A Markdown\u3002");
       return;
     }
     const file = this.app.vault.getFileByPath(notePath);
     if (!file) {
-      new import_obsidian62.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${notePath}`);
+      new import_obsidian63.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${notePath}`);
       return;
     }
     await this.app.workspace.getLeaf(false).openFile(file);
@@ -10684,7 +11823,7 @@ var ExperimentSection = class {
 };
 
 // src/components/research/LiteratureNotesSection.ts
-var import_obsidian63 = require("obsidian");
+var import_obsidian64 = require("obsidian");
 var LiteratureNotesSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -10700,7 +11839,7 @@ var LiteratureNotesSection = class {
       head.createEl("strong", { text: paper.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u6587\u732E\u7B14\u8BB0" } });
-      (0, import_obsidian63.setIcon)(edit, "pencil");
+      (0, import_obsidian64.setIcon)(edit, "pencil");
       edit.addEventListener("click", (event) => {
         event.stopPropagation();
         openResearchPaperModal(this.app, async (values) => {
@@ -10709,7 +11848,7 @@ var LiteratureNotesSection = class {
         }, paper);
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u6587\u732E\u7B14\u8BB0" } });
-      (0, import_obsidian63.setIcon)(remove, "trash-2");
+      (0, import_obsidian64.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async (event) => {
         event.stopPropagation();
         await this.store.deleteResearchPaper(paper.id);
@@ -10721,7 +11860,7 @@ var LiteratureNotesSection = class {
   }
   async openNote(notePath) {
     if (!notePath) {
-      new import_obsidian63.Notice("\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u6587\u732E\u7B14\u8BB0\u3002");
+      new import_obsidian64.Notice("\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u6587\u732E\u7B14\u8BB0\u3002");
       return;
     }
     const file = this.app.vault.getFileByPath(notePath);
@@ -10730,7 +11869,7 @@ var LiteratureNotesSection = class {
 };
 
 // src/components/research/PaperQueueSection.ts
-var import_obsidian64 = require("obsidian");
+var import_obsidian65 = require("obsidian");
 var PaperQueueSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -10745,7 +11884,7 @@ var PaperQueueSection = class {
       head.createEl("strong", { text: paper.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u8BBA\u6587" } });
-      (0, import_obsidian64.setIcon)(edit, "pencil");
+      (0, import_obsidian65.setIcon)(edit, "pencil");
       edit.addEventListener("click", (event) => {
         event.stopPropagation();
         openResearchPaperModal(this.app, async (values) => {
@@ -10754,7 +11893,7 @@ var PaperQueueSection = class {
         }, paper);
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u8BBA\u6587" } });
-      (0, import_obsidian64.setIcon)(remove, "trash-2");
+      (0, import_obsidian65.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async (event) => {
         event.stopPropagation();
         await this.store.deleteResearchPaper(paper.id);
@@ -10770,12 +11909,12 @@ var PaperQueueSection = class {
   }
   async openNote(notePath) {
     if (!notePath) {
-      new import_obsidian64.Notice("\u8FD9\u7BC7\u6587\u732E\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u7B14\u8BB0\u3002");
+      new import_obsidian65.Notice("\u8FD9\u7BC7\u6587\u732E\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u7B14\u8BB0\u3002");
       return;
     }
     const file = this.app.vault.getFileByPath(notePath);
     if (!file) {
-      new import_obsidian64.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${notePath}`);
+      new import_obsidian65.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${notePath}`);
       return;
     }
     await this.app.workspace.getLeaf(false).openFile(file);
@@ -10783,7 +11922,7 @@ var PaperQueueSection = class {
 };
 
 // src/components/research/ResearchCheckinSection.ts
-var import_obsidian65 = require("obsidian");
+var import_obsidian66 = require("obsidian");
 var ResearchCheckinSection = class {
   constructor(store, onDataChanged) {
     this.store = store;
@@ -10801,7 +11940,7 @@ var ResearchCheckinSection = class {
       dates.forEach((date) => {
         const done = this.store.isHabitCompleted(habit.id, date);
         const button = row.createEl("button", { cls: `cow-habit-dot ${done ? "is-done" : ""}`, attr: { type: "button" } });
-        if (done) (0, import_obsidian65.setIcon)(button, "check");
+        if (done) (0, import_obsidian66.setIcon)(button, "check");
         button.addEventListener("click", async () => {
           await this.store.toggleHabit(habit.id, date);
           this.onDataChanged();
@@ -10813,7 +11952,7 @@ var ResearchCheckinSection = class {
 };
 
 // src/components/research/ResearchMemoSection.ts
-var import_obsidian66 = require("obsidian");
+var import_obsidian67 = require("obsidian");
 var ResearchMemoSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -10828,13 +11967,13 @@ var ResearchMemoSection = class {
       head.createSpan({ text: memo });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91 Memo" } });
-      (0, import_obsidian66.setIcon)(edit, "pencil");
+      (0, import_obsidian67.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openTextModal(this.app, "\u7F16\u8F91\u79D1\u7814 Memo", "Memo", memo, async (value) => {
         await this.store.updateResearchMemo(index, value);
         this.onDataChanged();
       }));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664 Memo" } });
-      (0, import_obsidian66.setIcon)(remove, "trash-2");
+      (0, import_obsidian67.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteResearchMemo(index);
         this.onDataChanged();
@@ -10844,7 +11983,7 @@ var ResearchMemoSection = class {
 };
 
 // src/components/research/ResearchProjectsSection.ts
-var import_obsidian67 = require("obsidian");
+var import_obsidian68 = require("obsidian");
 var ResearchProjectsSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -10859,7 +11998,7 @@ var ResearchProjectsSection = class {
       head.createEl("strong", { text: project.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u9879\u76EE" } });
-      (0, import_obsidian67.setIcon)(edit, "pencil");
+      (0, import_obsidian68.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => {
         openResearchProjectModal(this.app, async (values) => {
           await this.store.updateResearchProject(project.id, { ...values, tags: values.tagsText.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean) });
@@ -10867,7 +12006,7 @@ var ResearchProjectsSection = class {
         }, project);
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u9879\u76EE" } });
-      (0, import_obsidian67.setIcon)(remove, "trash-2");
+      (0, import_obsidian68.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteResearchProject(project.id);
         this.onDataChanged();
@@ -10884,7 +12023,7 @@ var ResearchProjectsSection = class {
 };
 
 // src/components/research/ResearchTimelineSection.ts
-var import_obsidian68 = require("obsidian");
+var import_obsidian69 = require("obsidian");
 var ResearchTimelineSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -10900,13 +12039,13 @@ var ResearchTimelineSection = class {
       item.createSpan({ text: ddl.type });
       const actions = item.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91 DDL" } });
-      (0, import_obsidian68.setIcon)(edit, "pencil");
+      (0, import_obsidian69.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openDeadlineModal(this.app, async (values) => {
         await this.store.updateResearchDeadline(ddl.id, values);
         this.onDataChanged();
       }, ddl));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664 DDL" } });
-      (0, import_obsidian68.setIcon)(remove, "trash-2");
+      (0, import_obsidian69.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteResearchDeadline(ddl.id);
         this.onDataChanged();
@@ -10932,7 +12071,7 @@ var DashboardSection = class {
     });
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
     const title = header.createDiv({ cls: "cow-section-title" });
-    (0, import_obsidian69.setIcon)(title.createSpan(), this.getIcon());
+    (0, import_obsidian70.setIcon)(title.createSpan(), this.getIcon());
     title.createEl("h3", { text: this.section.title });
     const actions = header.createDiv({ cls: "cow-section-actions" });
     if (getSectionCapabilities(this.section.type).canAdd) {
@@ -10940,7 +12079,7 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": `\u6DFB\u52A0${this.section.title}\u5185\u5BB9` }
       });
-      (0, import_obsidian69.setIcon)(addButton.createSpan(), "plus");
+      (0, import_obsidian70.setIcon)(addButton.createSpan(), "plus");
       addButton.createSpan({ text: "\u6DFB\u52A0" });
       addButton.addEventListener("click", () => {
         openAddContentModal(this.app, this.store, this.section, this.onDataChanged);
@@ -10951,18 +12090,19 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": `${this.section.title}\u7EDF\u8BA1` }
       });
-      (0, import_obsidian69.setIcon)(statsButton.createSpan(), "bar-chart-3");
+      (0, import_obsidian70.setIcon)(statsButton.createSpan(), "bar-chart-3");
       statsButton.createSpan({ text: "\u7EDF\u8BA1" });
       statsButton.addEventListener("click", () => this.openStats());
     }
     this.renderFitnessHeaderActions(actions);
     this.renderFinanceHeaderActions(actions);
     this.renderGoalHeaderActions(actions);
+    this.renderReadingHeaderActions(actions);
     const menuButton = actions.createEl("button", {
       cls: "cow-icon-button",
       attr: { type: "button", "aria-label": `${this.section.title}\u64CD\u4F5C\u83DC\u5355` }
     });
-    (0, import_obsidian69.setIcon)(menuButton, "more-horizontal");
+    (0, import_obsidian70.setIcon)(menuButton, "more-horizontal");
     menuButton.addEventListener("click", (event) => {
       new SectionActionMenu(this.app, this.store, this.section, this.onRemove, this.onDataChanged).show(event);
     });
@@ -10975,7 +12115,7 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": label }
       });
-      (0, import_obsidian69.setIcon)(button.createSpan(), icon);
+      (0, import_obsidian70.setIcon)(button.createSpan(), icon);
       button.createSpan({ text: label });
       button.addEventListener("click", onClick);
     };
@@ -10996,13 +12136,32 @@ var DashboardSection = class {
       addAction("\u7EDF\u8BA1", "bar-chart-3", () => new HealthReminderStatisticsModal(this.app, this.store).open());
     }
   }
+  renderReadingHeaderActions(actions) {
+    const addAction = (label, icon, onClick) => {
+      const button = actions.createEl("button", {
+        cls: "cow-section-add-button",
+        attr: { type: "button", "aria-label": label }
+      });
+      (0, import_obsidian70.setIcon)(button.createSpan(), icon);
+      button.createSpan({ text: label });
+      button.addEventListener("click", onClick);
+    };
+    if (this.section.type === "bookshelf") {
+      addAction("\u589E\u52A0\u4E66\u7C4D", "plus", () => new AddBookModal(this.app, this.store, this.onDataChanged).open());
+      addAction("\u6240\u6709\u4E66\u7C4D", "library", () => new AllBooksModal(this.app, this.store, this.onDataChanged).open());
+    }
+    if (this.section.type === "reading-plan") {
+      addAction("\u65B0\u589E\u8BA1\u5212", "plus", () => openReadingPlanModal(this.app, this.store, this.onDataChanged));
+      addAction("\u7EDF\u8BA1", "bar-chart-3", () => new ReadingPlanStatisticsModal(this.app, this.store).open());
+    }
+  }
   renderFinanceHeaderActions(actions) {
     const addAction = (label, icon, onClick) => {
       const button = actions.createEl("button", {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": label }
       });
-      (0, import_obsidian69.setIcon)(button.createSpan(), icon);
+      (0, import_obsidian70.setIcon)(button.createSpan(), icon);
       button.createSpan({ text: label });
       button.addEventListener("click", onClick);
     };
@@ -11036,7 +12195,7 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": label }
       });
-      (0, import_obsidian69.setIcon)(button.createSpan(), icon);
+      (0, import_obsidian70.setIcon)(button.createSpan(), icon);
       button.createSpan({ text: label });
       button.addEventListener("click", onClick);
     };
@@ -11159,10 +12318,10 @@ var DashboardSection = class {
         new ReadingQuotesSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "finished-books":
-        new BookListSection(this.app, this.store, "\u5DF2\u8BFB", this.onDataChanged).render(container);
+        new BookListSection(this.app, this.store, "finished", this.onDataChanged).render(container);
         break;
       case "wishlist-books":
-        new BookListSection(this.app, this.store, "\u60F3\u8BFB", this.onDataChanged).render(container);
+        new BookListSection(this.app, this.store, "want-to-read", this.onDataChanged).render(container);
         break;
       case "reading-stats":
         new ReadingStatsSection(this.store).render(container);
@@ -11443,8 +12602,8 @@ var DashboardSection = class {
 };
 
 // src/components/AddSectionButton.ts
-var import_obsidian70 = require("obsidian");
-var AddSectionModal = class extends import_obsidian70.Modal {
+var import_obsidian71 = require("obsidian");
+var AddSectionModal = class extends import_obsidian71.Modal {
   constructor(app, page, modules, onSelect) {
     super(app);
     this.page = page;
@@ -11463,7 +12622,7 @@ var AddSectionModal = class extends import_obsidian70.Modal {
         attr: { type: "button" }
       });
       const icon = button.createSpan({ cls: "cow-add-module-icon" });
-      (0, import_obsidian70.setIcon)(icon, module2.icon);
+      (0, import_obsidian71.setIcon)(icon, module2.icon);
       button.createEl("strong", { cls: "cow-add-module-title", text: module2.title });
       button.createEl("span", { cls: "cow-add-module-description", text: module2.description });
       button.addEventListener("click", async () => {
@@ -11488,7 +12647,7 @@ var AddSectionButton = class {
       cls: "cow-add-section-button",
       attr: { type: "button" }
     });
-    (0, import_obsidian70.setIcon)(button.createSpan(), "plus");
+    (0, import_obsidian71.setIcon)(button.createSpan(), "plus");
     button.createSpan({ text: "\u6DFB\u52A0\u529F\u80FD\u5206\u533A" });
     button.addEventListener("click", () => {
       new AddSectionModal(this.app, this.page, this.modules, this.onAdd).open();
@@ -11563,8 +12722,8 @@ var GoalsPage = class extends BaseDashboardPage {
 };
 
 // src/pages/ModulesPage.ts
-var import_obsidian71 = require("obsidian");
-var ResetDefaultsModal = class extends import_obsidian71.Modal {
+var import_obsidian72 = require("obsidian");
+var ResetDefaultsModal = class extends import_obsidian72.Modal {
   constructor(app, onConfirm) {
     super(app);
     this.onConfirm = onConfirm;
@@ -11604,7 +12763,7 @@ var ModulesPage = class {
     const importInput = actions.createEl("input", { type: "file", attr: { accept: "application/json" } });
     importInput.addClass("cow-hidden-input");
     const importButton = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian71.setIcon)(importButton.createSpan(), "upload");
+    (0, import_obsidian72.setIcon)(importButton.createSpan(), "upload");
     importButton.createSpan({ text: "\u5BFC\u5165\u914D\u7F6E" });
     importButton.addEventListener("click", () => importInput.click());
     importInput.addEventListener("change", () => {
@@ -11613,18 +12772,18 @@ var ModulesPage = class {
       if (!file) return;
       readJsonFile(file, async (data) => {
         await this.store.importData(data);
-        new import_obsidian71.Notice("\u914D\u7F6E\u5DF2\u5BFC\u5165\u3002");
+        new import_obsidian72.Notice("\u914D\u7F6E\u5DF2\u5BFC\u5165\u3002");
         this.onDataChanged();
       });
     });
     const exportButton = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian71.setIcon)(exportButton.createSpan(), "download");
+    (0, import_obsidian72.setIcon)(exportButton.createSpan(), "download");
     exportButton.createSpan({ text: "\u5BFC\u51FA\u914D\u7F6E" });
     exportButton.addEventListener("click", () => {
       downloadJson("cute-obsidian-workbench-config.json", this.store.exportData());
     });
     const resetButton = actions.createEl("button", { cls: "mod-warning", attr: { type: "button" } });
-    (0, import_obsidian71.setIcon)(resetButton.createSpan(), "rotate-ccw");
+    (0, import_obsidian72.setIcon)(resetButton.createSpan(), "rotate-ccw");
     resetButton.createSpan({ text: "\u6062\u590D\u9ED8\u8BA4" });
     resetButton.addEventListener("click", () => {
       new ResetDefaultsModal(this.app, async () => {
@@ -11636,8 +12795,8 @@ var ModulesPage = class {
 };
 
 // src/components/QuickCreateModal.ts
-var import_obsidian72 = require("obsidian");
-var QuickCreateModal = class extends import_obsidian72.Modal {
+var import_obsidian73 = require("obsidian");
+var QuickCreateModal = class extends import_obsidian73.Modal {
   constructor(app, store, getCurrentPage, onDataChanged) {
     super(app);
     this.store = store;
@@ -11660,12 +12819,12 @@ var QuickCreateModal = class extends import_obsidian72.Modal {
     this.renderAction(grid, "\u6DFB\u52A0\u4EFB\u52A1", "list-plus", async () => {
       await this.store.addTodayFocusTask("\u65B0\u7684\u5F85\u529E\u4EFB\u52A1");
       this.onDataChanged();
-      new import_obsidian72.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
+      new import_obsidian73.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
     });
     this.renderAction(grid, "\u6DFB\u52A0\u6253\u5361\u9879\u76EE", "badge-plus", async () => {
       await this.store.addCustomHabit("\u65B0\u7684\u6253\u5361");
       this.onDataChanged();
-      new import_obsidian72.Notice("\u5DF2\u6DFB\u52A0\u6253\u5361\u9879\u76EE\uFF0C\u53EF\u5728\u6A21\u5757\u7BA1\u7406\u4E2D\u7F16\u8F91\u3002");
+      new import_obsidian73.Notice("\u5DF2\u6DFB\u52A0\u6253\u5361\u9879\u76EE\uFF0C\u53EF\u5728\u6A21\u5757\u7BA1\u7406\u4E2D\u7F16\u8F91\u3002");
     });
     this.renderAction(grid, "\u6DFB\u52A0\u529F\u80FD\u5206\u533A", "layout-grid", async () => {
       this.close();
@@ -11674,7 +12833,7 @@ var QuickCreateModal = class extends import_obsidian72.Modal {
   }
   renderAction(container, label, icon, action, closeAfter = true) {
     const button = container.createEl("button", { cls: "cow-quick-create-card", attr: { type: "button" } });
-    (0, import_obsidian72.setIcon)(button.createSpan(), icon);
+    (0, import_obsidian73.setIcon)(button.createSpan(), icon);
     button.createSpan({ text: label });
     button.addEventListener("click", async () => {
       await action();
@@ -11691,8 +12850,8 @@ var QuickCreateModal = class extends import_obsidian72.Modal {
 };
 
 // src/components/WorkbenchCustomizeModal.ts
-var import_obsidian73 = require("obsidian");
-var WorkbenchCustomizeModal = class extends import_obsidian73.Modal {
+var import_obsidian74 = require("obsidian");
+var WorkbenchCustomizeModal = class extends import_obsidian74.Modal {
   constructor(app, store, getCurrentPage, onDataChanged) {
     var _a;
     super(app);
@@ -11719,7 +12878,7 @@ var WorkbenchCustomizeModal = class extends import_obsidian73.Modal {
         cls: this.store.getData().banner.background === background.id ? "is-active" : "",
         attr: { type: "button" }
       });
-      (0, import_obsidian73.setIcon)(button.createSpan(), "image");
+      (0, import_obsidian74.setIcon)(button.createSpan(), "image");
       button.createSpan({ text: background.label });
       button.addEventListener("click", async () => {
         await this.store.updateBanner({ background: background.id, imageDataUrl: void 0 });
@@ -11743,30 +12902,30 @@ var WorkbenchCustomizeModal = class extends import_obsidian73.Modal {
       };
       reader.readAsDataURL(file);
     });
-    new import_obsidian73.Setting(this.contentEl).setName("\u672C\u5730\u56FE\u7247").setDesc("\u4FDD\u5B58\u4E3A data URL\uFF0CBRAT \u5B89\u88C5\u540E\u4E0D\u4F9D\u8D56\u989D\u5916\u8D44\u6E90\u8DEF\u5F84\u3002").addButton((button) => button.setButtonText("\u9009\u62E9\u56FE\u7247").onClick(() => fileInput.click()));
-    new import_obsidian73.Setting(this.contentEl).setName("\u5DE6\u4FA7\u5934\u50CF").setDesc("\u9009\u62E9\u9884\u8BBE\u56FE\u6807\u6216\u4E0A\u4F20\u56FE\u7247\uFF0C\u5237\u65B0\u540E\u4ECD\u4FDD\u7559\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF").onClick(() => {
+    new import_obsidian74.Setting(this.contentEl).setName("\u672C\u5730\u56FE\u7247").setDesc("\u4FDD\u5B58\u4E3A data URL\uFF0CBRAT \u5B89\u88C5\u540E\u4E0D\u4F9D\u8D56\u989D\u5916\u8D44\u6E90\u8DEF\u5F84\u3002").addButton((button) => button.setButtonText("\u9009\u62E9\u56FE\u7247").onClick(() => fileInput.click()));
+    new import_obsidian74.Setting(this.contentEl).setName("\u5DE6\u4FA7\u5934\u50CF").setDesc("\u9009\u62E9\u9884\u8BBE\u56FE\u6807\u6216\u4E0A\u4F20\u56FE\u7247\uFF0C\u5237\u65B0\u540E\u4ECD\u4FDD\u7559\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF").onClick(() => {
       const current = this.store.getData().banner.sidebarAvatar;
       new AvatarPickerModal(this.app, "\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF", current, async (avatar) => {
         await this.store.updateSidebarAvatar(avatar);
         this.onDataChanged();
       }).open();
     }));
-    new import_obsidian73.Setting(this.contentEl).setName("Banner \u56FE\u6807").setDesc("\u9009\u62E9 Banner \u5DE6\u4FA7\u663E\u793A\u7684\u53EF\u7231\u56FE\u6807\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539 Banner \u56FE\u6807").onClick(() => {
+    new import_obsidian74.Setting(this.contentEl).setName("Banner \u56FE\u6807").setDesc("\u9009\u62E9 Banner \u5DE6\u4FA7\u663E\u793A\u7684\u53EF\u7231\u56FE\u6807\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539 Banner \u56FE\u6807").onClick(() => {
       const current = this.store.getData().banner.bannerAvatar;
       new AvatarPickerModal(this.app, "\u4FEE\u6539 Banner \u56FE\u6807", current, async (avatar) => {
         await this.store.updateBannerAvatar(avatar);
         this.onDataChanged();
       }).open();
     }));
-    new import_obsidian73.Setting(this.contentEl).setName("Banner \u4E3B\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
+    new import_obsidian74.Setting(this.contentEl).setName("Banner \u4E3B\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
       this.titleValue = value;
     }));
-    new import_obsidian73.Setting(this.contentEl).setName("Banner \u526F\u6807\u9898").addText((text) => text.setValue(this.subtitleValue).onChange((value) => {
+    new import_obsidian74.Setting(this.contentEl).setName("Banner \u526F\u6807\u9898").addText((text) => text.setValue(this.subtitleValue).onChange((value) => {
       this.subtitleValue = value;
     }));
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     const addSection = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian73.setIcon)(addSection.createSpan(), "plus");
+    (0, import_obsidian74.setIcon)(addSection.createSpan(), "plus");
     addSection.createSpan({ text: "\u6DFB\u52A0\u5F53\u524D\u9875\u9762\u529F\u80FD\u5206\u533A" });
     addSection.addEventListener("click", () => {
       this.close();
@@ -11779,7 +12938,7 @@ var WorkbenchCustomizeModal = class extends import_obsidian73.Modal {
         subtitle: this.subtitleValue.trim() || "\u628A\u60F3\u6CD5\u53D8\u6210\u884C\u52A8\uFF0C\u8BA9\u6BCF\u4E00\u5929\u90FD\u66F4\u9760\u8FD1\u7406\u60F3\u7684\u81EA\u5DF1\u3002"
       });
       this.onDataChanged();
-      new import_obsidian73.Notice("Banner \u6587\u6848\u5DF2\u4FDD\u5B58\u3002");
+      new import_obsidian74.Notice("Banner \u6587\u6848\u5DF2\u4FDD\u5B58\u3002");
       this.close();
     });
   }
@@ -11793,8 +12952,8 @@ var WorkbenchCustomizeModal = class extends import_obsidian73.Modal {
 };
 
 // src/components/DayDetailModal.ts
-var import_obsidian74 = require("obsidian");
-var DayDetailModal = class extends import_obsidian74.Modal {
+var import_obsidian75 = require("obsidian");
+var DayDetailModal = class extends import_obsidian75.Modal {
   constructor(app, store, date) {
     super(app);
     this.store = store;
@@ -11828,7 +12987,7 @@ var DayDetailModal = class extends import_obsidian74.Modal {
     const noteRow = this.contentEl.createDiv({ cls: "cow-day-note-row" });
     noteRow.createSpan({ text: dailyNote ? dailyNote.path : "\u8FD8\u6CA1\u6709\u6BCF\u65E5\u7B14\u8BB0\u3002" });
     const button = noteRow.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian74.setIcon)(button.createSpan(), dailyNote ? "file-text" : "file-plus");
+    (0, import_obsidian75.setIcon)(button.createSpan(), dailyNote ? "file-text" : "file-plus");
     button.createSpan({ text: dailyNote ? "\u6253\u5F00\u6BCF\u65E5\u7B14\u8BB0" : "\u521B\u5EFA\u6BCF\u65E5\u7B14\u8BB0" });
     button.addEventListener("click", async () => {
       await this.notes.openOrCreateDailyNote(this.date);
@@ -11838,8 +12997,8 @@ var DayDetailModal = class extends import_obsidian74.Modal {
 };
 
 // src/components/NotesManagerModal.ts
-var import_obsidian75 = require("obsidian");
-var NotesManagerModal = class extends import_obsidian75.Modal {
+var import_obsidian76 = require("obsidian");
+var NotesManagerModal = class extends import_obsidian76.Modal {
   constructor(app) {
     super(app);
     this.searchValue = "";
@@ -11891,7 +13050,7 @@ var NotesManagerModal = class extends import_obsidian75.Modal {
 
 // src/views/WorkbenchView.ts
 var WORKBENCH_VIEW_TYPE = "cute-obsidian-workbench-view";
-var WorkbenchView = class extends import_obsidian76.ItemView {
+var WorkbenchView = class extends import_obsidian77.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -11980,7 +13139,7 @@ var WorkbenchView = class extends import_obsidian76.ItemView {
     var _a;
     const didRun = (_a = this.app.commands) == null ? void 0 : _a.executeCommandById("file-explorer:open");
     if (!didRun) {
-      new import_obsidian76.Notice("\u672A\u80FD\u6FC0\u6D3B Obsidian \u6587\u4EF6\u7BA1\u7406\u5668\u3002");
+      new import_obsidian77.Notice("\u672A\u80FD\u6FC0\u6D3B Obsidian \u6587\u4EF6\u7BA1\u7406\u5668\u3002");
     }
   }
   openAvatarPicker(target) {
@@ -12002,7 +13161,7 @@ var WorkbenchView = class extends import_obsidian76.ItemView {
 };
 
 // src/main.ts
-var CuteObsidianWorkbenchPlugin = class extends import_obsidian77.Plugin {
+var CuteObsidianWorkbenchPlugin = class extends import_obsidian78.Plugin {
   async onload() {
     this.store = new DashboardStore(
       () => this.loadData(),

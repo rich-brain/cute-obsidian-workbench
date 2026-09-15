@@ -77,8 +77,7 @@ export function openAddContentModal(app: App, store: DashboardStore, section: Da
     case "reading-plan":
     case "reading-notes":
     case "wishlist-books":
-      new AddBookModal(app, async (book) => {
-        await store.addBook(section.type === "wishlist-books" ? { ...book, status: "想读" } : book);
+      new AddBookModal(app, store, async () => {
         refresh();
       }).open();
       break;
