@@ -36,6 +36,7 @@ import type {
   ResearchDeadline,
   ResearchPaper,
   ResearchProject,
+  ReviewItem,
   Risk,
   SavingGoal,
   TodayFocusTask,
@@ -114,8 +115,8 @@ export const AVAILABLE_MODULES: AvailableModuleDefinition[] = [
   { type: "investment-watch", title: "投资观察", description: "个人投资观察，不执行交易。", page: "finance", icon: "candlestick-chart", defaultWidth: "md" },
   { type: "expense-heatmap", title: "月度支出热力图", description: "按日展示支出密度。", page: "finance", icon: "activity", defaultWidth: "md" },
   { type: "yearly-goals", title: "年度目标", description: "全年目标和完成进度。", page: "goals", icon: "flag", defaultWidth: "md" },
-  { type: "quarterly-okr", title: "季度 OKR", description: "季度 Objective 与 KR。", page: "goals", icon: "target", defaultWidth: "md" },
-  { type: "monthly-key-results", title: "月度关键结果", description: "本月需要推进的 KR。", page: "goals", icon: "list-checks", defaultWidth: "md" },
+  { type: "quarterly-okr", title: "季度目标", description: "按年份和季度推进的目标。", page: "goals", icon: "target", defaultWidth: "md" },
+  { type: "monthly-key-results", title: "月度目标", description: "本月需要推进的目标。", page: "goals", icon: "list-checks", defaultWidth: "md" },
   { type: "goal-breakdown", title: "目标拆解", description: "把目标拆到行动层。", page: "goals", icon: "git-branch", defaultWidth: "md" },
   { type: "milestone-timeline", title: "里程碑时间线", description: "目标里程碑和日期。", page: "goals", icon: "milestone", defaultWidth: "md" },
   { type: "priority-matrix", title: "优先级矩阵", description: "重要紧急四象限。", page: "goals", icon: "layout-dashboard", defaultWidth: "md" },
@@ -164,7 +165,7 @@ function todayKey(): string {
 }
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.3.6",
+  dataVersion: "0.3.7",
   currentPage: "overview",
   sections: [
     {
@@ -500,8 +501,8 @@ const DEFAULT_DATA: WorkbenchData = {
     createSection("finance", "investment-watch", "投资观察", 100),
     createSection("finance", "expense-heatmap", "月度支出热力图", 110),
     createSection("goals", "yearly-goals", "年度目标", 10),
-    createSection("goals", "quarterly-okr", "季度 OKR", 20),
-    createSection("goals", "monthly-key-results", "月度关键结果", 30),
+    createSection("goals", "quarterly-okr", "季度目标", 20),
+    createSection("goals", "monthly-key-results", "月度目标", 30),
     createSection("goals", "goal-breakdown", "目标拆解", 40),
     createSection("goals", "milestone-timeline", "里程碑时间线", 50),
     createSection("goals", "priority-matrix", "优先级矩阵", 60),
@@ -738,6 +739,10 @@ const DEFAULT_DATA: WorkbenchData = {
   risks: [
     { id: "risk-time", title: "实验排期被压缩", level: "high", solution: "提前预约设备，准备替代实验方案。" },
     { id: "risk-energy", title: "睡眠不足影响执行", level: "medium", solution: "晚间固定收尾，减少临睡前输入。" }
+  ],
+  reviewItems: [
+    { id: "review-week-focus", date: "2026-09-14", title: "本周目标推进复盘", content: "检查最重要的目标是否真的向前推进。", status: "todo", createdAt: "2026-09-14T08:00:00.000Z", updatedAt: "2026-09-14T08:00:00.000Z" },
+    { id: "review-cut-busywork", date: "2026-09-14", title: "减少忙碌感任务", content: "识别只是带来忙碌感、但不产生结果的任务。", status: "todo", createdAt: "2026-09-14T08:00:00.000Z", updatedAt: "2026-09-14T08:00:00.000Z" }
   ],
   calendarSettings: {
     showNoteMarkers: true,
@@ -1981,14 +1986,24 @@ export class DashboardStore {
   }
 
   async addObjective(objective: Objective): Promise<void> {
-    this.data.objectives.push(objective);
+    this.data.objectives.push(this.normalizeObjective(objective));
     await this.save();
   }
 
   async updateObjective(objectiveId: string, updates: Partial<Objective>): Promise<void> {
     const objective = this.data.objectives.find((item) => item.id === objectiveId);
     if (!objective) return;
-    Object.assign(objective, updates);
+    Object.assign(objective, updates, { updatedAt: Date.now() });
+    const period = this.parseObjectivePeriod(objective);
+    objective.year = period.year;
+    objective.quarterNumber = period.quarterNumber;
+    objective.quarter = `${period.year} Q${period.quarterNumber}`;
+    objective.progress = Math.max(0, Math.min(100, objective.progress));
+    if (objective.progress >= 100) {
+      objective.completedDate = objective.completedDate ?? formatDateKey(new Date());
+    } else {
+      objective.completedDate = undefined;
+    }
     await this.save();
   }
 
@@ -2018,6 +2033,28 @@ export class DashboardStore {
     return this.data.risks;
   }
 
+  getReviewItems(): ReviewItem[] {
+    return this.data.reviewItems;
+  }
+
+  async addReviewItem(item: ReviewItem): Promise<void> {
+    this.data.reviewItems.push(this.normalizeReviewItem(item));
+    await this.save();
+  }
+
+  async updateReviewItem(itemId: string, updates: Partial<ReviewItem>): Promise<void> {
+    const item = this.data.reviewItems.find((review) => review.id === itemId);
+    if (!item) return;
+    Object.assign(item, updates, { updatedAt: new Date().toISOString() });
+    Object.assign(item, this.normalizeReviewItem(item));
+    await this.save();
+  }
+
+  async deleteReviewItem(itemId: string): Promise<void> {
+    this.data.reviewItems = this.data.reviewItems.filter((item) => item.id !== itemId);
+    await this.save();
+  }
+
   async addGoal(goal: Goal): Promise<void> {
     this.data.goals.push(goal);
     await this.save();
@@ -2037,6 +2074,17 @@ export class DashboardStore {
     }
     Object.assign(goal, updates);
     goal.progress = Math.max(0, Math.min(100, goal.progress));
+    if (updates.progress !== undefined && goal.progress < 100 && updates.status === undefined) {
+      goal.status = "进行中";
+      goal.completedDate = undefined;
+    } else if (goal.progress >= 100 || goal.status === "已完成") {
+      goal.status = "已完成";
+      goal.progress = 100;
+      goal.completedDate = goal.completedDate ?? formatDateKey(new Date());
+    } else {
+      goal.completedDate = undefined;
+    }
+    goal.updatedAt = Date.now();
     await this.save();
   }
 
@@ -2045,7 +2093,9 @@ export class DashboardStore {
   }
 
   async addGoalAction(action: GoalAction): Promise<void> {
-    this.data.goalActions.push(this.normalizeGoalAction(action));
+    const normalized = this.normalizeGoalAction(action);
+    this.data.goalActions.push(normalized);
+    this.syncGoalActionWithAncestors(normalized);
     await this.save();
   }
 
@@ -2060,6 +2110,9 @@ export class DashboardStore {
     if (updates.status && updates.status !== "completed") {
       action.completedDate = updates.completedDate;
     }
+    const normalized = this.normalizeGoalAction(action);
+    Object.assign(action, normalized);
+    this.syncGoalActionWithAncestors(action);
     await this.save();
   }
 
@@ -2071,6 +2124,7 @@ export class DashboardStore {
     } else {
       Object.assign(action, { status: "completed" as const, completedDate: formatDateKey(new Date()), progress: 100, updatedAt: Date.now() });
     }
+    this.syncGoalActionWithAncestors(action);
     await this.save();
   }
 
@@ -2087,6 +2141,7 @@ export class DashboardStore {
       });
     }
     this.data.goalActions = this.data.goalActions.filter((action) => !ids.has(action.id));
+    ids.forEach((id) => this.removeAutoSegmentsForGoalAction(id));
     await this.save();
   }
 
@@ -2094,7 +2149,7 @@ export class DashboardStore {
     const action = this.data.goalActions.find((item) => item.id === actionId);
     if (!action) return 0;
     const children = this.data.goalActions.filter((item) => item.parentId === actionId);
-    if (children.length === 0) return Math.max(0, Math.min(100, action.progress ?? (action.status === "completed" ? 100 : 0)));
+    if (children.length === 0 || action.progressMode === "manual") return Math.max(0, Math.min(100, action.progress ?? (action.status === "completed" ? 100 : 0)));
     const total = children.reduce((sum, child) => sum + this.getGoalActionProgress(child.id), 0);
     return Math.round(total / children.length);
   }
@@ -2109,6 +2164,8 @@ export class DashboardStore {
 
   private normalizeGoalAction(action: GoalAction): GoalAction {
     const timestamp = Date.now();
+    const startDate = action.startDate || formatDateKey(new Date());
+    const deadline = action.deadline || startDate;
     return {
       id: action.id ?? `goal-action-${timestamp}`,
       goalId: action.goalId,
@@ -2116,10 +2173,12 @@ export class DashboardStore {
       title: action.title || "目标任务",
       description: action.description ?? "",
       status: action.status ?? "todo",
-      startDate: action.startDate,
-      deadline: action.deadline,
+      startDate,
+      deadline,
       completedDate: action.completedDate,
       progress: Math.max(0, Math.min(100, action.progress ?? 0)),
+      progressMode: action.progressMode ?? "auto",
+      durationDays: this.getNaturalDurationDays(startDate, deadline),
       isMilestone: action.isMilestone ?? false,
       milestoneDate: action.milestoneDate,
       importance: action.importance,
@@ -2131,15 +2190,108 @@ export class DashboardStore {
     };
   }
 
+  shouldShowActiveGoal(goal: Goal, dateKey = formatDateKey(new Date())): boolean {
+    return !goal.completedDate || goal.completedDate >= dateKey;
+  }
+
+  shouldShowActiveObjective(objective: Objective, dateKey = formatDateKey(new Date())): boolean {
+    return !objective.completedDate || objective.completedDate >= dateKey;
+  }
+
+  shouldShowActiveKeyResult(keyResult: KeyResult, dateKey = formatDateKey(new Date())): boolean {
+    return !keyResult.completedDate || keyResult.completedDate >= dateKey;
+  }
+
+  shouldShowActiveGoalAction(action: GoalAction, dateKey = formatDateKey(new Date())): boolean {
+    return !action.completedDate || action.completedDate >= dateKey;
+  }
+
+  private normalizeObjective(objective: Objective): Objective {
+    const period = this.parseObjectivePeriod(objective);
+    const progress = Math.max(0, Math.min(100, objective.progress ?? 0));
+    const completedDate = progress >= 100 ? objective.completedDate ?? formatDateKey(new Date()) : undefined;
+    return {
+      ...objective,
+      title: objective.title || "季度目标",
+      quarter: `${period.year} Q${period.quarterNumber}`,
+      year: period.year,
+      quarterNumber: period.quarterNumber,
+      progress,
+      completedDate,
+      autoGenerated: objective.autoGenerated ?? false,
+      sourceGoalActionId: objective.sourceGoalActionId,
+      segmentType: objective.segmentType,
+      segmentStartDate: objective.segmentStartDate,
+      segmentEndDate: objective.segmentEndDate,
+      segmentNote: objective.segmentNote ?? "",
+      segmentProgress: objective.segmentProgress ?? progress,
+      updatedAt: objective.updatedAt ?? Date.now()
+    };
+  }
+
+  private parseObjectivePeriod(objective: Partial<Objective>): { year: number; quarterNumber: 1 | 2 | 3 | 4 } {
+    const current = new Date();
+    const quarterMatch = typeof objective.quarter === "string" ? objective.quarter.match(/(\d{4})\s*Q([1-4])/i) : null;
+    const parsedQuarter = Number(quarterMatch?.[2] ?? objective.quarterNumber ?? Math.floor(current.getMonth() / 3) + 1);
+    return {
+      year: Number(quarterMatch?.[1] ?? objective.year ?? current.getFullYear()),
+      quarterNumber: Math.max(1, Math.min(4, parsedQuarter || 1)) as 1 | 2 | 3 | 4
+    };
+  }
+
+  private normalizeKeyResult(keyResult: KeyResult): KeyResult {
+    const now = new Date();
+    const progress = Math.max(0, Math.min(100, keyResult.progress ?? 0));
+    const completed = keyResult.completed || progress >= 100;
+    return {
+      ...keyResult,
+      title: keyResult.title || "月度目标",
+      year: keyResult.year ?? now.getFullYear(),
+      month: Math.max(1, Math.min(12, keyResult.month ?? now.getMonth() + 1)),
+      progress: completed ? 100 : progress,
+      completed,
+      completedDate: completed ? keyResult.completedDate ?? formatDateKey(new Date()) : undefined,
+      autoGenerated: keyResult.autoGenerated ?? false,
+      sourceGoalActionId: keyResult.sourceGoalActionId,
+      segmentType: keyResult.segmentType,
+      segmentStartDate: keyResult.segmentStartDate,
+      segmentEndDate: keyResult.segmentEndDate,
+      segmentNote: keyResult.segmentNote ?? "",
+      segmentProgress: keyResult.segmentProgress ?? progress,
+      updatedAt: keyResult.updatedAt ?? Date.now()
+    };
+  }
+
+  private normalizeReviewItem(item: ReviewItem): ReviewItem {
+    const now = new Date().toISOString();
+    return {
+      id: item.id ?? `review-${Date.now()}`,
+      date: item.date || formatDateKey(new Date()),
+      title: item.title || "复盘记录",
+      content: item.content ?? "",
+      status: item.status ?? "todo",
+      createdAt: item.createdAt ?? now,
+      updatedAt: item.updatedAt ?? now
+    };
+  }
+
   async addKeyResult(keyResult: KeyResult): Promise<void> {
-    this.data.keyResults.push(keyResult);
+    this.data.keyResults.push(this.normalizeKeyResult(keyResult));
     await this.save();
   }
 
   async updateKeyResult(keyResultId: string, updates: Partial<KeyResult>): Promise<void> {
     const keyResult = this.data.keyResults.find((item) => item.id === keyResultId);
     if (!keyResult) return;
-    Object.assign(keyResult, updates);
+    Object.assign(keyResult, updates, { updatedAt: Date.now() });
+    keyResult.progress = Math.max(0, Math.min(100, keyResult.progress));
+    keyResult.completed = keyResult.completed || keyResult.progress >= 100;
+    if (keyResult.completed) {
+      keyResult.progress = 100;
+      keyResult.completedDate = keyResult.completedDate ?? formatDateKey(new Date());
+    } else {
+      keyResult.completedDate = undefined;
+    }
     await this.save();
   }
 
@@ -2155,6 +2307,8 @@ export class DashboardStore {
     }
     keyResult.completed = !keyResult.completed;
     keyResult.progress = keyResult.completed ? 100 : Math.min(keyResult.progress, 90);
+    keyResult.completedDate = keyResult.completed ? formatDateKey(new Date()) : undefined;
+    keyResult.updatedAt = Date.now();
     await this.save();
   }
 
@@ -2350,7 +2504,7 @@ export class DashboardStore {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.6",
+      dataVersion: "0.3.7",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2419,15 +2573,18 @@ export class DashboardStore {
         ? partial.goalActions.map((action) => this.normalizeGoalAction(action))
         : this.createInitialGoalActions(partial),
       objectives: Array.isArray(partial.objectives)
-        ? partial.objectives
-        : structuredClone(DEFAULT_DATA.objectives),
+        ? partial.objectives.map((item) => this.normalizeObjective(item))
+        : structuredClone(DEFAULT_DATA.objectives).map((item) => this.normalizeObjective(item)),
       keyResults: Array.isArray(partial.keyResults)
-        ? partial.keyResults
-        : structuredClone(DEFAULT_DATA.keyResults),
+        ? partial.keyResults.map((item) => this.normalizeKeyResult(item))
+        : structuredClone(DEFAULT_DATA.keyResults).map((item) => this.normalizeKeyResult(item)),
       milestones: Array.isArray(partial.milestones)
         ? partial.milestones
         : structuredClone(DEFAULT_DATA.milestones),
       risks: Array.isArray(partial.risks) ? partial.risks : structuredClone(DEFAULT_DATA.risks),
+      reviewItems: Array.isArray(partial.reviewItems)
+        ? partial.reviewItems.map((item) => this.normalizeReviewItem(item))
+        : structuredClone(DEFAULT_DATA.reviewItems),
       calendarSettings: {
         ...DEFAULT_DATA.calendarSettings,
         ...partial.calendarSettings
@@ -2640,6 +2797,136 @@ export class DashboardStore {
     return actions;
   }
 
+  private syncGoalActionSegments(action: GoalAction): void {
+    const normalized = this.normalizeGoalAction(action);
+    const existingMonthly = new Map(this.data.keyResults
+      .filter((item) => item.autoGenerated && item.sourceGoalActionId === normalized.id)
+      .map((item) => [`${item.segmentStartDate}|${item.segmentEndDate}`, item]));
+    const existingQuarterly = new Map(this.data.objectives
+      .filter((item) => item.autoGenerated && item.sourceGoalActionId === normalized.id)
+      .map((item) => [`${item.segmentStartDate}|${item.segmentEndDate}`, item]));
+    this.removeAutoSegmentsForGoalAction(normalized.id);
+
+    if (!normalized.startDate || !normalized.deadline) return;
+    if (normalized.durationDays && normalized.durationDays <= 30) {
+      this.getMonthSegments(normalized.startDate, normalized.deadline).forEach((segment, index) => {
+        const key = `${segment.startDate}|${segment.endDate}`;
+        const previous = existingMonthly.get(key);
+        this.data.keyResults.push(this.normalizeKeyResult({
+          id: previous?.id ?? `kr-auto-${normalized.id}-${segment.year}-${segment.month}-${index}`,
+          objectiveId: previous?.objectiveId ?? "",
+          title: normalized.title,
+          progress: normalized.status === "completed" ? 100 : previous?.segmentProgress ?? previous?.progress ?? normalized.progress ?? 0,
+          completed: normalized.status === "completed",
+          completedDate: normalized.status === "completed" ? normalized.completedDate ?? formatDateKey(new Date()) : undefined,
+          year: segment.year,
+          month: segment.month,
+          autoGenerated: true,
+          sourceGoalActionId: normalized.id,
+          segmentType: "monthly",
+          segmentStartDate: segment.startDate,
+          segmentEndDate: segment.endDate,
+          segmentNote: previous?.segmentNote ?? "",
+          segmentProgress: normalized.status === "completed" ? 100 : previous?.segmentProgress ?? previous?.progress ?? normalized.progress ?? 0,
+          updatedAt: Date.now()
+        }));
+      });
+      return;
+    }
+
+    this.getQuarterSegments(normalized.startDate, normalized.deadline).forEach((segment, index) => {
+      const key = `${segment.startDate}|${segment.endDate}`;
+      const previous = existingQuarterly.get(key);
+      this.data.objectives.push(this.normalizeObjective({
+        id: previous?.id ?? `objective-auto-${normalized.id}-${segment.year}-q${segment.quarterNumber}-${index}`,
+        title: normalized.title,
+        quarter: `${segment.year} Q${segment.quarterNumber}`,
+        year: segment.year,
+        quarterNumber: segment.quarterNumber,
+        progress: normalized.status === "completed" ? 100 : previous?.segmentProgress ?? previous?.progress ?? normalized.progress ?? 0,
+        completedDate: normalized.status === "completed" ? normalized.completedDate ?? formatDateKey(new Date()) : undefined,
+        autoGenerated: true,
+        sourceGoalActionId: normalized.id,
+        segmentType: "quarterly",
+        segmentStartDate: segment.startDate,
+        segmentEndDate: segment.endDate,
+        segmentNote: previous?.segmentNote ?? "",
+        segmentProgress: normalized.status === "completed" ? 100 : previous?.segmentProgress ?? previous?.progress ?? normalized.progress ?? 0,
+        updatedAt: Date.now()
+      }));
+    });
+  }
+
+  private syncGoalActionWithAncestors(action: GoalAction): void {
+    let current: GoalAction | undefined = action;
+    const seen = new Set<string>();
+    while (current && !seen.has(current.id)) {
+      seen.add(current.id);
+      this.syncGoalActionSegments(this.withGoalActionComputedState(current));
+      current = current.parentId ? this.data.goalActions.find((item) => item.id === current?.parentId) : undefined;
+    }
+  }
+
+  private removeAutoSegmentsForGoalAction(actionId: string): void {
+    this.data.keyResults = this.data.keyResults.filter((item) => !(item.autoGenerated && item.sourceGoalActionId === actionId));
+    this.data.objectives = this.data.objectives.filter((item) => !(item.autoGenerated && item.sourceGoalActionId === actionId));
+  }
+
+  private getNaturalDurationDays(startDate: string, deadline: string): number {
+    const start = this.parseDateOnly(startDate);
+    const end = this.parseDateOnly(deadline);
+    if (!start || !end) return 1;
+    return Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
+  }
+
+  private getMonthSegments(startDate: string, deadline: string): Array<{ year: number; month: number; startDate: string; endDate: string }> {
+    const start = this.parseDateOnly(startDate);
+    const end = this.parseDateOnly(deadline);
+    if (!start || !end) return [];
+    const segments: Array<{ year: number; month: number; startDate: string; endDate: string }> = [];
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    while (cursor <= end) {
+      const year = cursor.getFullYear();
+      const month = cursor.getMonth() + 1;
+      const monthStart = new Date(year, cursor.getMonth(), 1);
+      const monthEnd = new Date(year, cursor.getMonth() + 1, 0);
+      const segmentStart = start > monthStart ? start : monthStart;
+      const segmentEnd = end < monthEnd ? end : monthEnd;
+      segments.push({ year, month, startDate: formatDateKey(segmentStart), endDate: formatDateKey(segmentEnd) });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return segments;
+  }
+
+  private getQuarterSegments(startDate: string, deadline: string): Array<{ year: number; quarterNumber: 1 | 2 | 3 | 4; startDate: string; endDate: string }> {
+    const start = this.parseDateOnly(startDate);
+    const end = this.parseDateOnly(deadline);
+    if (!start || !end) return [];
+    const segments: Array<{ year: number; quarterNumber: 1 | 2 | 3 | 4; startDate: string; endDate: string }> = [];
+    const cursor = new Date(start.getFullYear(), Math.floor(start.getMonth() / 3) * 3, 1);
+    while (cursor <= end) {
+      const year = cursor.getFullYear();
+      const quarterNumber = this.getQuarter(cursor);
+      const quarterStart = new Date(year, (quarterNumber - 1) * 3, 1);
+      const quarterEnd = new Date(year, quarterNumber * 3, 0);
+      const segmentStart = start > quarterStart ? start : quarterStart;
+      const segmentEnd = end < quarterEnd ? end : quarterEnd;
+      segments.push({ year, quarterNumber, startDate: formatDateKey(segmentStart), endDate: formatDateKey(segmentEnd) });
+      cursor.setMonth(cursor.getMonth() + 3);
+    }
+    return segments;
+  }
+
+  private getQuarter(date: Date): 1 | 2 | 3 | 4 {
+    return Math.floor(date.getMonth() / 3) + 1 as 1 | 2 | 3 | 4;
+  }
+
+  private parseDateOnly(value: string): Date | null {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+
   private normalizeInvestmentWatchItem(item: InvestmentWatchItem): InvestmentWatchItem {
     return {
       id: item.id ?? `watch-${Date.now()}`,
@@ -2678,6 +2965,12 @@ export class DashboardStore {
     migrated.forEach((section) => {
       if (section.type === "water-sleep-habits") {
         section.title = "习惯";
+      }
+      if (section.type === "quarterly-okr") {
+        section.title = "季度目标";
+      }
+      if (section.type === "monthly-key-results") {
+        section.title = "月度目标";
       }
     });
 

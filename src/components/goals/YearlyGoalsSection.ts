@@ -11,12 +11,15 @@ export class YearlyGoalsSection {
 
   render(container: HTMLElement): void {
     const list = container.createDiv({ cls: "cow-data-list" });
-    this.store.getGoals().forEach((goal) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const currentYear = new Date().getFullYear();
+    this.store.getGoals().filter((goal) => this.store.shouldShowActiveGoal(goal, today) && ((goal.deadline || "").startsWith(String(currentYear)) || (goal.startDate || "").startsWith(String(currentYear)))).forEach((goal) => {
       const actions = this.store.getGoalActionsForGoal(goal.id);
       const milestones = actions.filter((action) => action.isMilestone);
-      const row = list.createDiv({ cls: "cow-data-card" });
+      const completed = goal.status === "已完成";
+      const row = list.createDiv({ cls: `cow-data-card cow-goal-list-card ${completed ? "is-complete" : ""}` });
       const title = row.createDiv({ cls: "cow-inline-title" });
-      title.createEl("strong", { text: goal.title });
+      title.createEl("strong", { text: completed ? `✓ ${goal.title}` : goal.title });
       const edit = title.createEl("button", { attr: { type: "button", "aria-label": "修改目标" } });
       setIcon(edit, "pencil");
       edit.addEventListener("click", () => openAnnualGoalModal(this.app, this.store, this.onDataChanged, goal));
@@ -30,15 +33,24 @@ export class YearlyGoalsSection {
       const meta = row.createDiv({ cls: "cow-meta-line" });
       meta.createSpan({ cls: "cow-status is-green", text: goal.status });
       meta.createSpan({ text: `${goal.category} · ${goal.deadline} · 拆解 ${actions.length} · 里程碑 ${milestones.filter((item) => item.status === "completed").length}/${milestones.length}` });
-      const input = row.createEl("input", {
+      const progressRow = row.createDiv({ cls: "cow-goal-progress-editor" });
+      const input = progressRow.createEl("input", {
         type: "range",
         value: String(goal.progress),
         attr: { min: "0", max: "100", "aria-label": `${goal.title} 进度` }
       });
-      input.addEventListener("change", async () => {
-        await this.store.updateGoalProgress(goal.id, Number(input.value));
-        this.onDataChanged();
+      const number = progressRow.createEl("input", {
+        type: "number",
+        value: String(goal.progress),
+        attr: { min: "0", max: "100", step: "1", "aria-label": `${goal.title} 进度百分比` }
       });
+      const saveProgress = async (value: number): Promise<void> => {
+        await this.store.updateGoalProgress(goal.id, Math.max(0, Math.min(100, value)));
+        this.onDataChanged();
+      };
+      input.addEventListener("input", () => number.value = input.value);
+      input.addEventListener("change", () => saveProgress(Number(input.value)));
+      number.addEventListener("change", () => saveProgress(Number(number.value)));
     });
   }
 }

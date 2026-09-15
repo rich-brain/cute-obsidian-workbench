@@ -12,7 +12,8 @@ export class PriorityMatrixSection {
 
   render(container: HTMLElement): void {
     const grid = container.createDiv({ cls: "cow-priority-grid" });
-    const matrixItems = this.store.getGoalActions().filter((item) => item.importance && item.urgency);
+    const today = new Date().toISOString().slice(0, 10);
+    const matrixItems = this.store.getGoalActions().filter((item) => item.importance && item.urgency && this.store.shouldShowActiveGoalAction(item, today));
     GOAL_QUADRANTS.forEach((quadrant) => {
       const cell = grid.createDiv({ cls: `cow-priority-cell ${quadrant.id}` });
       cell.createEl("strong", { text: quadrant.label });
@@ -35,7 +36,7 @@ export class PriorityMatrixSection {
       event.dataTransfer?.setData("application/cute-goal-action", item.id);
     });
     const body = row.createDiv({ cls: "cow-priority-item-body" });
-    body.createSpan({ cls: item.status === "completed" ? "is-complete" : "", text: item.title });
+    body.createSpan({ cls: item.status === "completed" ? "is-complete" : "", text: item.status === "completed" ? `✓ ${item.title}` : item.title });
     body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${statusLabel(item.status)} · ${item.progress ?? 0}%${item.deadline ? ` · ${item.deadline}` : ""}` });
         const actions = row.createDiv({ cls: "cow-list-item-actions" });
     const complete = actions.createEl("button", { attr: { type: "button", "aria-label": "切换完成状态" } });

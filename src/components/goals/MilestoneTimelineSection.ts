@@ -10,7 +10,10 @@ export class MilestoneTimelineSection {
   ) {}
 
   render(container: HTMLElement): void {
-    const milestones = this.store.getGoalActions().filter((action) => action.isMilestone).sort((left, right) => (left.milestoneDate ?? left.deadline ?? "").localeCompare(right.milestoneDate ?? right.deadline ?? ""));
+    const today = new Date().toISOString().slice(0, 10);
+    const milestones = this.store.getGoalActions()
+      .filter((action) => action.isMilestone && this.store.shouldShowActiveGoalAction(action, today))
+      .sort((left, right) => (left.milestoneDate ?? left.deadline ?? "").localeCompare(right.milestoneDate ?? right.deadline ?? ""));
     const timeline = container.createDiv({ cls: "cow-goal-timeline" });
     if (milestones.length === 0) {
       timeline.createDiv({ cls: "cow-empty-state", text: "还没有里程碑，点击右上角新增里程碑。" });
@@ -20,7 +23,7 @@ export class MilestoneTimelineSection {
       const date = milestone.milestoneDate ?? milestone.deadline ?? "";
       const item = timeline.createDiv({ cls: `cow-goal-timeline-item is-${milestone.status}` });
       item.createEl("time", { text: date || "--" });
-      item.createEl("strong", { text: milestone.title });
+      item.createEl("strong", { text: milestone.status === "completed" ? `✓ ${milestone.title}` : milestone.title });
       item.createSpan({ text: `${goal?.title ?? "未关联目标"} · ${statusLabel(milestone.status)}` });
       const actions = item.createDiv({ cls: "cow-list-item-actions" });
       const complete = actions.createEl("button", { attr: { type: "button", "aria-label": "切换完成状态" } });

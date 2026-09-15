@@ -1,7 +1,8 @@
 import { App, Modal, Notice, setIcon } from "obsidian";
 import { formatDateKey, type DashboardStore } from "../../core/DashboardStore";
-import type { Goal, GoalAction, Risk } from "../../types/dashboard";
+import type { Goal, GoalAction, KeyResult, Objective, Risk } from "../../types/dashboard";
 import { applyResizableModal } from "../ResizableModal";
+import { renderGoalStatisticsLayout } from "./GoalStatisticsLayout";
 
 type Quadrant = "important-urgent" | "important-not-urgent" | "not-important-urgent" | "not-important-not-urgent";
 
@@ -30,8 +31,8 @@ function setupEditModal(modal: Modal): void {
 function setupStatsModal(modal: Modal): void {
   applyResizableModal(modal, {
     className: "cute-goal-stats-modal",
-    width: "min(1050px, 92vw)",
-    height: "min(720px, 86vh)",
+    width: "min(860px, 92vw)",
+    height: "min(680px, 86vh)",
     maxWidth: "96vw",
     maxHeight: "92vh",
     minWidth: "min(620px, 92vw)",
@@ -115,6 +116,10 @@ class GoalActionModal extends Modal {
     const progress = createInput(this.contentEl, "进度", "number", String(this.action?.progress ?? this.preset.progress ?? 0));
     progress.min = "0";
     progress.max = "100";
+    const progressMode = createSelect(this.contentEl, "进度模式", this.action?.progressMode ?? this.preset.progressMode ?? "auto", [
+      { value: "auto", label: "自动进度" },
+      { value: "manual", label: "手动进度" }
+    ]);
     const status = createSelect(this.contentEl, "状态", this.action?.status ?? this.preset.status ?? "todo", [
       { value: "todo", label: "未开始" },
       { value: "in-progress", label: "进行中" },
@@ -149,6 +154,7 @@ class GoalActionModal extends Modal {
         deadline: deadline.value || undefined,
         completedDate: status.value === "completed" ? this.action?.completedDate ?? today() : undefined,
         progress: Math.max(0, Math.min(100, Number(progress.value) || 0)),
+        progressMode: progressMode.value as GoalAction["progressMode"],
         isMilestone: isMilestone.checked,
         milestoneDate: isMilestone.checked ? milestoneDate.value || deadline.value || today() : undefined,
         note: note.value.trim(),
@@ -213,6 +219,100 @@ export function openRiskModal(app: App, store: DashboardStore, onDone: () => voi
   new GoalRiskModal(app, store, onDone, risk).open();
 }
 
+export function openQuarterlyGoalModal(app: App, store: DashboardStore, onDone: () => void, objective?: Objective): void {
+  new QuarterlyGoalModal(app, store, onDone, objective).open();
+}
+
+class QuarterlyGoalModal extends Modal {
+  constructor(app: App, private readonly store: DashboardStore, private readonly onDone: () => void, private readonly objective?: Objective) {
+    super(app);
+  }
+
+  onOpen(): void {
+    setupEditModal(this);
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-goal-modal");
+    this.contentEl.createEl("h2", { text: this.objective ? "编辑季度目标" : "新增季度目标" });
+    const currentYear = new Date().getFullYear();
+    const title = createInput(this.contentEl, "标题", "text", this.objective?.title ?? "");
+    const year = createSelect(this.contentEl, "年份", String(this.objective?.year ?? currentYear), getYearOptions(this.objective?.year ?? currentYear).map((value) => ({ value: String(value), label: String(value) })));
+    const quarterNumber = createSelect(this.contentEl, "季度", String(this.objective?.quarterNumber ?? Math.floor(new Date().getMonth() / 3) + 1), [1, 2, 3, 4].map((value) => ({ value: String(value), label: `Q${value}` })));
+    const progress = createInput(this.contentEl, "进度", "number", String(this.objective?.progress ?? 0));
+    progress.min = "0";
+    progress.max = "100";
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "保存", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
+      const selectedYear = Number(year.value);
+      const selectedQuarter = Number(quarterNumber.value) as 1 | 2 | 3 | 4;
+      const values: Objective = {
+        id: this.objective?.id ?? `objective-${Date.now()}`,
+        title: title.value.trim() || "季度目标",
+        quarter: `${selectedYear} Q${selectedQuarter}`,
+        year: selectedYear,
+        quarterNumber: selectedQuarter,
+        progress: Math.max(0, Math.min(100, Number(progress.value) || 0)),
+        completedDate: this.objective?.completedDate,
+        updatedAt: Date.now()
+      };
+      if (this.objective) await this.store.updateObjective(this.objective.id, values);
+      else await this.store.addObjective(values);
+      this.onDone();
+      this.close();
+    });
+  }
+}
+
+export function openMonthlyGoalModal(app: App, store: DashboardStore, onDone: () => void, keyResult?: KeyResult): void {
+  new MonthlyGoalModal(app, store, onDone, keyResult).open();
+}
+
+class MonthlyGoalModal extends Modal {
+  constructor(app: App, private readonly store: DashboardStore, private readonly onDone: () => void, private readonly keyResult?: KeyResult) {
+    super(app);
+  }
+
+  onOpen(): void {
+    setupEditModal(this);
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-goal-modal");
+    this.contentEl.createEl("h2", { text: this.keyResult ? "编辑月度目标" : "新增月度目标" });
+    const now = new Date();
+    const objectives = this.store.getObjectives();
+    const objectiveId = createSelect(this.contentEl, "关联季度目标", this.keyResult?.objectiveId ?? objectives[0]?.id ?? "", [{ value: "", label: "暂不关联" }, ...objectives.map((objective) => ({ value: objective.id, label: `${objective.quarter} · ${objective.title}` }))]);
+    const title = createInput(this.contentEl, "标题", "text", this.keyResult?.title ?? "");
+    const year = createSelect(this.contentEl, "年份", String(this.keyResult?.year ?? now.getFullYear()), getYearOptions(this.keyResult?.year ?? now.getFullYear()).map((value) => ({ value: String(value), label: String(value) })));
+    const month = createSelect(this.contentEl, "月份", String(this.keyResult?.month ?? now.getMonth() + 1), Array.from({ length: 12 }, (_, index) => ({ value: String(index + 1), label: `${index + 1}月` })));
+    const progress = createInput(this.contentEl, "进度", "number", String(this.keyResult?.progress ?? 0));
+    progress.min = "0";
+    progress.max = "100";
+    const completedRow = this.contentEl.createDiv({ cls: "cow-goal-form-row is-inline" });
+    const completed = completedRow.createEl("input", { attr: { type: "checkbox" } });
+    completed.checked = this.keyResult?.completed ?? false;
+    completedRow.createEl("label", { text: "已完成" });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "保存", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
+      const progressValue = Math.max(0, Math.min(100, Number(progress.value) || 0));
+      const values: KeyResult = {
+        id: this.keyResult?.id ?? `kr-${Date.now()}`,
+        objectiveId: objectiveId.value,
+        title: title.value.trim() || "月度目标",
+        year: Number(year.value),
+        month: Number(month.value),
+        progress: completed.checked ? 100 : progressValue,
+        completed: completed.checked || progressValue >= 100,
+        completedDate: this.keyResult?.completedDate,
+        updatedAt: Date.now()
+      };
+      if (this.keyResult) await this.store.updateKeyResult(this.keyResult.id, values);
+      else await this.store.addKeyResult(values);
+      this.onDone();
+      this.close();
+    });
+  }
+}
+
 class GoalRiskModal extends Modal {
   constructor(app: App, private readonly store: DashboardStore, private readonly onDone: () => void, private readonly risk?: Risk) {
     super(app);
@@ -261,42 +361,132 @@ export class AnnualGoalStatisticsModal extends Modal {
     const goals = this.store.getGoals().filter((goal) => (goal.deadline || "").startsWith(String(this.year)) || (goal.startDate || "").startsWith(String(this.year)));
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-goal-modal", "cow-goal-stats-modal");
-    this.renderYearHeader("年度目标统计");
-    const completed = goals.filter((goal) => goal.status === "已完成").length;
-    const overdue = goals.filter((goal) => goal.status !== "已完成" && goal.deadline < today()).length;
-    renderStats(this.contentEl, [["年度目标数", goals.length], ["完成数", completed], ["进行中", goals.filter((goal) => goal.status === "进行中").length], ["逾期", overdue], ["平均完成率", `${goals.length ? Math.round(goals.reduce((sum, goal) => sum + goal.progress, 0) / goals.length) : 0}%`]]);
-    this.renderGoalRows(goals);
+    const content = renderGoalStatisticsLayout(this.contentEl, "年度目标统计", [
+      {
+        label: "上一年",
+        onClick: () => {
+          this.year -= 1;
+          this.render();
+        }
+      },
+      { label: String(this.year), active: true },
+      {
+        label: "下一年",
+        onClick: () => {
+          this.year += 1;
+          this.render();
+        }
+      }
+    ], (toolbar) => {
+      const select = toolbar.createEl("select", { attr: { "aria-label": "选择年份" } });
+      getYearOptions(this.year).forEach((year) => select.createEl("option", { value: String(year), text: String(year) }));
+      select.value = String(this.year);
+      select.addEventListener("change", () => {
+        this.year = Number(select.value);
+        this.render();
+      });
+    });
+    renderStats(content, getGoalStats(goals));
+    renderGoalRows(content, this.store, goals);
   }
-  private renderYearHeader(title: string): void {
-    const header = this.contentEl.createDiv({ cls: "cow-goal-stats-header" });
-    header.createEl("button", { text: "<", attr: { type: "button" } }).addEventListener("click", () => { this.year -= 1; this.render(); });
-    header.createEl("h2", { text: `${title} · ${this.year}` });
-    header.createEl("button", { text: ">", attr: { type: "button" } }).addEventListener("click", () => { this.year += 1; this.render(); });
+}
+
+export class QuarterlyGoalStatisticsModal extends Modal {
+  private year = new Date().getFullYear();
+  private quarterNumber: 1 | 2 | 3 | 4 = Math.floor(new Date().getMonth() / 3) + 1 as 1 | 2 | 3 | 4;
+  constructor(app: App, private readonly store: DashboardStore) { super(app); }
+  onOpen(): void { setupStatsModal(this); this.render(); }
+  private render(): void {
+    const objectives = this.store.getObjectives().filter((objective) => objective.year === this.year && objective.quarterNumber === this.quarterNumber);
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-goal-modal", "cow-goal-stats-modal");
+    const content = renderGoalStatisticsLayout(this.contentEl, "季度目标统计", [
+      { label: "上一年", onClick: () => { this.year -= 1; this.render(); } },
+      { label: String(this.year), active: true },
+      { label: "下一年", onClick: () => { this.year += 1; this.render(); } }
+    ], (toolbar) => {
+      const quarters = toolbar.createDiv({ cls: "cow-goal-period-tabs" });
+      [1, 2, 3, 4].forEach((quarter) => {
+        const button = quarters.createEl("button", { text: `Q${quarter}`, cls: quarter === this.quarterNumber ? "is-active" : "", attr: { type: "button" } });
+        button.addEventListener("click", () => {
+          this.quarterNumber = quarter as 1 | 2 | 3 | 4;
+          this.render();
+        });
+      });
+    });
+    renderStats(content, getObjectiveStats(objectives, this.year, this.quarterNumber));
+    renderObjectiveRows(content, objectives);
   }
-  private renderGoalRows(goals: Goal[]): void {
-    const list = this.contentEl.createDiv({ cls: "cow-data-list" });
+}
+
+export class MonthlyGoalStatisticsModal extends Modal {
+  private year = new Date().getFullYear();
+  private month = new Date().getMonth() + 1;
+  constructor(app: App, private readonly store: DashboardStore) { super(app); }
+  onOpen(): void { setupStatsModal(this); this.render(); }
+  private render(): void {
+    const keyResults = this.store.getKeyResults().filter((kr) => kr.year === this.year && kr.month === this.month);
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-goal-modal", "cow-goal-stats-modal");
+    const content = renderGoalStatisticsLayout(this.contentEl, "月度目标统计", [
+      { label: "上一年", onClick: () => { this.year -= 1; this.render(); } },
+      { label: String(this.year), active: true },
+      { label: "下一年", onClick: () => { this.year += 1; this.render(); } }
+    ], (toolbar) => {
+      const months = toolbar.createDiv({ cls: "cow-goal-period-tabs is-months" });
+      for (let month = 1; month <= 12; month += 1) {
+        const button = months.createEl("button", { text: `${month}月`, cls: month === this.month ? "is-active" : "", attr: { type: "button" } });
+        button.addEventListener("click", () => {
+          this.month = month;
+          this.render();
+        });
+      }
+    });
+    renderStats(content, getKeyResultStats(keyResults, this.year, this.month));
+    renderKeyResultRows(content, keyResults);
+  }
+}
+
+function renderGoalRows(container: HTMLElement, store: DashboardStore, goals: Goal[]): void {
+  const list = container.createDiv({ cls: "cow-goal-stats-list" });
     goals.forEach((goal) => {
-      const actions = this.store.getGoalActionsForGoal(goal.id);
+      const actions = store.getGoalActionsForGoal(goal.id);
       const milestones = actions.filter((action) => action.isMilestone);
       const row = list.createDiv({ cls: "cow-data-card" });
       row.createEl("strong", { text: goal.title });
       row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${goal.progress}% · 子任务完成 ${actions.filter((item) => item.status === "completed").length}/${actions.length} · 里程碑完成 ${milestones.filter((item) => item.status === "completed").length}/${milestones.length} · 逾期 ${actions.filter((item) => item.status === "overdue").length}` });
     });
-  }
 }
 
 export class GoalBreakdownStatisticsModal extends Modal {
+  private year = new Date().getFullYear();
+  private month = new Date().getMonth() + 1;
   constructor(app: App, private readonly store: DashboardStore) { super(app); }
   onOpen(): void { setupStatsModal(this); this.render(); }
   private render(): void {
-    const actions = this.store.getGoalActions();
+    const actions = this.store.getGoalActions().filter((action) => isActionInPeriod(action, this.year, this.month));
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-goal-modal", "cow-goal-stats-modal");
-    this.contentEl.createEl("h2", { text: "目标拆解统计" });
-    renderStats(this.contentEl, [["总任务数", actions.length], ["已完成", actions.filter((item) => item.status === "completed").length], ["进行中", actions.filter((item) => item.status === "in-progress").length], ["逾期", actions.filter((item) => item.status === "overdue").length], ["整体完成率", `${actions.length ? Math.round(actions.reduce((sum, item) => sum + (item.progress ?? 0), 0) / actions.length) : 0}%`]]);
+    const content = renderGoalStatisticsLayout(this.contentEl, "目标拆解统计", [
+      { label: "上一年", onClick: () => { this.year -= 1; this.render(); } },
+      { label: String(this.year), active: true },
+      { label: "下一年", onClick: () => { this.year += 1; this.render(); } }
+    ], (toolbar) => {
+      const months = toolbar.createDiv({ cls: "cow-goal-period-tabs is-months" });
+      [{ value: 0, label: "全部月份" }, ...Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: `${index + 1}月` }))].forEach((item) => {
+        const button = months.createEl("button", { text: item.label, cls: item.value === this.month ? "is-active" : "", attr: { type: "button" } });
+        button.addEventListener("click", () => {
+          this.month = item.value;
+          this.render();
+        });
+      });
+    });
+    renderStats(content, [["拆解任务数量", actions.length], ["完成", actions.filter((item) => item.status === "completed").length], ["进行中", actions.filter((item) => item.status === "in-progress").length], ["逾期", actions.filter((item) => item.status === "overdue").length], ["平均进度", `${actions.length ? Math.round(actions.reduce((sum, item) => sum + (item.progress ?? 0), 0) / actions.length) : 0}%`]]);
+    const list = content.createDiv({ cls: "cow-goal-stats-list" });
     this.store.getGoals().forEach((goal) => {
-      const goalActions = this.store.getGoalActionsForGoal(goal.id);
-      const row = this.contentEl.createDiv({ cls: "cow-data-card" });
+      const goalActions = actions.filter((item) => item.goalId === goal.id);
+      if (goalActions.length === 0) return;
+      const row = list.createDiv({ cls: "cow-data-card" });
       row.createEl("strong", { text: goal.title });
       row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `完成率 ${goalActions.length ? Math.round(goalActions.reduce((sum, item) => sum + (item.progress ?? 0), 0) / goalActions.length) : goal.progress}% · 层级任务 ${goalActions.length} · 逾期 ${goalActions.filter((item) => item.status === "overdue").length}` });
     });
@@ -304,28 +494,75 @@ export class GoalBreakdownStatisticsModal extends Modal {
 }
 
 export class MilestoneStatisticsModal extends Modal {
+  private year = new Date().getFullYear();
+  private month = new Date().getMonth() + 1;
   constructor(app: App, private readonly store: DashboardStore) { super(app); }
   onOpen(): void { setupStatsModal(this); this.render(); }
   private render(): void {
-    const milestones = this.store.getGoalActions().filter((item) => item.isMilestone);
+    const milestones = this.store.getGoalActions().filter((item) => item.isMilestone && isActionInPeriod(item, this.year, this.month));
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-goal-modal", "cow-goal-stats-modal");
-    this.contentEl.createEl("h2", { text: "里程碑统计" });
-    renderStats(this.contentEl, [["里程碑总数", milestones.length], ["已完成", milestones.filter((item) => item.status === "completed").length], ["未完成", milestones.filter((item) => item.status !== "completed").length], ["已逾期", milestones.filter((item) => item.status === "overdue").length], ["按时完成率", `${getOnTimeRate(milestones)}%`]]);
-    renderTimeline(this.contentEl, this.store, milestones);
+    const content = renderGoalStatisticsLayout(this.contentEl, "里程碑统计", [
+      { label: "上一年", onClick: () => { this.year -= 1; this.render(); } },
+      { label: String(this.year), active: true },
+      { label: "下一年", onClick: () => { this.year += 1; this.render(); } }
+    ], (toolbar) => {
+      const months = toolbar.createDiv({ cls: "cow-goal-period-tabs is-months" });
+      [{ value: 0, label: "全部月份" }, ...Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: `${index + 1}月` }))].forEach((item) => {
+        const button = months.createEl("button", { text: item.label, cls: item.value === this.month ? "is-active" : "", attr: { type: "button" } });
+        button.addEventListener("click", () => {
+          this.month = item.value;
+          this.render();
+        });
+      });
+    });
+    renderStats(content, [["里程碑总数", milestones.length], ["完成", milestones.filter((item) => item.status === "completed").length], ["未完成", milestones.filter((item) => item.status !== "completed").length], ["逾期", milestones.filter((item) => item.status === "overdue").length], ["按时完成率", `${getOnTimeRate(milestones)}%`]]);
+    renderMilestoneCalendar(content, milestones, this.year, this.month);
+    renderTimeline(content, this.store, milestones);
   }
 }
 
 export class PriorityStatisticsModal extends Modal {
+  private selectedQuadrant: Quadrant = "important-urgent";
+  private filter: "current" | "completed" | "all" = "current";
   constructor(app: App, private readonly store: DashboardStore) { super(app); }
   onOpen(): void { setupStatsModal(this); this.render(); }
   private render(): void {
     const items = this.store.getGoalActions().filter((item) => item.importance && item.urgency);
+    const todayKey = today();
+    const filteredByState = items.filter((item) => {
+      if (this.filter === "all") return true;
+      if (this.filter === "completed") return item.status === "completed";
+      return !item.completedDate || item.completedDate >= todayKey;
+    });
+    const selectedItems = filteredByState.filter((item) => getQuadrant(item) === this.selectedQuadrant);
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-goal-modal", "cow-goal-stats-modal");
-    this.contentEl.createEl("h2", { text: "优先级统计" });
-    renderStats(this.contentEl, [["当前任务", items.length], ["已完成", items.filter((item) => item.status === "completed").length], ["逾期", items.filter((item) => item.status === "overdue").length], ["完成率", `${items.length ? Math.round((items.filter((item) => item.status === "completed").length / items.length) * 100) : 0}%`]]);
-    GOAL_QUADRANTS.forEach((quadrant) => this.contentEl.createDiv({ cls: "cow-data-card" }).createEl("strong", { text: `${quadrant.label}：${items.filter((item) => item.importance === quadrant.importance && item.urgency === quadrant.urgency).length}` }));
+    const content = renderGoalStatisticsLayout(this.contentEl, "优先级统计", [], (toolbar) => {
+      const filters = toolbar.createDiv({ cls: "cow-goal-period-tabs" });
+      [
+        { id: "current", label: "当前" },
+        { id: "completed", label: "已完成" },
+        { id: "all", label: "全部" }
+      ].forEach((option) => {
+        const button = filters.createEl("button", { text: option.label, cls: this.filter === option.id ? "is-active" : "", attr: { type: "button" } });
+        button.addEventListener("click", () => {
+          this.filter = option.id as typeof this.filter;
+          this.render();
+        });
+      });
+    });
+    const cards = content.createDiv({ cls: "cow-priority-stat-grid" });
+    GOAL_QUADRANTS.forEach((quadrant) => {
+      const card = cards.createEl("button", { cls: `cow-priority-stat-card ${this.selectedQuadrant === quadrant.id ? "is-active" : ""}`, attr: { type: "button" } });
+      card.createEl("strong", { text: String(filteredByState.filter((item) => item.importance === quadrant.importance && item.urgency === quadrant.urgency).length) });
+      card.createSpan({ text: quadrant.label });
+      card.addEventListener("click", () => {
+        this.selectedQuadrant = quadrant.id;
+        this.render();
+      });
+    });
+    renderPriorityRows(content, this.store, selectedItems);
   }
 }
 
@@ -350,12 +587,121 @@ export class SimpleGoalStatisticsModal extends Modal {
     this.contentEl.addClass("cow-modal", "cow-goal-modal", "cow-goal-stats-modal");
     this.contentEl.createEl("h2", { text: this.title });
     renderStats(this.contentEl, [
-      ["Objective", this.store.getObjectives().length],
-      ["KR", this.store.getKeyResults().length],
-      ["已完成 KR", this.store.getKeyResults().filter((item) => item.completed).length],
+      ["季度目标", this.store.getObjectives().length],
+      ["月度目标", this.store.getKeyResults().length],
+      ["已完成月度目标", this.store.getKeyResults().filter((item) => item.completed).length],
       ["目标打卡项", this.store.getGoalActions().length]
     ]);
   }
+}
+
+function getYearOptions(centerYear: number): number[] {
+  return Array.from({ length: 7 }, (_, index) => centerYear - 3 + index);
+}
+
+function getGoalStats(goals: Goal[]): Array<[string, string | number]> {
+  return [
+    ["年度目标数", goals.length],
+    ["完成数", goals.filter((goal) => goal.status === "已完成").length],
+    ["进行中", goals.filter((goal) => goal.status === "进行中").length],
+    ["逾期", goals.filter((goal) => goal.status !== "已完成" && goal.deadline && goal.deadline < today()).length],
+    ["平均完成率", `${averageProgress(goals)}%`]
+  ];
+}
+
+function getObjectiveStats(objectives: Objective[], year: number, quarter: number): Array<[string, string | number]> {
+  const periodEnd = getQuarterEndDate(year, quarter);
+  return [
+    ["目标总数", objectives.length],
+    ["完成数", objectives.filter((item) => item.progress >= 100).length],
+    ["进行中", objectives.filter((item) => item.progress > 0 && item.progress < 100).length],
+    ["逾期", objectives.filter((item) => item.progress < 100 && periodEnd < today()).length],
+    ["平均完成率", `${averageProgress(objectives)}%`]
+  ];
+}
+
+function getKeyResultStats(keyResults: KeyResult[], year: number, month: number): Array<[string, string | number]> {
+  const periodEnd = getMonthEndDate(year, month);
+  return [
+    ["目标总数", keyResults.length],
+    ["完成数", keyResults.filter((item) => item.completed || item.progress >= 100).length],
+    ["进行中", keyResults.filter((item) => !item.completed && item.progress > 0 && item.progress < 100).length],
+    ["逾期", keyResults.filter((item) => !item.completed && periodEnd < today()).length],
+    ["平均完成率", `${averageProgress(keyResults)}%`]
+  ];
+}
+
+function isActionInPeriod(action: GoalAction, year: number, month: number): boolean {
+  const periodStart = month === 0 ? `${year}-01-01` : `${year}-${String(month).padStart(2, "0")}-01`;
+  const periodEnd = month === 0 ? `${year}-12-31` : getMonthEndDate(year, month);
+  const actionStart = action.startDate ?? action.deadline ?? periodStart;
+  const actionEnd = action.deadline ?? action.startDate ?? periodEnd;
+  return actionStart <= periodEnd && actionEnd >= periodStart;
+}
+
+function averageProgress(items: Array<{ progress: number }>): number {
+  if (items.length === 0) return 0;
+  return Math.round(items.reduce((sum, item) => sum + (Number(item.progress) || 0), 0) / items.length);
+}
+
+function getQuarterEndDate(year: number, quarter: number): string {
+  const month = quarter * 3;
+  return getMonthEndDate(year, month);
+}
+
+function getMonthEndDate(year: number, month: number): string {
+  const date = new Date(year, month, 0);
+  return formatDateKey(date);
+}
+
+function renderObjectiveRows(container: HTMLElement, objectives: Objective[]): void {
+  const list = container.createDiv({ cls: "cow-goal-stats-list" });
+  objectives.forEach((objective) => {
+    const row = list.createDiv({ cls: `cow-data-card ${objective.progress >= 100 ? "is-complete" : ""}` });
+    row.createEl("strong", { text: objective.progress >= 100 ? `✓ ${objective.title}` : objective.title });
+    row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${objective.quarter} · ${objective.progress}%` });
+  });
+}
+
+function renderKeyResultRows(container: HTMLElement, keyResults: KeyResult[]): void {
+  const list = container.createDiv({ cls: "cow-goal-stats-list" });
+  keyResults.forEach((keyResult) => {
+    const row = list.createDiv({ cls: `cow-data-card ${keyResult.completed ? "is-complete" : ""}` });
+    row.createEl("strong", { text: keyResult.completed ? `✓ ${keyResult.title}` : keyResult.title });
+    row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${keyResult.year}年${keyResult.month}月 · ${keyResult.progress}%` });
+  });
+}
+
+function renderMilestoneCalendar(container: HTMLElement, milestones: GoalAction[], year: number, month: number): void {
+  if (month === 0) return;
+  const calendar = container.createDiv({ cls: "cow-review-calendar cow-goal-calendar" });
+  const firstDay = new Date(year, month - 1, 1);
+  const totalDays = new Date(year, month, 0).getDate();
+  const offset = firstDay.getDay();
+  ["日", "一", "二", "三", "四", "五", "六"].forEach((label) => calendar.createDiv({ cls: "cow-review-calendar-week", text: label }));
+  for (let index = 0; index < offset; index += 1) calendar.createDiv({ cls: "cow-review-calendar-empty" });
+  for (let day = 1; day <= totalDays; day += 1) {
+    const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const count = milestones.filter((item) => (item.milestoneDate ?? item.deadline) === date).length;
+    const cell = calendar.createDiv({ cls: `cow-review-calendar-day ${count > 0 ? "has-review" : ""}` });
+    cell.createSpan({ text: String(day) });
+    if (count > 0) cell.createDiv({ cls: "cow-calendar-dot is-purple", text: count > 1 ? String(count) : "" });
+  }
+}
+
+function renderPriorityRows(container: HTMLElement, store: DashboardStore, items: GoalAction[]): void {
+  const list = container.createDiv({ cls: "cow-goal-stats-list" });
+  if (items.length === 0) {
+    list.createDiv({ cls: "cow-empty-state", text: "当前筛选下没有任务。" });
+    return;
+  }
+  items.forEach((item) => {
+    const goal = store.getGoals().find((candidate) => candidate.id === item.goalId);
+    const row = list.createDiv({ cls: `cow-data-card ${item.status === "completed" ? "is-complete" : ""}` });
+    row.createEl("strong", { text: item.status === "completed" ? `✓ ${item.title}` : item.title });
+    row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${goal?.title ?? "未关联目标"} · ${item.deadline ?? item.startDate ?? "--"} · ${statusLabel(item.status)}` });
+    if (item.note) row.createEl("p", { text: item.note });
+  });
 }
 
 function renderStats(container: HTMLElement, items: Array<[string, string | number]>): void {
@@ -391,4 +737,3 @@ export function statusLabel(status: GoalAction["status"]): string {
   if (status === "in-progress") return "进行中";
   return "未开始";
 }
-

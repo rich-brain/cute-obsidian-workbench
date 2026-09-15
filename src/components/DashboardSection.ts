@@ -3,7 +3,7 @@ import type { DashboardStore } from "../core/DashboardStore";
 import type { DashboardSectionConfig } from "../types/dashboard";
 import { SectionActionMenu } from "./SectionActionMenu";
 import { getSectionCapabilities } from "../core/SectionCapabilities";
-import { openAddContentModal, openObjectiveModal } from "./SectionContentActions";
+import { openAddContentModal } from "./SectionContentActions";
 import { HabitStatisticsModal } from "./overview/HabitStatisticsModal";
 import { MonthlyProgressStatisticsModal } from "./overview/MonthlyProgressStatisticsModal";
 import { ContributionHeatmapSection } from "./overview/ContributionHeatmapSection";
@@ -76,18 +76,22 @@ import { MonthlyKeyResultsSection } from "./goals/MonthlyKeyResultsSection";
 import { PriorityMatrixSection } from "./goals/PriorityMatrixSection";
 import { QuarterlyOkrSection } from "./goals/QuarterlyOkrSection";
 import { ReviewChecklistSection } from "./goals/ReviewChecklistSection";
+import { ReviewStatisticsModal } from "./goals/ReviewModals";
 import { RisksBlockersSection } from "./goals/RisksBlockersSection";
 import { YearlyGoalsSection } from "./goals/YearlyGoalsSection";
-import { KeyResultModal } from "./goals/GoalModals";
 import {
   AnnualGoalStatisticsModal,
   GoalBreakdownStatisticsModal,
   MilestoneStatisticsModal,
+  MonthlyGoalStatisticsModal,
   PriorityStatisticsModal,
+  QuarterlyGoalStatisticsModal,
   RiskStatisticsModal,
   SimpleGoalStatisticsModal,
   openAnnualGoalModal,
   openGoalActionModal,
+  openMonthlyGoalModal,
+  openQuarterlyGoalModal,
   openRiskModal
 } from "./goals/GoalActionModals";
 import { HealthRemindersSection } from "./fitness/HealthRemindersSection";
@@ -287,20 +291,12 @@ export class DashboardSection {
       addAction("统计", "bar-chart-3", () => new AnnualGoalStatisticsModal(this.app, this.store).open());
     }
     if (this.section.type === "quarterly-okr") {
-      addAction("新增 OKR", "plus", () => openObjectiveModal(this.app, async (objective) => {
-        await this.store.addObjective({ id: `objective-${Date.now()}`, ...objective });
-        this.onDataChanged();
-      }));
-      addAction("统计", "bar-chart-3", () => new SimpleGoalStatisticsModal(this.app, this.store, "OKR 统计").open());
+      addAction("新增季度目标", "plus", () => openQuarterlyGoalModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new QuarterlyGoalStatisticsModal(this.app, this.store).open());
     }
     if (this.section.type === "monthly-key-results") {
-      addAction("新增 KR", "plus", () => {
-        new KeyResultModal(this.app, this.store.getObjectives(), async (kr) => {
-          await this.store.addKeyResult(kr);
-          this.onDataChanged();
-        }).open();
-      });
-      addAction("统计", "bar-chart-3", () => new SimpleGoalStatisticsModal(this.app, this.store, "月度关键结果统计").open());
+      addAction("新增月度目标", "plus", () => openMonthlyGoalModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new MonthlyGoalStatisticsModal(this.app, this.store).open());
     }
     if (this.section.type === "goal-breakdown") {
       addAction("新增拆解", "plus", () => openGoalActionModal(this.app, this.store, this.onDataChanged));
@@ -323,6 +319,9 @@ export class DashboardSection {
     }
     if (this.section.type === "long-term-progress") {
       addAction("统计", "bar-chart-3", () => new SimpleGoalStatisticsModal(this.app, this.store, "长期进展统计").open());
+    }
+    if (this.section.type === "review-checklist") {
+      addAction("统计", "bar-chart-3", () => new ReviewStatisticsModal(this.app, this.store).open());
     }
   }
 
@@ -509,7 +508,7 @@ export class DashboardSection {
         new GoalsCheckinSection(this.store, this.onDataChanged).render(container);
         break;
       case "review-checklist":
-        new ReviewChecklistSection().render(container);
+        new ReviewChecklistSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "risks-blockers":
         new RisksBlockersSection(this.app, this.store, this.onDataChanged).render(container);

@@ -371,7 +371,7 @@ export function openBillModal(app: App, onSubmit: (values: Omit<Bill, "id">) => 
 }
 
 export function openObjectiveModal(app: App, onSubmit: (values: Omit<Objective, "id">) => Promise<void>, objective?: Objective): void {
-  new CrudItemModal(app, objective ? "编辑 OKR" : "新增 OKR", {
+  new CrudItemModal(app, objective ? "编辑季度目标" : "新增季度目标", {
     title: objective?.title ?? "",
     quarter: objective?.quarter ?? "2026 Q4",
     progress: objective?.progress ?? 0

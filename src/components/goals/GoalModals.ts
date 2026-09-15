@@ -86,8 +86,8 @@ export class KeyResultModal extends Modal {
   onOpen(): void {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
-    this.contentEl.createEl("h2", { text: "新增 KR" });
-    new Setting(this.contentEl).setName("Objective").addDropdown((dropdown) => {
+    this.contentEl.createEl("h2", { text: "新增月度目标" });
+    new Setting(this.contentEl).setName("季度目标").addDropdown((dropdown) => {
       this.objectives.forEach((objective) => dropdown.addOption(objective.id, `${objective.quarter} · ${objective.title}`));
       dropdown.setValue(this.objectiveId);
       dropdown.onChange((value) => (this.objectiveId = value));

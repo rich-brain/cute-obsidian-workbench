@@ -12,8 +12,9 @@ export class GoalBreakdownSection {
 
   render(container: HTMLElement): void {
     const list = container.createDiv({ cls: "cow-goal-tree-list" });
+    const today = new Date().toISOString().slice(0, 10);
     this.store.getGoals().forEach((goal) => {
-      const goalActions = this.store.getGoalActionsForGoal(goal.id);
+      const goalActions = this.store.getGoalActionsForGoal(goal.id).filter((action) => this.store.shouldShowActiveGoalAction(action, today));
       const rootActions = goalActions.filter((action) => !action.parentId);
       const group = list.createDiv({ cls: "cow-goal-tree-group" });
       const header = group.createDiv({ cls: "cow-goal-tree-goal" });
@@ -51,10 +52,9 @@ export class GoalBreakdownSection {
     const body = row.createDiv({ cls: "cow-goal-action-body" });
     body.createEl("strong", { text: action.title });
     const dateText = [action.startDate ? `开始 ${action.startDate}` : "", action.deadline ? `截止 ${action.deadline}` : ""].filter(Boolean).join(" · ");
-    body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${statusLabel(action.status)} · ${action.progress ?? 0}%${dateText ? ` · ${dateText}` : ""}` });
+    body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${statusLabel(action.status)} · ${action.progress ?? 0}% · ${action.durationDays ?? 1} 天${dateText ? ` · ${dateText}` : ""}` });
     if (action.description || action.note) body.createEl("p", { text: action.description || action.note || "" });
-    const track = body.createDiv({ cls: "cow-month-progress-track" });
-    track.createDiv({ cls: "cow-month-progress-fill is-blue", attr: { style: `width: ${action.progress ?? 0}%` } });
+    this.renderProgressEditor(body, action, children.length > 0);
 
     const actions = row.createDiv({ cls: "cow-list-item-actions" });
     const addChild = actions.createEl("button", { attr: { type: "button", "aria-label": "新增子任务" } });
@@ -73,5 +73,38 @@ export class GoalBreakdownSection {
     if (!action.collapsed) {
       children.forEach((child) => this.renderAction(container, child, allActions, depth + 1));
     }
+  }
+
+  private renderProgressEditor(container: HTMLElement, action: GoalAction, hasChildren: boolean): void {
+    const row = container.createDiv({ cls: "cow-goal-progress-editor cow-goal-action-progress" });
+    const mode = row.createEl("select", { attr: { "aria-label": `${action.title} 进度模式` } });
+    mode.createEl("option", { value: "auto", text: "自动进度" });
+    mode.createEl("option", { value: "manual", text: "手动进度" });
+    mode.value = action.progressMode ?? "auto";
+    const range = row.createEl("input", { type: "range", value: String(action.progress ?? 0), attr: { min: "0", max: "100", step: "1", "aria-label": `${action.title} 进度` } });
+    const number = row.createEl("input", { type: "number", value: String(action.progress ?? 0), attr: { min: "0", max: "100", step: "1", "aria-label": `${action.title} 进度百分比` } });
+    const updateDisabled = (): void => {
+      const disabled = hasChildren && mode.value !== "manual";
+      range.disabled = disabled;
+      number.disabled = disabled;
+    };
+    updateDisabled();
+    mode.addEventListener("change", async () => {
+      await this.store.updateGoalAction(action.id, { progressMode: mode.value as GoalAction["progressMode"] });
+      this.onDataChanged();
+    });
+    range.addEventListener("input", () => number.value = range.value);
+    range.addEventListener("change", () => this.saveProgress(action.id, Number(range.value)));
+    number.addEventListener("change", () => this.saveProgress(action.id, Number(number.value)));
+  }
+
+  private async saveProgress(actionId: string, value: number): Promise<void> {
+    const progress = Math.max(0, Math.min(100, value));
+    await this.store.updateGoalAction(actionId, {
+      progress,
+      progressMode: "manual",
+      status: progress >= 100 ? "completed" : progress > 0 ? "in-progress" : "todo"
+    });
+    this.onDataChanged();
   }
 }
