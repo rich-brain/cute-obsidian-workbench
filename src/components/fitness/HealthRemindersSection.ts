@@ -16,7 +16,7 @@ export class HealthRemindersSection {
       const head = row.createDiv({ cls: "cow-list-item-head" });
       const body = head.createDiv();
       body.createSpan({ text: item.title });
-      body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${item.date ?? "--"} ${item.time ?? "--"} · ${item.repeatType === "daily" ? "每天" : "仅一次"} · ${item.enabled === false ? "已停用" : "已启用"}` });
+      body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${item.date ?? "--"} ${item.time ?? "--"} · ${this.repeatLabel(item.repeatType)} · ${item.enabled === false ? "已停用" : "已启用"}` });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑提醒" } });
       setIcon(edit, "pencil");
@@ -28,5 +28,13 @@ export class HealthRemindersSection {
         this.onDataChanged();
       });
     });
+  }
+
+  private repeatLabel(repeatType?: string): string {
+    if (repeatType === "daily") return "每天";
+    if (repeatType === "weekdays") return "工作日";
+    if (repeatType === "weekly") return "每周";
+    if (repeatType === "custom") return "自定义星期";
+    return "仅一次";
   }
 }

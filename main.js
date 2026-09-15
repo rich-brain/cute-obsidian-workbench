@@ -76,7 +76,7 @@ var AVAILABLE_MODULES = [
   { type: "fitness-checkin", title: "\u672C\u5468\u5065\u8EAB\u6253\u5361", description: "\u8BAD\u7EC3\u3001\u996E\u6C34\u3001\u7761\u7720\u548C\u6062\u590D\u6253\u5361\u3002", page: "fitness", icon: "calendar-check", defaultWidth: "md" },
   { type: "body-measurements", title: "\u4F53\u91CD\u4E0E\u56F4\u5EA6\u8BB0\u5F55", description: "\u4F53\u91CD\u3001BMI \u548C\u8EAB\u4F53\u56F4\u5EA6\u53D8\u5316\u3002", page: "fitness", icon: "ruler", defaultWidth: "md" },
   { type: "cardio-strength-plan", title: "\u6709\u6C27 / \u529B\u91CF\u5B89\u6392", description: "\u5E73\u8861\u6709\u6C27\u548C\u529B\u91CF\u8BAD\u7EC3\u3002", page: "fitness", icon: "heart-pulse", defaultWidth: "md" },
-  { type: "water-sleep-habits", title: "\u996E\u6C34\u4E0E\u7761\u7720\u4E60\u60EF", description: "\u6062\u590D\u76F8\u5173\u4E60\u60EF\u8BB0\u5F55\u3002", page: "fitness", icon: "moon", defaultWidth: "md" },
+  { type: "water-sleep-habits", title: "\u4E60\u60EF", description: "\u996E\u6C34\u3001\u7761\u7720\u548C\u81EA\u5B9A\u4E49\u5065\u5EB7\u4E60\u60EF\u3002", page: "fitness", icon: "moon", defaultWidth: "md" },
   { type: "fitness-stats", title: "\u70ED\u91CF\u6D88\u8017\u4E0E\u8FD0\u52A8\u65F6\u957F", description: "\u7EDF\u8BA1\u672C\u5468\u8FD0\u52A8\u91CF\u3002", page: "fitness", icon: "flame", defaultWidth: "md" },
   { type: "workout-log", title: "\u8FD0\u52A8\u65E5\u5FD7", description: "\u6700\u8FD1\u5B8C\u6210\u7684\u8BAD\u7EC3\u8BB0\u5F55\u3002", page: "fitness", icon: "notebook-text", defaultWidth: "md" },
   { type: "fitness-goals", title: "\u5065\u8EAB\u76EE\u6807\u8FDB\u5EA6", description: "\u8FFD\u8E2A\u5065\u8EAB\u76EE\u6807\u5B8C\u6210\u5EA6\u3002", page: "fitness", icon: "target", defaultWidth: "md" },
@@ -132,7 +132,7 @@ function todayKey() {
   return formatDateKey(/* @__PURE__ */ new Date());
 }
 var DEFAULT_DATA = {
-  dataVersion: "0.3.3",
+  dataVersion: "0.3.4",
   currentPage: "overview",
   sections: [
     {
@@ -450,7 +450,7 @@ var DEFAULT_DATA = {
     createSection("fitness", "fitness-checkin", "\u672C\u5468\u5065\u8EAB\u6253\u5361", 30),
     createSection("fitness", "body-measurements", "\u4F53\u91CD\u4E0E\u56F4\u5EA6\u8BB0\u5F55", 40),
     createSection("fitness", "cardio-strength-plan", "\u6709\u6C27 / \u529B\u91CF\u5B89\u6392", 50),
-    createSection("fitness", "water-sleep-habits", "\u996E\u6C34\u4E0E\u7761\u7720\u4E60\u60EF", 60),
+    createSection("fitness", "water-sleep-habits", "\u4E60\u60EF", 60),
     createSection("fitness", "fitness-stats", "\u70ED\u91CF\u6D88\u8017\u4E0E\u8FD0\u52A8\u65F6\u957F", 70),
     createSection("fitness", "workout-log", "\u8FD0\u52A8\u65E5\u5FD7", 80),
     createSection("fitness", "fitness-goals", "\u5065\u8EAB\u76EE\u6807\u8FDB\u5EA6", 90),
@@ -1969,7 +1969,7 @@ var DashboardStore = class {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.3",
+      dataVersion: "0.3.4",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2134,6 +2134,11 @@ var DashboardStore = class {
     pages.forEach((page) => {
       if (!sections.some((section) => section.page === page)) {
         migrated.push(...structuredClone(DEFAULT_DATA.sections.filter((section) => section.page === page)));
+      }
+    });
+    migrated.forEach((section) => {
+      if (section.type === "water-sleep-habits") {
+        section.title = "\u4E60\u60EF";
       }
     });
     const hasNewOverviewLayout = migrated.some((section) => section.type === "weekly-completion");
@@ -3119,7 +3124,7 @@ function openBodyMeasurementModal(app, onSubmit, item) {
   }).open();
 }
 function openFitnessDailyModal(app, record, onSubmit) {
-  new CrudItemModal(app, "\u7F16\u8F91\u996E\u6C34\u4E0E\u7761\u7720", { ...record }, [
+  new CrudItemModal(app, "\u7F16\u8F91\u4E60\u60EF", { ...record }, [
     { key: "date", name: "\u65E5\u671F" },
     { key: "waterCups", name: "\u996E\u6C34\u676F\u6570", type: "number" },
     { key: "waterGoal", name: "\u996E\u6C34\u76EE\u6807", type: "number" },
@@ -6634,9 +6639,22 @@ function nowIso2() {
   return (/* @__PURE__ */ new Date()).toISOString();
 }
 function createField(container, label, type, value) {
-  const row = container.createDiv({ cls: "cow-fitness-form-row" });
+  const isPicker = type === "date" || type === "time";
+  const row = container.createDiv({ cls: `cow-fitness-form-row ${isPicker ? "is-picker" : ""}` });
   row.createEl("label", { text: label });
   const input = row.createEl("input", { attr: { type, value } });
+  if (isPicker) {
+    row.addEventListener("click", (event) => {
+      var _a;
+      if (event.target instanceof HTMLInputElement && event.target !== input) return;
+      input.focus();
+      try {
+        (_a = input.showPicker) == null ? void 0 : _a.call(input);
+      } catch (e) {
+        input.focus();
+      }
+    });
+  }
   return input;
 }
 function createTextArea(container, label, value) {
@@ -6842,7 +6860,7 @@ var DailyHealthHabitModal = class extends import_obsidian35.Modal {
     const record = this.store.getFitnessDailyRecord(this.date);
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-fitness-modal");
-    this.contentEl.createEl("h2", { text: "\u7F16\u8F91\u996E\u6C34\u4E0E\u7761\u7720" });
+    this.contentEl.createEl("h2", { text: "\u7F16\u8F91\u4E60\u60EF" });
     const dateInput = createField(this.contentEl, "\u65E5\u671F", "date", this.date);
     dateInput.addEventListener("change", () => {
       this.date = dateInput.value || today();
@@ -6873,7 +6891,7 @@ var DailyHealthHabitModal = class extends import_obsidian35.Modal {
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
     actions.createEl("button", { text: "\u4FDD\u5B58", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
-      var _a2;
+      var _a2, _b2;
       await this.store.updateFitnessDailyRecord(this.date, {
         waterGoal: toNumber(waterGoal),
         waterCups: toNumber(waterCups),
@@ -6886,14 +6904,16 @@ var DailyHealthHabitModal = class extends import_obsidian35.Modal {
       });
       const rows = this.contentEl.querySelectorAll("[data-fitness-habit-id]");
       for (const input of Array.from(rows)) {
-        await this.store.updateFitnessHabitRecord(this.date, (_a2 = input.dataset.fitnessHabitId) != null ? _a2 : "", { actualValue: toNumber(input) });
+        const habitId = (_a2 = input.dataset.fitnessHabitId) != null ? _a2 : "";
+        const note = this.contentEl.querySelector(`[data-fitness-habit-note-id="${habitId}"]`);
+        await this.store.updateFitnessHabitRecord(this.date, habitId, { actualValue: toNumber(input), note: (_b2 = note == null ? void 0 : note.value.trim()) != null ? _b2 : "" });
       }
       this.onDone();
       this.close();
     });
   }
   renderCustomHabit(container, definition) {
-    var _a;
+    var _a, _b;
     const daily = this.store.getFitnessHabitRecords(this.date).find((item) => item.habitId === definition.id);
     const row = container.createDiv({ cls: "cow-fitness-habit-row" });
     const body = row.createDiv();
@@ -6901,6 +6921,8 @@ var DailyHealthHabitModal = class extends import_obsidian35.Modal {
     body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${definition.targetName}: ${definition.targetValue}${definition.unit}` });
     const input = row.createEl("input", { attr: { type: "number", value: String((_a = daily == null ? void 0 : daily.actualValue) != null ? _a : 0) } });
     input.dataset.fitnessHabitId = definition.id;
+    const note = row.createEl("textarea", { text: (_b = daily == null ? void 0 : daily.note) != null ? _b : "", attr: { placeholder: "\u4ECA\u65E5\u5907\u6CE8" } });
+    note.dataset.fitnessHabitNoteId = definition.id;
     const actions = row.createDiv({ cls: "cow-list-item-actions" });
     actions.createEl("button", { text: "\u2191", attr: { type: "button", "aria-label": "\u4E0A\u79FB" } }).addEventListener("click", async () => {
       await this.store.moveFitnessHabitDefinition(definition.id, -1);
@@ -6970,7 +6992,7 @@ var HealthHabitStatisticsModal = class extends import_obsidian35.Modal {
   render() {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-fitness-modal", "cow-fitness-stats-modal");
-    this.contentEl.createEl("h2", { text: "\u996E\u6C34\u4E0E\u7761\u7720\u7EDF\u8BA1" });
+    this.contentEl.createEl("h2", { text: "\u4E60\u60EF\u7EDF\u8BA1" });
     const filters = this.contentEl.createDiv({ cls: "cow-focus-filter-row" });
     [
       ["all", "\u5168\u90E8"],
@@ -7849,7 +7871,7 @@ var HealthRemindersSection = class {
       const head = row.createDiv({ cls: "cow-list-item-head" });
       const body = head.createDiv();
       body.createSpan({ text: item.title });
-      body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${(_a = item.date) != null ? _a : "--"} ${(_b = item.time) != null ? _b : "--"} \xB7 ${item.repeatType === "daily" ? "\u6BCF\u5929" : "\u4EC5\u4E00\u6B21"} \xB7 ${item.enabled === false ? "\u5DF2\u505C\u7528" : "\u5DF2\u542F\u7528"}` });
+      body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${(_a = item.date) != null ? _a : "--"} ${(_b = item.time) != null ? _b : "--"} \xB7 ${this.repeatLabel(item.repeatType)} \xB7 ${item.enabled === false ? "\u5DF2\u505C\u7528" : "\u5DF2\u542F\u7528"}` });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u63D0\u9192" } });
       (0, import_obsidian46.setIcon)(edit, "pencil");
@@ -7861,6 +7883,13 @@ var HealthRemindersSection = class {
         this.onDataChanged();
       });
     });
+  }
+  repeatLabel(repeatType) {
+    if (repeatType === "daily") return "\u6BCF\u5929";
+    if (repeatType === "weekdays") return "\u5DE5\u4F5C\u65E5";
+    if (repeatType === "weekly") return "\u6BCF\u5468";
+    if (repeatType === "custom") return "\u81EA\u5B9A\u4E49\u661F\u671F";
+    return "\u4EC5\u4E00\u6B21";
   }
 };
 
@@ -7888,26 +7917,34 @@ var WaterSleepHabitsSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
+    var _a, _b;
     const today2 = formatDateKey(/* @__PURE__ */ new Date());
     const record = this.store.getFitnessDailyRecord(today2);
     const list = container.createDiv({ cls: "cow-data-list" });
     [
-      ["\u996E\u6C34", `${record.waterCups}/${record.waterGoal} \u676F`, record.waterGoal === 0 ? 0 : Math.round(record.waterCups / record.waterGoal * 100)],
-      ["\u7761\u7720", `${record.sleepHours}/${record.sleepGoal} \u5C0F\u65F6`, record.sleepGoal === 0 ? 0 : Math.round(record.sleepHours / record.sleepGoal * 100)],
-      ["\u4F5C\u606F", `${record.bedtime || "--"} - ${record.wakeTime || "--"}`, 100]
-    ].forEach(([label, status, percent]) => {
+      ["\u996E\u6C34", `${record.waterCups} / ${record.waterGoal} \u676F`, (_a = record.waterNote) != null ? _a : "", record.waterGoal === 0 ? 0 : Math.round(record.waterCups / record.waterGoal * 100)],
+      ["\u7761\u7720", `${record.sleepHours} / ${record.sleepGoal} \u5C0F\u65F6`, (_b = record.sleepNote) != null ? _b : "", record.sleepGoal === 0 ? 0 : Math.round(record.sleepHours / record.sleepGoal * 100)]
+    ].forEach(([label, status, note, percent]) => {
       const row = list.createDiv({ cls: "cow-data-card" });
       row.createEl("strong", { text: String(label) });
-      row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: String(status) });
+      const meta = row.createDiv({ cls: "cow-fitness-metric-line" });
+      meta.createSpan({ cls: "cow-fitness-metric-value", text: String(status) });
+      if (note) {
+        meta.createSpan({ cls: "cow-fitness-note", text: String(note) });
+      }
       const track = row.createDiv({ cls: "cow-month-progress-track" });
       track.createDiv({ cls: "cow-month-progress-fill is-blue", attr: { style: `width: ${Math.min(100, Number(percent))}%` } });
     });
     this.store.getFitnessHabitDefinitions().slice(0, 3).forEach((definition) => {
-      var _a;
+      var _a2;
       const daily = this.store.getFitnessHabitRecords(today2).find((item) => item.habitId === definition.id);
       const row = list.createDiv({ cls: "cow-data-card" });
       row.createEl("strong", { text: definition.name });
-      row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${(_a = daily == null ? void 0 : daily.actualValue) != null ? _a : 0}/${definition.targetValue}${definition.unit}` });
+      const meta = row.createDiv({ cls: "cow-fitness-metric-line" });
+      meta.createSpan({ cls: "cow-fitness-metric-value", text: `${(_a2 = daily == null ? void 0 : daily.actualValue) != null ? _a2 : 0} / ${definition.targetValue} ${definition.unit}` });
+      if (daily == null ? void 0 : daily.note) {
+        meta.createSpan({ cls: "cow-fitness-note", text: daily.note });
+      }
     });
   }
 };
@@ -9096,9 +9133,10 @@ var AddSectionModal = class extends import_obsidian65.Modal {
         cls: "cow-add-module-card",
         attr: { type: "button" }
       });
-      (0, import_obsidian65.setIcon)(button.createSpan({ cls: "cow-add-module-icon" }), module2.icon);
-      button.createEl("strong", { text: module2.title });
-      button.createEl("span", { text: module2.description });
+      const icon = button.createSpan({ cls: "cow-add-module-icon" });
+      (0, import_obsidian65.setIcon)(icon, module2.icon);
+      button.createEl("strong", { cls: "cow-add-module-title", text: module2.title });
+      button.createEl("span", { cls: "cow-add-module-description", text: module2.description });
       button.addEventListener("click", async () => {
         await this.onSelect(module2.type);
         this.close();

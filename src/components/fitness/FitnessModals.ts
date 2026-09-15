@@ -16,9 +16,21 @@ function nowIso(): string {
 }
 
 function createField(container: HTMLElement, label: string, type: string, value: string): HTMLInputElement {
-  const row = container.createDiv({ cls: "cow-fitness-form-row" });
+  const isPicker = type === "date" || type === "time";
+  const row = container.createDiv({ cls: `cow-fitness-form-row ${isPicker ? "is-picker" : ""}` });
   row.createEl("label", { text: label });
   const input = row.createEl("input", { attr: { type, value } });
+  if (isPicker) {
+    row.addEventListener("click", (event) => {
+      if (event.target instanceof HTMLInputElement && event.target !== input) return;
+      input.focus();
+      try {
+        (input as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+      } catch {
+        input.focus();
+      }
+    });
+  }
   return input;
 }
 
@@ -237,7 +249,7 @@ class DailyHealthHabitModal extends Modal {
     const record = this.store.getFitnessDailyRecord(this.date);
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-fitness-modal");
-    this.contentEl.createEl("h2", { text: "编辑饮水与睡眠" });
+    this.contentEl.createEl("h2", { text: "编辑习惯" });
     const dateInput = createField(this.contentEl, "日期", "date", this.date);
     dateInput.addEventListener("change", () => {
       this.date = dateInput.value || today();
@@ -284,7 +296,9 @@ class DailyHealthHabitModal extends Modal {
       });
       const rows = this.contentEl.querySelectorAll<HTMLInputElement>("[data-fitness-habit-id]");
       for (const input of Array.from(rows)) {
-        await this.store.updateFitnessHabitRecord(this.date, input.dataset.fitnessHabitId ?? "", { actualValue: toNumber(input) });
+      const habitId = input.dataset.fitnessHabitId ?? "";
+      const note = this.contentEl.querySelector<HTMLTextAreaElement>(`[data-fitness-habit-note-id="${habitId}"]`);
+      await this.store.updateFitnessHabitRecord(this.date, habitId, { actualValue: toNumber(input), note: note?.value.trim() ?? "" });
       }
       this.onDone();
       this.close();
@@ -299,6 +313,8 @@ class DailyHealthHabitModal extends Modal {
     body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${definition.targetName}: ${definition.targetValue}${definition.unit}` });
     const input = row.createEl("input", { attr: { type: "number", value: String(daily?.actualValue ?? 0) } });
     input.dataset.fitnessHabitId = definition.id;
+    const note = row.createEl("textarea", { text: daily?.note ?? "", attr: { placeholder: "今日备注" } });
+    note.dataset.fitnessHabitNoteId = definition.id;
     const actions = row.createDiv({ cls: "cow-list-item-actions" });
     actions.createEl("button", { text: "↑", attr: { type: "button", "aria-label": "上移" } }).addEventListener("click", async () => {
       await this.store.moveFitnessHabitDefinition(definition.id, -1);
@@ -374,7 +390,7 @@ export class HealthHabitStatisticsModal extends Modal {
   private render(): void {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-fitness-modal", "cow-fitness-stats-modal");
-    this.contentEl.createEl("h2", { text: "饮水与睡眠统计" });
+    this.contentEl.createEl("h2", { text: "习惯统计" });
     const filters = this.contentEl.createDiv({ cls: "cow-focus-filter-row" });
     [
       ["all", "全部"],
@@ -670,4 +686,3 @@ export function getGoalStatus(goal: FitnessGoal): NonNullable<FitnessGoal["statu
   if (goal.deadline && goal.deadline < today()) return "overdue";
   return "active";
 }
-

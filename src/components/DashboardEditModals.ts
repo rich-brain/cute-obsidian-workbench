@@ -39,7 +39,7 @@ export function openBodyMeasurementModal(app: App, onSubmit: (values: BodyMeasur
 }
 
 export function openFitnessDailyModal(app: App, record: FitnessDailyRecord, onSubmit: (values: FitnessDailyRecord) => Promise<void>): void {
-  new CrudItemModal(app, "编辑饮水与睡眠", { ...record }, [
+  new CrudItemModal(app, "编辑习惯", { ...record }, [
     { key: "date", name: "日期" },
     { key: "waterCups", name: "饮水杯数", type: "number" },
     { key: "waterGoal", name: "饮水目标", type: "number" },

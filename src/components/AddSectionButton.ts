@@ -24,9 +24,10 @@ export class AddSectionModal extends Modal {
         cls: "cow-add-module-card",
         attr: { type: "button" }
       });
-      setIcon(button.createSpan({ cls: "cow-add-module-icon" }), module.icon);
-      button.createEl("strong", { text: module.title });
-      button.createEl("span", { text: module.description });
+      const icon = button.createSpan({ cls: "cow-add-module-icon" });
+      setIcon(icon, module.icon);
+      button.createEl("strong", { cls: "cow-add-module-title", text: module.title });
+      button.createEl("span", { cls: "cow-add-module-description", text: module.description });
       button.addEventListener("click", async () => {
         await this.onSelect(module.type);
         this.close();

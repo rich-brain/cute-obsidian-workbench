@@ -593,6 +593,7 @@
   display: grid;
   gap: 7px;
   min-width: 0;
+  min-height: 0;
   height: auto;
   box-sizing: border-box;
   padding: 9px 10px;
@@ -615,7 +616,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
   width: 100%;
 }
@@ -633,9 +634,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 5px;
+  gap: 6px;
   flex: 0 0 auto;
   min-width: max-content;
+  flex-wrap: wrap;
 }
 
 .cow-list-item-actions button,
@@ -645,8 +647,8 @@
   justify-content: center;
   gap: 4px;
   min-width: 28px;
-  height: 28px;
-  padding: 0 7px;
+  min-height: 30px;
+  padding: 0 9px;
   border: 1px solid var(--cow-border);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.62);
@@ -656,6 +658,7 @@
 
 .cow-list-item-actions button {
   width: 28px;
+  min-height: 28px;
   padding: 0;
 }
 
@@ -1767,6 +1770,10 @@
   min-width: 0;
 }
 
+.cow-fitness-form-row.is-picker {
+  cursor: pointer;
+}
+
 .cow-fitness-form-row.is-inline {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -1781,10 +1788,17 @@
 .cow-fitness-form-row input,
 .cow-fitness-form-row textarea,
 .cow-fitness-form-row select {
+  display: block;
   box-sizing: border-box;
   width: 100%;
+  min-height: 38px;
   min-width: 0;
   border-radius: 12px;
+}
+
+.cow-fitness-form-row.is-picker input[type="date"],
+.cow-fitness-form-row.is-picker input[type="time"] {
+  cursor: pointer;
 }
 
 .cow-fitness-form-row textarea {
@@ -1812,7 +1826,8 @@
 
 .cow-fitness-habit-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(80px, 120px) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(80px, 120px) minmax(140px, 1fr) auto;
+  align-items: start;
   padding: 10px;
   border: 1px solid rgba(242, 59, 141, 0.16);
   border-radius: 14px;
@@ -1821,7 +1836,36 @@
 
 .cow-fitness-habit-row strong,
 .cow-fitness-habit-row span,
-.cow-fitness-habit-row input {
+.cow-fitness-habit-row input,
+.cow-fitness-habit-row textarea {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-fitness-habit-row textarea {
+  min-height: 42px;
+  resize: vertical;
+}
+
+.cow-fitness-metric-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cow-fitness-metric-value {
+  color: var(--cow-ink);
+  font-size: 18px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.cow-fitness-note {
+  color: var(--cow-muted);
+  font-size: 12px;
+  line-height: 1.45;
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -1930,6 +1974,11 @@
   .cow-fitness-stats-calendar,
   .cow-fitness-habit-row {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cow-fitness-metric-line {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
   }
 
   .cow-fitness-calendar-day {

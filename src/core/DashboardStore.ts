@@ -94,7 +94,7 @@ export const AVAILABLE_MODULES: AvailableModuleDefinition[] = [
   { type: "fitness-checkin", title: "本周健身打卡", description: "训练、饮水、睡眠和恢复打卡。", page: "fitness", icon: "calendar-check", defaultWidth: "md" },
   { type: "body-measurements", title: "体重与围度记录", description: "体重、BMI 和身体围度变化。", page: "fitness", icon: "ruler", defaultWidth: "md" },
   { type: "cardio-strength-plan", title: "有氧 / 力量安排", description: "平衡有氧和力量训练。", page: "fitness", icon: "heart-pulse", defaultWidth: "md" },
-  { type: "water-sleep-habits", title: "饮水与睡眠习惯", description: "恢复相关习惯记录。", page: "fitness", icon: "moon", defaultWidth: "md" },
+  { type: "water-sleep-habits", title: "习惯", description: "饮水、睡眠和自定义健康习惯。", page: "fitness", icon: "moon", defaultWidth: "md" },
   { type: "fitness-stats", title: "热量消耗与运动时长", description: "统计本周运动量。", page: "fitness", icon: "flame", defaultWidth: "md" },
   { type: "workout-log", title: "运动日志", description: "最近完成的训练记录。", page: "fitness", icon: "notebook-text", defaultWidth: "md" },
   { type: "fitness-goals", title: "健身目标进度", description: "追踪健身目标完成度。", page: "fitness", icon: "target", defaultWidth: "md" },
@@ -161,7 +161,7 @@ function todayKey(): string {
 }
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.3.3",
+  dataVersion: "0.3.4",
   currentPage: "overview",
   sections: [
     {
@@ -479,7 +479,7 @@ const DEFAULT_DATA: WorkbenchData = {
     createSection("fitness", "fitness-checkin", "本周健身打卡", 30),
     createSection("fitness", "body-measurements", "体重与围度记录", 40),
     createSection("fitness", "cardio-strength-plan", "有氧 / 力量安排", 50),
-    createSection("fitness", "water-sleep-habits", "饮水与睡眠习惯", 60),
+    createSection("fitness", "water-sleep-habits", "习惯", 60),
     createSection("fitness", "fitness-stats", "热量消耗与运动时长", 70),
     createSection("fitness", "workout-log", "运动日志", 80),
     createSection("fitness", "fitness-goals", "健身目标进度", 90),
@@ -2205,7 +2205,7 @@ export class DashboardStore {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.3",
+      dataVersion: "0.3.4",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2429,6 +2429,11 @@ export class DashboardStore {
     pages.forEach((page) => {
       if (!sections.some((section) => section.page === page)) {
         migrated.push(...structuredClone(DEFAULT_DATA.sections.filter((section) => section.page === page)));
+      }
+    });
+    migrated.forEach((section) => {
+      if (section.type === "water-sleep-habits") {
+        section.title = "习惯";
       }
     });
 
