@@ -206,6 +206,7 @@ export interface Budget {
   amount: number;
   spent: number;
   color?: string;
+  icon?: string;
 }
 
 export interface Account {
@@ -236,6 +237,10 @@ export interface FinanceTodo {
   id: string;
   title: string;
   completed: boolean;
+  date?: string;
+  note?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Goal {
@@ -392,6 +397,17 @@ export interface InvestmentWatchItem {
   price: number;
   changePercent: number;
   type: string;
+  note?: string;
+}
+
+export interface InvestmentSnapshot {
+  id: string;
+  investmentId: string;
+  date: string;
+  price: number;
+  changePercent: number;
+  note?: string;
+  createdAt: string;
 }
 
 export interface PriorityMatrixItem {
@@ -459,6 +475,7 @@ export interface WorkbenchData {
   fitnessHabitDefinitions: FitnessHabitDefinition[];
   fitnessHabitRecords: FitnessHabitRecord[];
   investmentWatchItems: InvestmentWatchItem[];
+  investmentSnapshots: InvestmentSnapshot[];
   priorityMatrixItems: PriorityMatrixItem[];
   theme: ThemeSettings;
   userSettings: WorkbenchSettings;

@@ -32,12 +32,26 @@ import { AccountOverviewSection } from "./finance/AccountOverviewSection";
 import { BillRemindersSection } from "./finance/BillRemindersSection";
 import { ExpenseCategoriesSection } from "./finance/ExpenseCategoriesSection";
 import { ExpenseHeatmapSection } from "./finance/ExpenseHeatmapSection";
+import { FinanceLedgerSection } from "./finance/FinanceLedgerSection";
 import { FinanceCheckinSection } from "./finance/FinanceCheckinSection";
 import { FinanceTodosSection } from "./finance/FinanceTodosSection";
 import { IncomeExpenseTrendSection } from "./finance/IncomeExpenseTrendSection";
 import { InvestmentWatchSection } from "./finance/InvestmentWatchSection";
 import { MonthlyBudgetSection } from "./finance/MonthlyBudgetSection";
 import { SavingGoalsSection } from "./finance/SavingGoalsSection";
+import {
+  ExpenseCategoryStatisticsModal,
+  FinanceTodoStatisticsModal,
+  IncomeExpenseStatisticsModal,
+  InvestmentStatisticsModal,
+  MonthlyBudgetStatisticsModal,
+  MonthlyFinanceSummaryModal,
+  TransactionManagerModal,
+  TransactionStatisticsModal,
+  openExpenseCategoryModal,
+  openFinanceTodoModal,
+  openInvestmentModal
+} from "./finance/FinanceModals";
 import { BodyMeasurementsSection } from "./fitness/BodyMeasurementsSection";
 import { CardioStrengthSection } from "./fitness/CardioStrengthSection";
 import { FitnessCheckinSection } from "./fitness/FitnessCheckinSection";
@@ -164,6 +178,7 @@ export class DashboardSection {
       statsButton.addEventListener("click", () => this.openStats());
     }
     this.renderFitnessHeaderActions(actions);
+    this.renderFinanceHeaderActions(actions);
 
     const menuButton = actions.createEl("button", {
       cls: "cow-icon-button",
@@ -204,6 +219,42 @@ export class DashboardSection {
     if (this.section.type === "health-reminders") {
       addAction("新增提醒", "plus", () => openHealthReminderModal(this.app, this.store, this.onDataChanged));
       addAction("统计", "bar-chart-3", () => new HealthReminderStatisticsModal(this.app, this.store).open());
+    }
+  }
+
+  private renderFinanceHeaderActions(actions: HTMLElement): void {
+    const addAction = (label: string, icon: string, onClick: () => void): void => {
+      const button = actions.createEl("button", {
+        cls: "cow-section-add-button",
+        attr: { type: "button", "aria-label": label }
+      });
+      setIcon(button.createSpan(), icon);
+      button.createSpan({ text: label });
+      button.addEventListener("click", onClick);
+    };
+
+    if (this.section.type === "monthly-budget") {
+      addAction("管理收支", "list-checks", () => new MonthlyFinanceSummaryModal(this.app, this.store, this.onDataChanged).open());
+      addAction("统计", "bar-chart-3", () => new MonthlyBudgetStatisticsModal(this.app, this.store).open());
+    }
+    if (this.section.type === "expense-categories") {
+      addAction("新增分类", "plus", () => openExpenseCategoryModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new ExpenseCategoryStatisticsModal(this.app, this.store).open());
+    }
+    if (this.section.type === "income-expense-trend") {
+      addAction("管理记录", "list-checks", () => new TransactionManagerModal(this.app, this.store, this.onDataChanged).open());
+      addAction("统计", "bar-chart-3", () => new IncomeExpenseStatisticsModal(this.app, this.store).open());
+    }
+    if (this.section.type === "finance-todos") {
+      addAction("新建待办", "plus", () => openFinanceTodoModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new FinanceTodoStatisticsModal(this.app, this.store, this.onDataChanged).open());
+    }
+    if (this.section.type === "investment-watch") {
+      addAction("新增观察", "plus", () => openInvestmentModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new InvestmentStatisticsModal(this.app, this.store).open());
+    }
+    if (this.section.type === "finance-ledger") {
+      addAction("统计", "bar-chart-3", () => new TransactionStatisticsModal(this.app, this.store, this.onDataChanged).open());
     }
   }
 
@@ -337,6 +388,9 @@ export class DashboardSection {
         break;
       case "monthly-budget":
         new MonthlyBudgetSection(this.app, this.store, this.onDataChanged).render(container);
+        break;
+      case "finance-ledger":
+        new FinanceLedgerSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "expense-categories":
         new ExpenseCategoriesSection(this.app, this.store, this.onDataChanged).render(container);
@@ -540,6 +594,7 @@ export class DashboardSection {
       "health-reminders": "bell-ring",
       "fitness-heatmap": "activity",
       "monthly-budget": "wallet-cards",
+      "finance-ledger": "circle-plus",
       "expense-categories": "chart-pie",
       "account-overview": "landmark",
       "saving-goals": "piggy-bank",

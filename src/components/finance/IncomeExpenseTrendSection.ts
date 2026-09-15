@@ -1,6 +1,6 @@
 import { App, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
-import { openTransactionModal } from "../DashboardEditModals";
+import { AddTransactionModal } from "./AddTransactionModal";
 
 export class IncomeExpenseTrendSection {
   constructor(
@@ -10,13 +10,6 @@ export class IncomeExpenseTrendSection {
   ) {}
 
   render(container: HTMLElement): void {
-    const add = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    setIcon(add.createSpan(), "list-checks");
-    add.createSpan({ text: "管理收支记录" });
-    add.addEventListener("click", () => openTransactionModal(this.app, async (transaction) => {
-      await this.store.addTransaction(transaction);
-      this.onDataChanged();
-    }));
     [
       ["收入", this.store.getMonthlyIncome(), "is-green"],
       ["支出", this.store.getMonthlyExpense(), "is-pink"],
@@ -38,10 +31,10 @@ export class IncomeExpenseTrendSection {
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑收支" } });
       setIcon(edit, "pencil");
-      edit.addEventListener("click", () => openTransactionModal(this.app, async (values) => {
+      edit.addEventListener("click", () => new AddTransactionModal(this.app, async (values) => {
         await this.store.updateTransaction(transaction.id, values);
         this.onDataChanged();
-      }, transaction));
+      }, transaction, this.store.getBudgets()).open());
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "删除收支" } });
       setIcon(remove, "trash-2");
       remove.addEventListener("click", async () => {

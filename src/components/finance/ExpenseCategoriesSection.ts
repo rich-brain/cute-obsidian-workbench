@@ -1,6 +1,7 @@
 import { App, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
-import { openBudgetModal, showUsedCategoryNotice } from "../DashboardEditModals";
+import { showUsedCategoryNotice } from "../DashboardEditModals";
+import { openExpenseCategoryModal } from "./FinanceModals";
 
 export class ExpenseCategoriesSection {
   constructor(
@@ -10,15 +11,6 @@ export class ExpenseCategoriesSection {
   ) {}
 
   render(container: HTMLElement): void {
-    const add = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    setIcon(add.createSpan(), "plus");
-    add.createSpan({ text: "新增分类" });
-    add.addEventListener("click", () => {
-      openBudgetModal(this.app, async (budget) => {
-        await this.store.addBudget(budget);
-        this.onDataChanged();
-      });
-    });
     this.store.getBudgets().forEach((budget) => {
       const percent = budget.amount === 0 ? 0 : Math.round((budget.spent / budget.amount) * 100);
       const row = container.createDiv({ cls: "cow-month-progress-row" });
@@ -29,10 +21,7 @@ export class ExpenseCategoriesSection {
       const actions = row.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑分类" } });
       setIcon(edit, "pencil");
-      edit.addEventListener("click", () => openBudgetModal(this.app, async (values) => {
-        await this.store.updateBudget(budget.id, values);
-        this.onDataChanged();
-      }, budget));
+      edit.addEventListener("click", () => openExpenseCategoryModal(this.app, this.store, this.onDataChanged, budget));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "删除分类" } });
       setIcon(remove, "trash-2");
       remove.addEventListener("click", async () => {

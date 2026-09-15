@@ -24,6 +24,7 @@ import type {
   Goal,
   HealthReminder,
   HealthReminderLog,
+  InvestmentSnapshot,
   InvestmentWatchItem,
   KeyResult,
   Milestone,
@@ -101,6 +102,7 @@ export const AVAILABLE_MODULES: AvailableModuleDefinition[] = [
   { type: "health-reminders", title: "健康提醒", description: "恢复、热身和休息提醒。", page: "fitness", icon: "bell-ring", defaultWidth: "md" },
   { type: "fitness-heatmap", title: "月度运动热力图", description: "按日展示运动活跃度。", page: "fitness", icon: "activity", defaultWidth: "md" },
   { type: "monthly-budget", title: "本月预算", description: "预算、支出和剩余额度。", page: "finance", icon: "wallet-cards", defaultWidth: "md" },
+  { type: "finance-ledger", title: "记账", description: "快速记录每日收入与支出。", page: "finance", icon: "circle-plus", defaultWidth: "md" },
   { type: "expense-categories", title: "支出分类", description: "本月分类支出占比。", page: "finance", icon: "chart-pie", defaultWidth: "md" },
   { type: "account-overview", title: "账户总览", description: "个人账户余额概览。", page: "finance", icon: "landmark", defaultWidth: "md" },
   { type: "saving-goals", title: "储蓄目标", description: "储蓄目标进度。", page: "finance", icon: "piggy-bank", defaultWidth: "md" },
@@ -161,7 +163,7 @@ function todayKey(): string {
 }
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.3.4",
+  dataVersion: "0.3.5",
   currentPage: "overview",
   sections: [
     {
@@ -486,15 +488,16 @@ const DEFAULT_DATA: WorkbenchData = {
     createSection("fitness", "health-reminders", "健康提醒", 100),
     createSection("fitness", "fitness-heatmap", "月度运动热力图", 110),
     createSection("finance", "monthly-budget", "本月预算", 10),
-    createSection("finance", "expense-categories", "支出分类", 20),
-    createSection("finance", "account-overview", "账户总览", 30),
-    createSection("finance", "saving-goals", "储蓄目标", 40),
-    createSection("finance", "bill-reminders", "账单提醒", 50),
-    createSection("finance", "finance-checkin", "本周理财打卡", 60),
-    createSection("finance", "income-expense-trend", "收支趋势", 70),
-    createSection("finance", "finance-todos", "本月记账待办", 80),
-    createSection("finance", "investment-watch", "投资观察", 90),
-    createSection("finance", "expense-heatmap", "月度支出热力图", 100),
+    createSection("finance", "finance-ledger", "记账", 20),
+    createSection("finance", "expense-categories", "支出分类", 30),
+    createSection("finance", "account-overview", "账户总览", 40),
+    createSection("finance", "saving-goals", "储蓄目标", 50),
+    createSection("finance", "bill-reminders", "账单提醒", 60),
+    createSection("finance", "finance-checkin", "本周理财打卡", 70),
+    createSection("finance", "income-expense-trend", "收支趋势", 80),
+    createSection("finance", "finance-todos", "本月记账待办", 90),
+    createSection("finance", "investment-watch", "投资观察", 100),
+    createSection("finance", "expense-heatmap", "月度支出热力图", 110),
     createSection("goals", "yearly-goals", "年度目标", 10),
     createSection("goals", "quarterly-okr", "季度 OKR", 20),
     createSection("goals", "monthly-key-results", "月度关键结果", 30),
@@ -788,6 +791,11 @@ const DEFAULT_DATA: WorkbenchData = {
     { id: "watch-hs300", name: "沪深300", code: "CSI300", price: 3800, changePercent: 0.8, type: "指数" },
     { id: "watch-btc", name: "比特币", code: "BTC", price: 65000, changePercent: -1.2, type: "加密资产" },
     { id: "watch-gold", name: "黄金", code: "XAU", price: 2380, changePercent: 0.3, type: "商品" }
+  ],
+  investmentSnapshots: [
+    { id: "snapshot-watch-hs300-2026-09-14", investmentId: "watch-hs300", date: "2026-09-14", price: 3800, changePercent: 0.8, note: "", createdAt: "2026-09-14T08:00:00.000Z" },
+    { id: "snapshot-watch-btc-2026-09-14", investmentId: "watch-btc", date: "2026-09-14", price: 65000, changePercent: -1.2, note: "", createdAt: "2026-09-14T08:00:00.000Z" },
+    { id: "snapshot-watch-gold-2026-09-14", investmentId: "watch-gold", date: "2026-09-14", price: 2380, changePercent: 0.3, note: "", createdAt: "2026-09-14T08:00:00.000Z" }
   ],
   priorityMatrixItems: [
     { id: "priority-1", title: "本周必须交付的关键结果", quadrant: "important-urgent", note: "优先处理", completed: false },
@@ -1781,8 +1789,8 @@ export class DashboardStore {
   async setMonthlyBudgetLimit(amount: number): Promise<void> {
     const budget = this.data.budgets[0] ?? { id: "budget-monthly", category: "月预算", amount: 0, spent: 0 };
     const currentTotal = this.getMonthlyBudgetLimit();
-    const delta = Math.max(0, amount) - currentTotal;
-    budget.amount = Math.max(0, budget.amount + delta);
+    const delta = amount - currentTotal;
+    budget.amount = budget.amount + delta;
     if (!this.data.budgets.some((item) => item.id === budget.id)) {
       this.data.budgets.unshift(budget);
     }
@@ -1845,6 +1853,15 @@ export class DashboardStore {
 
   async addInvestmentWatchItem(item: InvestmentWatchItem): Promise<void> {
     this.data.investmentWatchItems.push(item);
+    await this.addInvestmentSnapshot({
+      id: `snapshot-${item.id}-${Date.now()}`,
+      investmentId: item.id,
+      date: todayKey(),
+      price: item.price,
+      changePercent: item.changePercent,
+      note: item.note ?? "",
+      createdAt: nowIso()
+    }, false);
     await this.save();
   }
 
@@ -1852,12 +1869,32 @@ export class DashboardStore {
     const item = this.data.investmentWatchItems.find((entry) => entry.id === itemId);
     if (!item) return;
     Object.assign(item, updates);
+    await this.addInvestmentSnapshot({
+      id: `snapshot-${item.id}-${Date.now()}`,
+      investmentId: item.id,
+      date: todayKey(),
+      price: item.price,
+      changePercent: item.changePercent,
+      note: item.note ?? "",
+      createdAt: nowIso()
+    }, false);
     await this.save();
   }
 
   async deleteInvestmentWatchItem(itemId: string): Promise<void> {
     this.data.investmentWatchItems = this.data.investmentWatchItems.filter((item) => item.id !== itemId);
     await this.save();
+  }
+
+  getInvestmentSnapshots(): InvestmentSnapshot[] {
+    return this.data.investmentSnapshots;
+  }
+
+  async addInvestmentSnapshot(snapshot: InvestmentSnapshot, save = true): Promise<void> {
+    this.data.investmentSnapshots.push(snapshot);
+    if (save) {
+      await this.save();
+    }
   }
 
   getSavingGoals(): SavingGoal[] {
@@ -1906,15 +1943,25 @@ export class DashboardStore {
     return this.data.financeTodos;
   }
 
-  async addFinanceTodo(title: string): Promise<void> {
-    this.data.financeTodos.push({ id: `finance-todo-${Date.now()}`, title, completed: false });
+  async addFinanceTodo(todo: string | FinanceTodo): Promise<void> {
+    const timestamp = nowIso();
+    const values: Partial<FinanceTodo> & { title: string } = typeof todo === "string" ? { title: todo } : todo;
+    this.data.financeTodos.push({
+      id: values.id ?? `finance-todo-${Date.now()}`,
+      title: values.title,
+      completed: values.completed ?? false,
+      date: values.date ?? todayKey(),
+      note: values.note ?? "",
+      createdAt: values.createdAt ?? timestamp,
+      updatedAt: timestamp
+    });
     await this.save();
   }
 
   async updateFinanceTodo(todoId: string, updates: Partial<FinanceTodo>): Promise<void> {
     const todo = this.data.financeTodos.find((item) => item.id === todoId);
     if (!todo) return;
-    Object.assign(todo, updates);
+    Object.assign(todo, updates, { updatedAt: nowIso() });
     await this.save();
   }
 
@@ -2048,7 +2095,7 @@ export class DashboardStore {
   }
 
   async addTransaction(transaction: Transaction): Promise<void> {
-    this.data.transactions.push(transaction);
+    this.data.transactions.push({ ...transaction, amount: Math.abs(transaction.amount) });
     this.recalculateBudgetSpent();
     await this.save();
   }
@@ -2066,7 +2113,7 @@ export class DashboardStore {
   }
 
   getBudgetRemaining(): number {
-    return this.data.budgets.reduce((sum, budget) => sum + Math.max(0, budget.amount - budget.spent), 0);
+    return this.getMonthlyBudgetLimit() - this.getMonthlyExpense();
   }
 
   getSavingRate(): number {
@@ -2205,7 +2252,7 @@ export class DashboardStore {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.4",
+      dataVersion: "0.3.5",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2267,7 +2314,7 @@ export class DashboardStore {
         : structuredClone(DEFAULT_DATA.savingGoals),
       bills: Array.isArray(partial.bills) ? partial.bills : structuredClone(DEFAULT_DATA.bills),
       financeTodos: Array.isArray(partial.financeTodos)
-        ? partial.financeTodos
+        ? partial.financeTodos.map((item) => this.normalizeFinanceTodo(item))
         : structuredClone(DEFAULT_DATA.financeTodos),
       goals: Array.isArray(partial.goals) ? partial.goals : structuredClone(DEFAULT_DATA.goals),
       objectives: Array.isArray(partial.objectives)
@@ -2318,8 +2365,11 @@ export class DashboardStore {
         ? partial.fitnessHabitRecords
         : structuredClone(DEFAULT_DATA.fitnessHabitRecords),
       investmentWatchItems: Array.isArray(partial.investmentWatchItems)
-        ? partial.investmentWatchItems
+        ? partial.investmentWatchItems.map((item) => this.normalizeInvestmentWatchItem(item))
         : structuredClone(DEFAULT_DATA.investmentWatchItems),
+      investmentSnapshots: Array.isArray(partial.investmentSnapshots)
+        ? partial.investmentSnapshots
+        : this.createInitialInvestmentSnapshots(Array.isArray(partial.investmentWatchItems) ? partial.investmentWatchItems : DEFAULT_DATA.investmentWatchItems),
       priorityMatrixItems: Array.isArray(partial.priorityMatrixItems)
         ? partial.priorityMatrixItems
         : structuredClone(DEFAULT_DATA.priorityMatrixItems),
@@ -2422,6 +2472,45 @@ export class DashboardStore {
     };
   }
 
+  private normalizeFinanceTodo(todo: FinanceTodo): FinanceTodo {
+    const timestamp = todo.createdAt ?? nowIso();
+    return {
+      id: todo.id ?? `finance-todo-${Date.now()}`,
+      title: todo.title || "理财待办",
+      completed: todo.completed ?? false,
+      date: todo.date ?? todayKey(),
+      note: todo.note ?? "",
+      createdAt: timestamp,
+      updatedAt: todo.updatedAt ?? timestamp
+    };
+  }
+
+  private normalizeInvestmentWatchItem(item: InvestmentWatchItem): InvestmentWatchItem {
+    return {
+      id: item.id ?? `watch-${Date.now()}`,
+      name: item.name || "投资观察",
+      code: item.code || "",
+      price: Number(item.price) || 0,
+      changePercent: Number(item.changePercent) || 0,
+      type: item.type || "其它",
+      note: item.note ?? ""
+    };
+  }
+
+  private createInitialInvestmentSnapshots(items: InvestmentWatchItem[]): InvestmentSnapshot[] {
+    const date = todayKey();
+    const createdAt = nowIso();
+    return items.map((item) => ({
+      id: `snapshot-${item.id}-${date}`,
+      investmentId: item.id,
+      date,
+      price: Number(item.price) || 0,
+      changePercent: Number(item.changePercent) || 0,
+      note: item.note ?? "",
+      createdAt
+    }));
+  }
+
   private migrateSections(sections: DashboardSectionConfig[]): DashboardSectionConfig[] {
     const pages: DashboardPage[] = ["overview", "research", "reading", "fitness", "finance", "goals", "modules"];
     const migrated = [...sections];
@@ -2470,6 +2559,12 @@ export class DashboardStore {
       const sectionManager = DEFAULT_DATA.sections.find((section) => section.type === "section-manager");
       if (sectionManager) {
         migrated.push(structuredClone(sectionManager));
+      }
+    }
+    if (!migrated.some((section) => section.page === "finance" && section.type === "finance-ledger")) {
+      const ledger = DEFAULT_DATA.sections.find((section) => section.type === "finance-ledger");
+      if (ledger) {
+        migrated.push(structuredClone(ledger));
       }
     }
 
