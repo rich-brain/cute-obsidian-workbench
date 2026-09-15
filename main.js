@@ -12976,6 +12976,141 @@ function firstString(value) {
   return text || void 0;
 }
 
+// src/services/ZoteroLocalApiService.ts
+var ZOTERO_LOCAL_API_BASE = "http://localhost:23119/api";
+var PAPER_TYPES = /* @__PURE__ */ new Set(["journalArticle", "conferencePaper", "preprint", "thesis"]);
+var ZoteroLocalApiService = class {
+  async checkConnection() {
+    try {
+      const response = await fetch(`${ZOTERO_LOCAL_API_BASE}/`, { method: "GET" });
+      return response.ok;
+    } catch (e) {
+      return false;
+    }
+  }
+  async getTopItems() {
+    const items = [];
+    const limit = 100;
+    let start = 0;
+    for (; ; ) {
+      const response = await fetch(`${ZOTERO_LOCAL_API_BASE}/users/0/items/top?format=json&limit=${limit}&start=${start}`, { method: "GET" });
+      if (!response.ok) throw new Error(`Zotero Local API returned ${response.status}`);
+      const page = await response.json();
+      if (!Array.isArray(page)) break;
+      items.push(...page.filter(isZoteroTopItem));
+      if (page.length < limit) break;
+      start += limit;
+    }
+    return items;
+  }
+  async getPapers() {
+    const items = await this.getTopItems();
+    return items.filter((item) => {
+      var _a, _b;
+      return PAPER_TYPES.has((_b = (_a = item.data) == null ? void 0 : _a.itemType) != null ? _b : "");
+    }).map((item) => {
+      var _a, _b, _c, _d, _e, _f, _g, _h;
+      return {
+        itemKey: (_a = item.key) != null ? _a : "",
+        title: (_d = (_c = (_b = item.data) == null ? void 0 : _b.title) == null ? void 0 : _c.trim()) != null ? _d : "",
+        venue: firstText((_e = item.data) == null ? void 0 : _e.conferenceName, (_f = item.data) == null ? void 0 : _f.publicationTitle, (_g = item.data) == null ? void 0 : _g.proceedingsTitle),
+        year: extractYear((_h = item.data) == null ? void 0 : _h.date)
+      };
+    }).filter((item) => item.itemKey && item.title);
+  }
+};
+function isZoteroTopItem(value) {
+  return typeof value === "object" && value !== null && "data" in value;
+}
+function firstText(...values) {
+  return values.map((value) => value == null ? void 0 : value.trim()).find(Boolean);
+}
+function extractYear(value) {
+  const match = value == null ? void 0 : value.match(/\b(19|20)\d{2}\b/);
+  return match ? Number(match[0]) : void 0;
+}
+
+// src/services/PaperZoteroSyncService.ts
+var PaperZoteroSyncService = class {
+  constructor(store) {
+    this.store = store;
+  }
+  async importOrUpdateMany(items) {
+    const result = { created: 0, updated: 0, unchanged: 0, failed: 0 };
+    for (const item of items) {
+      try {
+        const status = await this.importOrUpdate(item);
+        result[status] += 1;
+      } catch (e) {
+        result.failed += 1;
+      }
+    }
+    return result;
+  }
+  async importOrUpdate(item) {
+    const existing = this.store.getResearchPapers().find((paper) => paper.zoteroItemKey === item.itemKey);
+    const venueId = await this.resolveVenue(item);
+    if (!existing) {
+      await this.store.addResearchPaper(this.createPaper(item, venueId));
+      return "created";
+    }
+    const merged = this.mergePaper(existing, item, venueId);
+    if (!merged) return "unchanged";
+    await this.store.updateResearchPaper(existing.id, merged);
+    return "updated";
+  }
+  async resolveVenue(item) {
+    var _a;
+    const venue = (_a = item.venue) == null ? void 0 : _a.trim();
+    if (!venue) return void 0;
+    const existing = this.store.getPaperVenues().find((definition) => sameVenue(definition.name, venue));
+    if (existing) return existing.id;
+    const next = {
+      id: `venue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: venue,
+      type: "other",
+      color: "#f7c66a"
+    };
+    await this.store.addPaperVenue(next);
+    return next.id;
+  }
+  mergePaper(existing, incoming, venueId) {
+    var _a, _b, _c;
+    const updates = {};
+    if (existing.title !== incoming.title) updates.title = incoming.title;
+    if (((_a = existing.year) != null ? _a : void 0) !== ((_b = incoming.year) != null ? _b : void 0)) updates.year = incoming.year;
+    if (((_c = existing.venueId) != null ? _c : void 0) !== (venueId != null ? venueId : void 0)) {
+      updates.venueId = venueId;
+    }
+    if (Object.keys(updates).length === 0) return void 0;
+    updates.updatedAt = Date.now();
+    return updates;
+  }
+  createPaper(item, venueId) {
+    var _a, _b;
+    const now = Date.now();
+    return {
+      id: `paper-${now}-${item.itemKey}`,
+      title: item.title,
+      venue: "",
+      venueId,
+      year: item.year,
+      statusId: (_b = (_a = this.store.getPaperStatuses()[0]) == null ? void 0 : _a.id) != null ? _b : "paper-status-unread",
+      readingProgress: 0,
+      readingStartDate: void 0,
+      readingEndDate: void 0,
+      researchProjectId: void 0,
+      tagIds: [],
+      createdAt: now,
+      updatedAt: now,
+      zoteroItemKey: item.itemKey
+    };
+  }
+};
+function sameVenue(left, right) {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
 // src/components/research/PaperQueueModals.ts
 var PaperQueueManagerModal = class extends import_obsidian67.Modal {
   constructor(app, store, onDone) {
@@ -13024,6 +13159,10 @@ var PaperQueueManagerModal = class extends import_obsidian67.Modal {
     const zotero = actions.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     (0, import_obsidian67.setIcon)(zotero.createSpan(), "download");
     zotero.createSpan({ text: "Zotero \u5BFC\u5165" });
+    if (import_obsidian67.Platform.isMobileApp) {
+      zotero.disabled = true;
+      zotero.setAttr("aria-label", "Zotero Local API \u4EC5\u652F\u6301\u684C\u9762\u7AEF");
+    }
     zotero.addEventListener("click", () => new ZoteroPaperImportModal(this.app, this.store, () => {
       this.onDone();
       this.refreshList();
@@ -13455,12 +13594,22 @@ var ZoteroPaperImportModal = class extends import_obsidian67.Modal {
     super(app);
     this.store = store;
     this.onDone = onDone;
-    this.candidates = [];
+    this.pageSize = 120;
+    this.items = [];
     this.selectedKeys = /* @__PURE__ */ new Set();
     this.query = "";
-    this.loaded = false;
+    this.statusFilter = "all";
+    this.visibleLimit = this.pageSize;
+    this.loading = true;
+    this.connected = false;
+    this.error = "";
   }
   async onOpen() {
+    if (import_obsidian67.Platform.isMobileApp) {
+      new import_obsidian67.Notice("Zotero Local API \u4EC5\u652F\u6301\u684C\u9762\u7AEF\u3002");
+      this.close();
+      return;
+    }
     applyResizableModal(this, {
       className: "cute-zotero-import-modal",
       width: "min(1100px, 92vw)",
@@ -13474,92 +13623,212 @@ var ZoteroPaperImportModal = class extends import_obsidian67.Modal {
     this.render();
   }
   async load() {
-    this.candidates = await loadZoteroCandidates(this.app, this.store, false);
-    this.loaded = true;
+    this.loading = true;
+    this.error = "";
+    this.visibleLimit = this.pageSize;
+    this.render();
+    const service = new ZoteroLocalApiService();
+    this.connected = await service.checkConnection();
+    if (!this.connected) {
+      this.items = [];
+      this.loading = false;
+      this.error = "\u65E0\u6CD5\u8FDE\u63A5 Zotero";
+      this.render();
+      return;
+    }
+    try {
+      this.items = await service.getPapers();
+    } catch (e) {
+      this.items = [];
+      this.error = "\u8BFB\u53D6 Zotero \u8BBA\u6587\u5931\u8D25";
+    } finally {
+      this.loading = false;
+      this.render();
+    }
   }
   render() {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cow-paper-modal", "cow-zotero-import-modal");
-    this.contentEl.createEl("h2", { text: "\u4ECE Zotero \u5BFC\u5165" });
-    this.renderSourceStatus();
-    if (this.candidates.length === 0) {
-      this.renderEmpty();
-      return;
-    }
+    this.contentEl.addClass("cow-modal", "cow-paper-modal", "cow-zotero-import-modal", "cow-zotero-local-modal");
+    const header = this.contentEl.createDiv({ cls: "cow-zotero-local-header" });
+    header.createEl("h2", { text: "Zotero Local API \u8BBA\u6587\u9884\u89C8" });
+    this.renderConnectionStatus(header);
     const tools = this.contentEl.createDiv({ cls: "cow-zotero-toolbar" });
     const search = tools.createEl("input", { attr: { type: "search", placeholder: "\u641C\u7D22\u6807\u9898\u3001\u4F5C\u8005\u3001\u4F1A\u8BAE/\u671F\u520A\u3001citekey" } });
     search.value = this.query;
     search.addEventListener("input", () => {
       this.query = search.value;
+      this.visibleLimit = this.pageSize;
       this.render();
     });
+    tools.createEl("button", { text: "Refresh Zotero", attr: { type: "button" } }).addEventListener("click", () => void this.load());
     tools.createEl("button", { text: "\u5168\u9009\u5F53\u524D\u7B5B\u9009", attr: { type: "button" } }).addEventListener("click", () => {
-      this.filteredCandidates().forEach((item) => this.selectedKeys.add(candidateKey(item)));
+      this.filteredItems().forEach((item) => this.selectedKeys.add(item.itemKey));
       this.render();
     });
     tools.createEl("button", { text: "\u53D6\u6D88\u5168\u9009", attr: { type: "button" } }).addEventListener("click", () => {
       this.selectedKeys.clear();
       this.render();
     });
+    this.renderStatusFilters();
     const list = this.contentEl.createDiv({ cls: "cow-zotero-list" });
-    this.filteredCandidates().forEach((item) => this.renderCandidate(list, item));
-    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
-    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
-    actions.createEl("button", { text: `\u5BFC\u5165 ${this.selectedKeys.size} \u7BC7`, cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.importSelected());
+    if (this.loading) {
+      list.createDiv({ cls: "cow-empty-state", text: "\u6B63\u5728\u8BFB\u53D6 Zotero..." });
+      this.renderSelectionSummary();
+      this.renderFooter();
+      return;
+    }
+    if (!this.connected) {
+      this.renderConnectionHelp(list);
+      this.renderSelectionSummary();
+      this.renderFooter();
+      return;
+    }
+    if (this.error) {
+      list.createDiv({ cls: "cow-empty-state", text: this.error });
+      this.renderSelectionSummary();
+      this.renderFooter();
+      return;
+    }
+    const items = this.filteredItems();
+    if (this.items.length === 0) {
+      list.createDiv({ cls: "cow-empty-state", text: "\u6682\u65E0\u8BBA\u6587\u3002" });
+      this.renderSelectionSummary();
+      this.renderFooter();
+      return;
+    }
+    if (items.length === 0) {
+      list.createDiv({ cls: "cow-empty-state", text: "\u6682\u65E0\u7B26\u5408\u6761\u4EF6\u7684\u8BBA\u6587\u3002" });
+      this.renderSelectionSummary();
+      this.renderFooter();
+      return;
+    }
+    items.slice(0, this.visibleLimit).forEach((item) => this.renderCandidate(list, item));
+    if (items.length > this.visibleLimit) {
+      const more = list.createEl("button", { cls: "cow-zotero-load-more", text: `\u52A0\u8F7D\u66F4\u591A\uFF08${this.visibleLimit} / ${items.length}\uFF09`, attr: { type: "button" } });
+      more.addEventListener("click", () => {
+        this.visibleLimit += this.pageSize;
+        this.render();
+      });
+    }
+    this.renderSelectionSummary();
+    this.renderFooter();
   }
-  renderSourceStatus() {
-    var _a;
-    const service = new ZoteroService(this.app);
-    const commands = service.getRegisteredZoteroCommands();
-    const path = (_a = this.store.getData().userSettings.zoteroJsonPath) != null ? _a : "";
-    const status = this.contentEl.createDiv({ cls: "cow-zotero-source" });
-    status.createSpan({ text: commands.length > 0 ? `\u68C0\u6D4B\u5230 Zotero \u76F8\u5173\u547D\u4EE4 ${commands.length} \u4E2A\uFF1B\u672A\u8C03\u7528\u79C1\u6709\u8BFB\u53D6\u63A5\u53E3\u3002` : "\u672A\u68C0\u6D4B\u5230\u53EF\u8BFB\u53D6\u6761\u76EE\u7684 Zotero Integration \u516C\u5F00\u547D\u4EE4\u3002" });
-    status.createSpan({ text: path ? `Better BibTeX JSON\uFF1A${path}` : "\u672A\u914D\u7F6E Better BibTeX JSON \u8DEF\u5F84\u3002" });
+  renderConnectionStatus(container) {
+    const status = container.createDiv({ cls: this.connected ? "cow-zotero-connection is-connected" : "cow-zotero-connection is-disconnected" });
+    status.createSpan({ text: this.connected ? "\u25CF Zotero \u5DF2\u8FDE\u63A5" : "\u25CB Zotero \u672A\u8FDE\u63A5" });
   }
-  renderEmpty() {
-    const empty = this.contentEl.createDiv({ cls: "cow-empty-state" });
-    empty.createSpan({ text: this.loaded ? "\u672A\u68C0\u6D4B\u5230\u53EF\u7528\u7684 Zotero \u6570\u636E\u6E90\u3002\u8BF7\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u914D\u7F6E Vault \u5185 Better BibTeX / CSL JSON \u8DEF\u5F84\u3002" : "\u6B63\u5728\u8BFB\u53D6 Zotero \u6570\u636E\u6E90..." });
+  renderConnectionHelp(container) {
+    const empty = container.createDiv({ cls: "cow-empty-state cow-zotero-help" });
+    empty.createEl("strong", { text: "\u65E0\u6CD5\u8FDE\u63A5 Zotero" });
+    empty.createSpan({ text: "\u8BF7\u786E\u8BA4 Zotero Desktop \u5DF2\u6253\u5F00\uFF0C\u5E76\u5728 Zotero \u8BBE\u7F6E -> Advanced \u4E2D\u5F00\u542F Allow other applications on this computer to communicate with Zotero\u3002" });
+    empty.createEl("button", { text: "\u91CD\u65B0\u8FDE\u63A5", attr: { type: "button" } }).addEventListener("click", () => void this.load());
+  }
+  renderStatusFilters() {
+    const filters = this.contentEl.createDiv({ cls: "cow-zotero-status-filters" });
+    const counts = this.statusCounts();
+    [
+      ["all", `\u5168\u90E8 ${this.items.length}`],
+      ["new", `\u672A\u5BFC\u5165 ${counts.new}`],
+      ["imported", `\u5DF2\u5BFC\u5165 ${counts.imported}`],
+      ["update-available", `\u53EF\u66F4\u65B0 ${counts["update-available"]}`]
+    ].forEach(([status, label]) => {
+      const button = filters.createEl("button", { text: label, cls: this.statusFilter === status ? "is-active" : "", attr: { type: "button" } });
+      button.addEventListener("click", () => {
+        this.statusFilter = status;
+        this.visibleLimit = this.pageSize;
+        this.render();
+      });
+    });
   }
   renderCandidate(container, item) {
-    const key = candidateKey(item);
-    const row = container.createEl("label", { cls: "cow-zotero-item" });
+    const status = this.getImportStatus(item);
+    const row = container.createEl("label", { cls: `cow-zotero-item is-${status} ${this.selectedKeys.has(item.itemKey) ? "is-selected" : ""}` });
     const checkbox = row.createEl("input", { attr: { type: "checkbox" } });
-    checkbox.checked = this.selectedKeys.has(key);
+    checkbox.checked = this.selectedKeys.has(item.itemKey);
     checkbox.addEventListener("change", () => {
-      if (checkbox.checked) this.selectedKeys.add(key);
-      else this.selectedKeys.delete(key);
+      if (checkbox.checked) this.selectedKeys.add(item.itemKey);
+      else this.selectedKeys.delete(item.itemKey);
+      row.toggleClass("is-selected", checkbox.checked);
+      this.renderSelectionSummary();
     });
     const body = row.createDiv({ cls: "cow-paper-body" });
     body.createEl("strong", { text: item.title });
-    body.createSpan({ text: [item.authors, item.venue, item.year].filter(Boolean).join(" \xB7 ") || "\u65E0\u4F5C\u8005 / Venue \u4FE1\u606F" });
-    body.createSpan({ text: [item.citekey ? `citekey: ${item.citekey}` : "", item.zoteroItemKey ? `itemKey: ${item.zoteroItemKey}` : ""].filter(Boolean).join(" \xB7 ") || "\u65E0 citekey" });
-    if (item.tags.length > 0) {
-      const tags = body.createDiv({ cls: "cow-paper-tags" });
-      item.tags.forEach((tag) => tags.createSpan({ text: tag }));
-    }
+    body.createSpan({ text: [item.venue, item.year].filter(Boolean).join(" \xB7 ") || "\u65E0 Venue / Year \u4FE1\u606F" });
+    const badge = row.createDiv({ cls: `cow-zotero-status-badge is-${status}` });
+    badge.createSpan({ text: statusLabel2(status) });
   }
-  filteredCandidates() {
+  filteredItems() {
     const query = this.query.trim().toLowerCase();
-    if (!query) return this.candidates;
-    return this.candidates.filter((item) => [
-      item.title,
-      item.authors,
-      item.venue,
-      item.citekey,
-      item.zoteroItemKey,
-      ...item.tags
-    ].filter(Boolean).join(" ").toLowerCase().includes(query));
+    return this.items.filter((item) => {
+      const status = this.getImportStatus(item);
+      if (this.statusFilter !== "all" && status !== this.statusFilter) return false;
+      if (!query) return true;
+      return [
+        item.title,
+        item.venue,
+        item.year
+      ].filter(Boolean).join(" ").toLowerCase().includes(query);
+    });
   }
-  async importSelected() {
-    const selected = this.candidates.filter((item) => this.selectedKeys.has(candidateKey(item)));
-    if (selected.length === 0) {
-      new import_obsidian67.Notice("\u8BF7\u9009\u62E9\u8981\u5BFC\u5165\u7684 Zotero \u6761\u76EE\u3002");
+  statusCounts() {
+    return this.items.reduce((counts, item) => {
+      counts[this.getImportStatus(item)] += 1;
+      return counts;
+    }, { new: 0, imported: 0, "update-available": 0 });
+  }
+  renderFooter() {
+    const footer = this.contentEl.createDiv({ cls: "cow-zotero-footer" });
+    const actions = footer.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    const sync = actions.createEl("button", { text: "\u5BFC\u5165 / \u66F4\u65B0\u9009\u4E2D", cls: "mod-cta cow-zotero-sync-button", attr: { type: "button" } });
+    sync.disabled = this.loading || !this.connected || this.selectedKeys.size === 0;
+    sync.addEventListener("click", () => void this.syncSelected());
+  }
+  renderSelectionSummary() {
+    const summary = this.selectedSummary();
+    const text = `\u5DF2\u9009\u62E9 ${summary.total} \u7BC7 \xB7 \u65B0\u589E ${summary.new} \xB7 \u66F4\u65B0 ${summary.update} \xB7 \u672A\u53D8\u5316 ${summary.unchanged}`;
+    const sync = this.contentEl.querySelector(".cow-zotero-sync-button");
+    if (sync instanceof HTMLButtonElement) sync.disabled = this.loading || !this.connected || this.selectedKeys.size === 0;
+    const existing = this.contentEl.querySelector(".cow-zotero-selection-summary");
+    if (existing instanceof HTMLElement) {
+      existing.setText(text);
       return;
     }
-    const result = await this.store.importZoteroPapers(selected);
-    new import_obsidian67.Notice(`\u5BFC\u5165\u5B8C\u6210\uFF1A${result.created} \u7BC7\u65B0\u8BBA\u6587\uFF0C${result.updated} \u7BC7\u5DF2\u66F4\u65B0\uFF0C${result.skipped} \u7BC7\u8DF3\u8FC7\u3002`);
+    this.contentEl.createDiv({ cls: "cow-zotero-selection-summary", text });
+  }
+  selectedSummary() {
+    return this.items.filter((item) => this.selectedKeys.has(item.itemKey)).reduce((summary, item) => {
+      const status = this.getImportStatus(item);
+      summary.total += 1;
+      if (status === "new") summary.new += 1;
+      else if (status === "update-available") summary.update += 1;
+      else summary.unchanged += 1;
+      return summary;
+    }, { total: 0, new: 0, update: 0, unchanged: 0 });
+  }
+  async syncSelected() {
+    const selected = this.items.filter((item) => this.selectedKeys.has(item.itemKey));
+    if (selected.length === 0) {
+      new import_obsidian67.Notice("\u8BF7\u9009\u62E9\u8981\u5BFC\u5165\u6216\u66F4\u65B0\u7684 Zotero \u6761\u76EE\u3002");
+      return;
+    }
+    const service = new PaperZoteroSyncService(this.store);
+    const result = await service.importOrUpdateMany(selected);
+    new import_obsidian67.Notice(`\u540C\u6B65\u5B8C\u6210\uFF1A\u65B0\u589E ${result.created}\uFF0C\u66F4\u65B0 ${result.updated}\uFF0C\u672A\u53D8\u5316 ${result.unchanged}\uFF0C\u5931\u8D25 ${result.failed}\u3002`);
     this.onDone();
-    this.close();
+    this.selectedKeys.clear();
+    this.render();
+  }
+  getImportStatus(item) {
+    var _a, _b;
+    const paper = this.store.getResearchPapers().find((local) => local.zoteroItemKey === item.itemKey);
+    if (!paper) return "new";
+    const localVenue = normalizeCompare(venueName(this.store, paper) || paper.venue);
+    const remoteVenue = normalizeCompare(item.venue);
+    const sameTitle = normalizeCompare(paper.title) === normalizeCompare(item.title);
+    const sameVenue2 = localVenue === remoteVenue;
+    const sameYear = ((_a = paper.year) != null ? _a : void 0) === ((_b = item.year) != null ? _b : void 0);
+    return sameTitle && sameVenue2 && sameYear ? "imported" : "update-available";
   }
 };
 var PaperFieldManagerModal = class extends import_obsidian67.Modal {
@@ -13846,9 +14115,13 @@ function candidateMatchesPaper(candidate, paper) {
   if (candidate.paperUrl && paper.paperUrl === candidate.paperUrl) return true;
   return false;
 }
-function candidateKey(candidate) {
-  var _a, _b, _c, _d;
-  return (_d = (_c = (_b = (_a = candidate.zoteroItemKey) != null ? _a : candidate.citekey) != null ? _b : candidate.doi) != null ? _c : candidate.paperUrl) != null ? _d : candidate.title;
+function statusLabel2(status) {
+  if (status === "imported") return "\u2713 \u5DF2\u5BFC\u5165";
+  if (status === "update-available") return "\u21BB \u53EF\u66F4\u65B0";
+  return "\u672A\u5BFC\u5165";
+}
+function normalizeCompare(value) {
+  return String(value != null ? value : "").trim().toLowerCase();
 }
 function findZoteroNoteCommand(app) {
   var _a, _b;

@@ -1,12 +1,16 @@
-import { App, Modal, Notice, setIcon, TFile } from "obsidian";
+import { App, Modal, Notice, Platform, setIcon, TFile } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import type { ZoteroPaperImportInput } from "../../core/DashboardStore";
 import type { PaperStatusDefinition, PaperTagDefinition, ResearchPaper, VenueDefinition } from "../../types/dashboard";
 import { applyResizableModal } from "../ResizableModal";
 import { ZoteroImportCandidate, ZoteroService } from "../../services/ZoteroService";
 import { DeleteLiteratureNoteModal, openLiteratureNoteFile, openLiteratureNoteModal } from "./LiteratureNoteModals";
+import { ZoteroLocalApiService, type ZoteroPaperItem } from "../../services/ZoteroLocalApiService";
+import { PaperZoteroSyncService } from "../../services/PaperZoteroSyncService";
 
 type FieldKind = "status" | "venue" | "tag";
+type ZoteroImportStatus = "new" | "imported" | "update-available";
+type ZoteroStatusFilter = "all" | ZoteroImportStatus;
 
 interface PaperManagerFilters {
   statusId?: string;
@@ -64,6 +68,10 @@ export class PaperQueueManagerModal extends Modal {
     const zotero = actions.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     setIcon(zotero.createSpan(), "download");
     zotero.createSpan({ text: "Zotero 导入" });
+    if (Platform.isMobileApp) {
+      zotero.disabled = true;
+      zotero.setAttr("aria-label", "Zotero Local API 仅支持桌面端");
+    }
     zotero.addEventListener("click", () => new ZoteroPaperImportModal(this.app, this.store, () => {
       this.onDone();
       this.refreshList();
@@ -510,16 +518,26 @@ export class DeletePaperReadingModal extends Modal {
 }
 
 class ZoteroPaperImportModal extends Modal {
-  private candidates: ZoteroImportCandidate[] = [];
+  private readonly pageSize = 120;
+  private items: ZoteroPaperItem[] = [];
   private selectedKeys = new Set<string>();
   private query = "";
-  private loaded = false;
+  private statusFilter: ZoteroStatusFilter = "all";
+  private visibleLimit = this.pageSize;
+  private loading = true;
+  private connected = false;
+  private error = "";
 
   constructor(app: App, private readonly store: DashboardStore, private readonly onDone: () => void) {
     super(app);
   }
 
   async onOpen(): Promise<void> {
+    if (Platform.isMobileApp) {
+      new Notice("Zotero Local API 仅支持桌面端。");
+      this.close();
+      return;
+    }
     applyResizableModal(this, {
       className: "cute-zotero-import-modal",
       width: "min(1100px, 92vw)",
@@ -534,98 +552,226 @@ class ZoteroPaperImportModal extends Modal {
   }
 
   private async load(): Promise<void> {
-    this.candidates = await loadZoteroCandidates(this.app, this.store, false);
-    this.loaded = true;
+    this.loading = true;
+    this.error = "";
+    this.visibleLimit = this.pageSize;
+    this.render();
+    const service = new ZoteroLocalApiService();
+    this.connected = await service.checkConnection();
+    if (!this.connected) {
+      this.items = [];
+      this.loading = false;
+      this.error = "无法连接 Zotero";
+      this.render();
+      return;
+    }
+    try {
+      this.items = await service.getPapers();
+    } catch {
+      this.items = [];
+      this.error = "读取 Zotero 论文失败";
+    } finally {
+      this.loading = false;
+      this.render();
+    }
   }
 
   private render(): void {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cow-paper-modal", "cow-zotero-import-modal");
-    this.contentEl.createEl("h2", { text: "从 Zotero 导入" });
-    this.renderSourceStatus();
-    if (this.candidates.length === 0) {
-      this.renderEmpty();
-      return;
-    }
+    this.contentEl.addClass("cow-modal", "cow-paper-modal", "cow-zotero-import-modal", "cow-zotero-local-modal");
+    const header = this.contentEl.createDiv({ cls: "cow-zotero-local-header" });
+    header.createEl("h2", { text: "Zotero Local API 论文预览" });
+    this.renderConnectionStatus(header);
     const tools = this.contentEl.createDiv({ cls: "cow-zotero-toolbar" });
     const search = tools.createEl("input", { attr: { type: "search", placeholder: "搜索标题、作者、会议/期刊、citekey" } });
     search.value = this.query;
     search.addEventListener("input", () => {
       this.query = search.value;
+      this.visibleLimit = this.pageSize;
       this.render();
     });
+    tools.createEl("button", { text: "Refresh Zotero", attr: { type: "button" } }).addEventListener("click", () => void this.load());
     tools.createEl("button", { text: "全选当前筛选", attr: { type: "button" } }).addEventListener("click", () => {
-      this.filteredCandidates().forEach((item) => this.selectedKeys.add(candidateKey(item)));
+      this.filteredItems().forEach((item) => this.selectedKeys.add(item.itemKey));
       this.render();
     });
     tools.createEl("button", { text: "取消全选", attr: { type: "button" } }).addEventListener("click", () => {
       this.selectedKeys.clear();
       this.render();
     });
+    this.renderStatusFilters();
 
     const list = this.contentEl.createDiv({ cls: "cow-zotero-list" });
-    this.filteredCandidates().forEach((item) => this.renderCandidate(list, item));
-    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
-    actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
-    actions.createEl("button", { text: `导入 ${this.selectedKeys.size} 篇`, cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.importSelected());
+    if (this.loading) {
+      list.createDiv({ cls: "cow-empty-state", text: "正在读取 Zotero..." });
+      this.renderSelectionSummary();
+      this.renderFooter();
+      return;
+    }
+    if (!this.connected) {
+      this.renderConnectionHelp(list);
+      this.renderSelectionSummary();
+      this.renderFooter();
+      return;
+    }
+    if (this.error) {
+      list.createDiv({ cls: "cow-empty-state", text: this.error });
+      this.renderSelectionSummary();
+      this.renderFooter();
+      return;
+    }
+    const items = this.filteredItems();
+    if (this.items.length === 0) {
+      list.createDiv({ cls: "cow-empty-state", text: "暂无论文。" });
+      this.renderSelectionSummary();
+      this.renderFooter();
+      return;
+    }
+    if (items.length === 0) {
+      list.createDiv({ cls: "cow-empty-state", text: "暂无符合条件的论文。" });
+      this.renderSelectionSummary();
+      this.renderFooter();
+      return;
+    }
+    items.slice(0, this.visibleLimit).forEach((item) => this.renderCandidate(list, item));
+    if (items.length > this.visibleLimit) {
+      const more = list.createEl("button", { cls: "cow-zotero-load-more", text: `加载更多（${this.visibleLimit} / ${items.length}）`, attr: { type: "button" } });
+      more.addEventListener("click", () => {
+        this.visibleLimit += this.pageSize;
+        this.render();
+      });
+    }
+    this.renderSelectionSummary();
+    this.renderFooter();
   }
 
-  private renderSourceStatus(): void {
-    const service = new ZoteroService(this.app);
-    const commands = service.getRegisteredZoteroCommands();
-    const path = this.store.getData().userSettings.zoteroJsonPath ?? "";
-    const status = this.contentEl.createDiv({ cls: "cow-zotero-source" });
-    status.createSpan({ text: commands.length > 0 ? `检测到 Zotero 相关命令 ${commands.length} 个；未调用私有读取接口。` : "未检测到可读取条目的 Zotero Integration 公开命令。" });
-    status.createSpan({ text: path ? `Better BibTeX JSON：${path}` : "未配置 Better BibTeX JSON 路径。" });
+  private renderConnectionStatus(container: HTMLElement): void {
+    const status = container.createDiv({ cls: this.connected ? "cow-zotero-connection is-connected" : "cow-zotero-connection is-disconnected" });
+    status.createSpan({ text: this.connected ? "● Zotero 已连接" : "○ Zotero 未连接" });
   }
 
-  private renderEmpty(): void {
-    const empty = this.contentEl.createDiv({ cls: "cow-empty-state" });
-    empty.createSpan({ text: this.loaded ? "未检测到可用的 Zotero 数据源。请在插件设置中配置 Vault 内 Better BibTeX / CSL JSON 路径。" : "正在读取 Zotero 数据源..." });
+  private renderConnectionHelp(container: HTMLElement): void {
+    const empty = container.createDiv({ cls: "cow-empty-state cow-zotero-help" });
+    empty.createEl("strong", { text: "无法连接 Zotero" });
+    empty.createSpan({ text: "请确认 Zotero Desktop 已打开，并在 Zotero 设置 -> Advanced 中开启 Allow other applications on this computer to communicate with Zotero。" });
+    empty.createEl("button", { text: "重新连接", attr: { type: "button" } }).addEventListener("click", () => void this.load());
   }
 
-  private renderCandidate(container: HTMLElement, item: ZoteroImportCandidate): void {
-    const key = candidateKey(item);
-    const row = container.createEl("label", { cls: "cow-zotero-item" });
+  private renderStatusFilters(): void {
+    const filters = this.contentEl.createDiv({ cls: "cow-zotero-status-filters" });
+    const counts = this.statusCounts();
+    ([
+      ["all", `全部 ${this.items.length}`],
+      ["new", `未导入 ${counts.new}`],
+      ["imported", `已导入 ${counts.imported}`],
+      ["update-available", `可更新 ${counts["update-available"]}`]
+    ] as Array<[ZoteroStatusFilter, string]>).forEach(([status, label]) => {
+      const button = filters.createEl("button", { text: label, cls: this.statusFilter === status ? "is-active" : "", attr: { type: "button" } });
+      button.addEventListener("click", () => {
+        this.statusFilter = status;
+        this.visibleLimit = this.pageSize;
+        this.render();
+      });
+    });
+  }
+
+  private renderCandidate(container: HTMLElement, item: ZoteroPaperItem): void {
+    const status = this.getImportStatus(item);
+    const row = container.createEl("label", { cls: `cow-zotero-item is-${status} ${this.selectedKeys.has(item.itemKey) ? "is-selected" : ""}` });
     const checkbox = row.createEl("input", { attr: { type: "checkbox" } });
-    checkbox.checked = this.selectedKeys.has(key);
+    checkbox.checked = this.selectedKeys.has(item.itemKey);
     checkbox.addEventListener("change", () => {
-      if (checkbox.checked) this.selectedKeys.add(key);
-      else this.selectedKeys.delete(key);
+      if (checkbox.checked) this.selectedKeys.add(item.itemKey);
+      else this.selectedKeys.delete(item.itemKey);
+      row.toggleClass("is-selected", checkbox.checked);
+      this.renderSelectionSummary();
     });
     const body = row.createDiv({ cls: "cow-paper-body" });
     body.createEl("strong", { text: item.title });
-    body.createSpan({ text: [item.authors, item.venue, item.year].filter(Boolean).join(" · ") || "无作者 / Venue 信息" });
-    body.createSpan({ text: [item.citekey ? `citekey: ${item.citekey}` : "", item.zoteroItemKey ? `itemKey: ${item.zoteroItemKey}` : ""].filter(Boolean).join(" · ") || "无 citekey" });
-    if (item.tags.length > 0) {
-      const tags = body.createDiv({ cls: "cow-paper-tags" });
-      item.tags.forEach((tag) => tags.createSpan({ text: tag }));
-    }
+    body.createSpan({ text: [item.venue, item.year].filter(Boolean).join(" · ") || "无 Venue / Year 信息" });
+    const badge = row.createDiv({ cls: `cow-zotero-status-badge is-${status}` });
+    badge.createSpan({ text: statusLabel(status) });
   }
 
-  private filteredCandidates(): ZoteroImportCandidate[] {
+  private filteredItems(): ZoteroPaperItem[] {
     const query = this.query.trim().toLowerCase();
-    if (!query) return this.candidates;
-    return this.candidates.filter((item) => [
+    return this.items.filter((item) => {
+      const status = this.getImportStatus(item);
+      if (this.statusFilter !== "all" && status !== this.statusFilter) return false;
+      if (!query) return true;
+      return [
       item.title,
-      item.authors,
       item.venue,
-      item.citekey,
-      item.zoteroItemKey,
-      ...item.tags
-    ].filter(Boolean).join(" ").toLowerCase().includes(query));
+      item.year
+      ].filter(Boolean).join(" ").toLowerCase().includes(query);
+    });
   }
 
-  private async importSelected(): Promise<void> {
-    const selected = this.candidates.filter((item) => this.selectedKeys.has(candidateKey(item)));
-    if (selected.length === 0) {
-      new Notice("请选择要导入的 Zotero 条目。");
+  private statusCounts(): Record<ZoteroImportStatus, number> {
+    return this.items.reduce<Record<ZoteroImportStatus, number>>((counts, item) => {
+      counts[this.getImportStatus(item)] += 1;
+      return counts;
+    }, { new: 0, imported: 0, "update-available": 0 });
+  }
+
+  private renderFooter(): void {
+    const footer = this.contentEl.createDiv({ cls: "cow-zotero-footer" });
+    const actions = footer.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    const sync = actions.createEl("button", { text: "导入 / 更新选中", cls: "mod-cta cow-zotero-sync-button", attr: { type: "button" } });
+    sync.disabled = this.loading || !this.connected || this.selectedKeys.size === 0;
+    sync.addEventListener("click", () => void this.syncSelected());
+  }
+
+  private renderSelectionSummary(): void {
+    const summary = this.selectedSummary();
+    const text = `已选择 ${summary.total} 篇 · 新增 ${summary.new} · 更新 ${summary.update} · 未变化 ${summary.unchanged}`;
+    const sync = this.contentEl.querySelector(".cow-zotero-sync-button");
+    if (sync instanceof HTMLButtonElement) sync.disabled = this.loading || !this.connected || this.selectedKeys.size === 0;
+    const existing = this.contentEl.querySelector(".cow-zotero-selection-summary");
+    if (existing instanceof HTMLElement) {
+      existing.setText(text);
       return;
     }
-    const result = await this.store.importZoteroPapers(selected);
-    new Notice(`导入完成：${result.created} 篇新论文，${result.updated} 篇已更新，${result.skipped} 篇跳过。`);
+    this.contentEl.createDiv({ cls: "cow-zotero-selection-summary", text });
+  }
+
+  private selectedSummary(): { total: number; new: number; update: number; unchanged: number } {
+    return this.items
+      .filter((item) => this.selectedKeys.has(item.itemKey))
+      .reduce((summary, item) => {
+        const status = this.getImportStatus(item);
+        summary.total += 1;
+        if (status === "new") summary.new += 1;
+        else if (status === "update-available") summary.update += 1;
+        else summary.unchanged += 1;
+        return summary;
+      }, { total: 0, new: 0, update: 0, unchanged: 0 });
+  }
+
+  private async syncSelected(): Promise<void> {
+    const selected = this.items.filter((item) => this.selectedKeys.has(item.itemKey));
+    if (selected.length === 0) {
+      new Notice("请选择要导入或更新的 Zotero 条目。");
+      return;
+    }
+    const service = new PaperZoteroSyncService(this.store);
+    const result = await service.importOrUpdateMany(selected);
+    new Notice(`同步完成：新增 ${result.created}，更新 ${result.updated}，未变化 ${result.unchanged}，失败 ${result.failed}。`);
     this.onDone();
-    this.close();
+    this.selectedKeys.clear();
+    this.render();
+  }
+
+  private getImportStatus(item: ZoteroPaperItem): ZoteroImportStatus {
+    const paper = this.store.getResearchPapers().find((local) => local.zoteroItemKey === item.itemKey);
+    if (!paper) return "new";
+    const localVenue = normalizeCompare(venueName(this.store, paper) || paper.venue);
+    const remoteVenue = normalizeCompare(item.venue);
+    const sameTitle = normalizeCompare(paper.title) === normalizeCompare(item.title);
+    const sameVenue = localVenue === remoteVenue;
+    const sameYear = (paper.year ?? undefined) === (item.year ?? undefined);
+    return sameTitle && sameVenue && sameYear ? "imported" : "update-available";
   }
 }
 
@@ -940,6 +1086,16 @@ function candidateMatchesPaper(candidate: ZoteroImportCandidate, paper: Research
 
 function candidateKey(candidate: ZoteroImportCandidate): string {
   return candidate.zoteroItemKey ?? candidate.citekey ?? candidate.doi ?? candidate.paperUrl ?? candidate.title;
+}
+
+function statusLabel(status: ZoteroImportStatus): string {
+  if (status === "imported") return "✓ 已导入";
+  if (status === "update-available") return "↻ 可更新";
+  return "未导入";
+}
+
+function normalizeCompare(value: string | number | undefined): string {
+  return String(value ?? "").trim().toLowerCase();
 }
 
 function findZoteroNoteCommand(app: App): { id: string; name: string } | undefined {
