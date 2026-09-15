@@ -44,6 +44,16 @@ import { FitnessCheckinSection } from "./fitness/FitnessCheckinSection";
 import { FitnessGoalsSection } from "./fitness/FitnessGoalsSection";
 import { FitnessHeatmapSection } from "./fitness/FitnessHeatmapSection";
 import { FitnessStatsSection } from "./fitness/FitnessStatsSection";
+import {
+  BodyMeasurementStatisticsModal,
+  FitnessGoalStatisticsModal,
+  HealthHabitStatisticsModal,
+  HealthReminderStatisticsModal,
+  openBodyMeasurementModal,
+  openDailyHealthHabitModal,
+  openFitnessGoalModal,
+  openHealthReminderModal
+} from "./fitness/FitnessModals";
 import { GoalBreakdownSection } from "./goals/GoalBreakdownSection";
 import { GoalsCheckinSection } from "./goals/GoalsCheckinSection";
 import { LongTermProgressSection } from "./goals/LongTermProgressSection";
@@ -153,6 +163,7 @@ export class DashboardSection {
       statsButton.createSpan({ text: "统计" });
       statsButton.addEventListener("click", () => this.openStats());
     }
+    this.renderFitnessHeaderActions(actions);
 
     const menuButton = actions.createEl("button", {
       cls: "cow-icon-button",
@@ -165,6 +176,35 @@ export class DashboardSection {
 
     const content = sectionEl.createDiv({ cls: "cow-section-content" });
     this.renderContent(content);
+  }
+
+  private renderFitnessHeaderActions(actions: HTMLElement): void {
+    const addAction = (label: string, icon: string, onClick: () => void): void => {
+      const button = actions.createEl("button", {
+        cls: "cow-section-add-button",
+        attr: { type: "button", "aria-label": label }
+      });
+      setIcon(button.createSpan(), icon);
+      button.createSpan({ text: label });
+      button.addEventListener("click", onClick);
+    };
+
+    if (this.section.type === "body-measurements") {
+      addAction("记录数据", "plus", () => openBodyMeasurementModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new BodyMeasurementStatisticsModal(this.app, this.store, this.onDataChanged).open());
+    }
+    if (this.section.type === "water-sleep-habits") {
+      addAction("编辑今日", "pencil", () => openDailyHealthHabitModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new HealthHabitStatisticsModal(this.app, this.store).open());
+    }
+    if (this.section.type === "fitness-goals") {
+      addAction("新增目标", "plus", () => openFitnessGoalModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new FitnessGoalStatisticsModal(this.app, this.store, this.onDataChanged).open());
+    }
+    if (this.section.type === "health-reminders") {
+      addAction("新增提醒", "plus", () => openHealthReminderModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new HealthReminderStatisticsModal(this.app, this.store).open());
+    }
   }
 
   private renderContent(container: HTMLElement): void {

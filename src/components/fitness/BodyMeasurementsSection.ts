@@ -1,6 +1,6 @@
 import { App, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
-import { openBodyMeasurementModal } from "../DashboardEditModals";
+import { openBodyMeasurementModal } from "./FitnessModals";
 
 export class BodyMeasurementsSection {
   constructor(
@@ -12,15 +12,6 @@ export class BodyMeasurementsSection {
   render(container: HTMLElement): void {
     const measurements = this.store.getBodyMeasurements();
     const latest = measurements[measurements.length - 1];
-    const action = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    setIcon(action.createSpan(), "plus");
-    action.createSpan({ text: "记录数据" });
-    action.addEventListener("click", () => {
-      openBodyMeasurementModal(this.app, async (values) => {
-        await this.store.addBodyMeasurement(values);
-        this.onDataChanged();
-      });
-    });
     const grid = container.createDiv({ cls: "cow-reading-stat-grid" });
     [
       ["体重", `${latest?.weight ?? 0}kg`],
@@ -43,10 +34,13 @@ export class BodyMeasurementsSection {
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑记录" } });
       setIcon(edit, "pencil");
       edit.addEventListener("click", () => {
-        openBodyMeasurementModal(this.app, async (values) => {
-          await this.store.updateBodyMeasurement(item.id ?? item.date, values);
-          this.onDataChanged();
-        }, item);
+        openBodyMeasurementModal(this.app, this.store, this.onDataChanged, item);
+      });
+      const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "删除记录" } });
+      setIcon(remove, "trash-2");
+      remove.addEventListener("click", async () => {
+        await this.store.deleteBodyMeasurement(item.id ?? item.date);
+        this.onDataChanged();
       });
     });
   }

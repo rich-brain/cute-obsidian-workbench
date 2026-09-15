@@ -122,6 +122,14 @@ export interface Workout {
 export interface HealthReminder {
   id: string;
   title: string;
+  date?: string;
+  time?: string;
+  repeatType?: "once" | "daily" | "weekdays" | "weekly" | "custom";
+  repeatDays?: number[];
+  note?: string;
+  enabled?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface BodyMeasurement {
@@ -132,15 +140,54 @@ export interface BodyMeasurement {
   waist: number;
   chest: number;
   hip: number;
+  note?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface FitnessGoal {
   id: string;
   title: string;
-  current: number;
-  target: number;
+  current?: number;
+  target?: number;
+  currentValue?: number;
+  targetValue?: number;
   unit: string;
+  startDate?: string;
   deadline: string;
+  completedDate?: string;
+  status?: "active" | "completed" | "overdue" | "archived";
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FitnessHabitDefinition {
+  id: string;
+  name: string;
+  targetName: string;
+  targetValue: number;
+  unit: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FitnessHabitRecord {
+  date: string;
+  habitId: string;
+  actualValue: number;
+  note?: string;
+  updatedAt: string;
+}
+
+export interface HealthReminderLog {
+  id: string;
+  reminderId: string;
+  date: string;
+  scheduledTime: string;
+  triggeredAt?: string;
+  status: "triggered" | "completed" | "missed" | "dismissed";
+  note?: string;
 }
 
 export interface Transaction {
@@ -329,10 +376,13 @@ export interface FitnessDailyRecord {
   date: string;
   waterCups: number;
   waterGoal: number;
+  waterNote?: string;
   sleepHours: number;
   sleepGoal: number;
   bedtime: string;
   wakeTime: string;
+  sleepNote?: string;
+  updatedAt?: string;
 }
 
 export interface InvestmentWatchItem {
@@ -386,6 +436,7 @@ export interface WorkbenchData {
   bodyMeasurements: BodyMeasurement[];
   fitnessGoals: FitnessGoal[];
   healthReminders: HealthReminder[];
+  healthReminderLogs: HealthReminderLog[];
   transactions: Transaction[];
   budgets: Budget[];
   accounts: Account[];
@@ -405,6 +456,8 @@ export interface WorkbenchData {
   focusState: FocusState;
   focusRecords: FocusRecord[];
   fitnessDailyRecords: FitnessDailyRecord[];
+  fitnessHabitDefinitions: FitnessHabitDefinition[];
+  fitnessHabitRecords: FitnessHabitRecord[];
   investmentWatchItems: InvestmentWatchItem[];
   priorityMatrixItems: PriorityMatrixItem[];
   theme: ThemeSettings;

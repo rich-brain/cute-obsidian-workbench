@@ -1,6 +1,7 @@
 import { Plugin, WorkspaceLeaf } from "obsidian";
 import { DashboardStore } from "./core/DashboardStore";
 import { WorkbenchSettingTab } from "./settings/WorkbenchSettingTab";
+import { HealthReminderService } from "./services/HealthReminderService";
 import { WORKBENCH_VIEW_TYPE, WorkbenchView } from "./views/WorkbenchView";
 
 export default class CuteObsidianWorkbenchPlugin extends Plugin {
@@ -12,6 +13,9 @@ export default class CuteObsidianWorkbenchPlugin extends Plugin {
       (data) => this.saveData(data)
     );
     await this.store.load();
+    const healthReminderService = new HealthReminderService(this.app, this.store);
+    await healthReminderService.checkMissedReminders();
+    this.registerInterval(window.setInterval(() => void healthReminderService.tick(), 30 * 1000));
 
     this.registerView(
       WORKBENCH_VIEW_TYPE,

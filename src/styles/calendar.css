@@ -1240,6 +1240,40 @@
   overflow: auto;
 }
 
+.modal.cute-resizable-modal {
+  box-sizing: border-box;
+  resize: both !important;
+  overflow: hidden !important;
+  max-width: 96vw !important;
+  max-height: 92vh !important;
+}
+
+.modal.cute-resizable-modal .modal-content {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.modal.cute-fitness-edit-modal {
+  width: min(760px, 90vw) !important;
+  max-width: 94vw !important;
+  max-height: 88vh !important;
+  min-width: min(420px, 90vw);
+  min-height: min(320px, 80vh);
+}
+
+.modal.cute-fitness-stats-modal {
+  width: min(1050px, 92vw) !important;
+  height: min(720px, 86vh) !important;
+  max-width: 96vw !important;
+  max-height: 92vh !important;
+  min-width: min(620px, 92vw);
+  min-height: min(420px, 86vh);
+}
+
 .modal.cute-focus-setup-modal {
   width: min(900px, 90vw) !important;
   height: min(506px, 82vh) !important;
@@ -1698,6 +1732,210 @@
 .cow-feature-card p {
   margin: 0;
   color: var(--cow-muted);
+}
+
+.cow-fitness-modal {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.cow-fitness-modal h2,
+.cow-fitness-modal h3 {
+  margin: 0;
+}
+
+.cow-fitness-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.cow-fitness-form-section {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.46);
+}
+
+.cow-fitness-form-row {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cow-fitness-form-row.is-inline {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.cow-fitness-form-row label {
+  color: var(--cow-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cow-fitness-form-row input,
+.cow-fitness-form-row textarea,
+.cow-fitness-form-row select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  border-radius: 12px;
+}
+
+.cow-fitness-form-row textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.cow-fitness-stepper,
+.cow-fitness-subhead,
+.cow-fitness-habit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cow-fitness-subhead {
+  justify-content: space-between;
+}
+
+.cow-fitness-stepper button {
+  min-width: 42px;
+}
+
+.cow-fitness-habit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(80px, 120px) auto;
+  padding: 10px;
+  border: 1px solid rgba(242, 59, 141, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.cow-fitness-habit-row strong,
+.cow-fitness-habit-row span,
+.cow-fitness-habit-row input {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-fitness-stats-modal {
+  min-width: 0;
+}
+
+.cow-fitness-stats-calendar {
+  display: grid;
+  grid-template-columns: minmax(300px, 1.15fr) minmax(260px, 0.85fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.cow-fitness-calendar-panel,
+.cow-fitness-calendar-details {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.cow-fitness-calendar-details {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  overflow: auto;
+}
+
+.cow-fitness-calendar-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cow-fitness-calendar-header strong {
+  text-align: center;
+}
+
+.cow-fitness-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.cow-fitness-calendar-day {
+  display: grid;
+  align-content: space-between;
+  min-height: 58px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid rgba(242, 59, 141, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--cow-ink);
+}
+
+.cow-fitness-calendar-day.is-today {
+  border-color: var(--cow-pink-strong);
+  box-shadow: inset 0 0 0 2px rgba(242, 59, 141, 0.14);
+}
+
+.cow-fitness-calendar-day.is-selected {
+  background: rgba(255, 224, 237, 0.76);
+}
+
+.cow-calendar-dots .is-yellow {
+  background: #ffd166;
+}
+
+.cow-calendar-dots .is-red {
+  background: #ff7b8a;
+}
+
+.cow-fitness-goal-overdue {
+  border-color: rgba(255, 85, 113, 0.48);
+  background: rgba(255, 235, 239, 0.72);
+}
+
+.cow-fitness-goal-completed {
+  border-color: rgba(79, 180, 134, 0.42);
+  background: rgba(230, 250, 239, 0.68);
+}
+
+.cow-fitness-goal-completed strong {
+  color: #3f8f6a;
+  text-decoration: line-through;
+}
+
+.cow-fitness-history-list {
+  margin-top: 12px;
+}
+
+@media (max-width: 820px) {
+  .modal.cute-fitness-edit-modal,
+  .modal.cute-fitness-stats-modal {
+    width: min(94vw, 520px) !important;
+    min-width: min(320px, 94vw);
+    min-height: min(340px, 86vh);
+  }
+
+  .cow-fitness-stats-calendar,
+  .cow-fitness-habit-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cow-fitness-calendar-day {
+    min-height: 48px;
+    padding: 5px;
+  }
 }
 
 .cow-inline-title {
