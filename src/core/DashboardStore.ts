@@ -22,6 +22,7 @@ import type {
   FocusState,
   FinanceTodo,
   Goal,
+  GoalAction,
   HealthReminder,
   HealthReminderLog,
   InvestmentSnapshot,
@@ -163,7 +164,7 @@ function todayKey(): string {
 }
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.3.5",
+  dataVersion: "0.3.6",
   currentPage: "overview",
   sections: [
     {
@@ -719,6 +720,7 @@ const DEFAULT_DATA: WorkbenchData = {
       status: "进行中"
     }
   ],
+  goalActions: [],
   objectives: [
     { id: "obj-q3-research", title: "Q3 完成论文方法和实验闭环", quarter: "2026 Q3", progress: 72 },
     { id: "obj-q4-life", title: "Q4 建立可持续工作生活系统", quarter: "2026 Q4", progress: 35 }
@@ -2004,6 +2006,14 @@ export class DashboardStore {
     return this.data.milestones;
   }
 
+  getGoalActions(): GoalAction[] {
+    return this.data.goalActions.map((action) => this.withGoalActionComputedState(action));
+  }
+
+  getGoalActionsForGoal(goalId: string): GoalAction[] {
+    return this.getGoalActions().filter((action) => action.goalId === goalId);
+  }
+
   getRisks(): Risk[] {
     return this.data.risks;
   }
@@ -2016,6 +2026,7 @@ export class DashboardStore {
   async deleteGoal(goalId: string): Promise<void> {
     this.data.goals = this.data.goals.filter((item) => item.id !== goalId);
     this.data.milestones = this.data.milestones.filter((item) => item.goalId !== goalId);
+    this.data.goalActions = this.data.goalActions.filter((item) => item.goalId !== goalId);
     await this.save();
   }
 
@@ -2031,6 +2042,93 @@ export class DashboardStore {
 
   async updateGoalProgress(goalId: string, progress: number): Promise<void> {
     await this.updateGoal(goalId, { progress });
+  }
+
+  async addGoalAction(action: GoalAction): Promise<void> {
+    this.data.goalActions.push(this.normalizeGoalAction(action));
+    await this.save();
+  }
+
+  async updateGoalAction(actionId: string, updates: Partial<GoalAction>): Promise<void> {
+    const action = this.data.goalActions.find((item) => item.id === actionId);
+    if (!action) return;
+    Object.assign(action, updates, { updatedAt: Date.now() });
+    if (updates.status === "completed") {
+      action.progress = 100;
+      action.completedDate = action.completedDate ?? formatDateKey(new Date());
+    }
+    if (updates.status && updates.status !== "completed") {
+      action.completedDate = updates.completedDate;
+    }
+    await this.save();
+  }
+
+  async toggleGoalActionCompleted(actionId: string): Promise<void> {
+    const action = this.data.goalActions.find((item) => item.id === actionId);
+    if (!action) return;
+    if (action.status === "completed") {
+      Object.assign(action, { status: "in-progress" as const, completedDate: undefined, progress: Math.min(action.progress ?? 0, 90), updatedAt: Date.now() });
+    } else {
+      Object.assign(action, { status: "completed" as const, completedDate: formatDateKey(new Date()), progress: 100, updatedAt: Date.now() });
+    }
+    await this.save();
+  }
+
+  async deleteGoalAction(actionId: string): Promise<void> {
+    const ids = new Set<string>([actionId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      this.data.goalActions.forEach((action) => {
+        if (action.parentId && ids.has(action.parentId) && !ids.has(action.id)) {
+          ids.add(action.id);
+          changed = true;
+        }
+      });
+    }
+    this.data.goalActions = this.data.goalActions.filter((action) => !ids.has(action.id));
+    await this.save();
+  }
+
+  getGoalActionProgress(actionId: string): number {
+    const action = this.data.goalActions.find((item) => item.id === actionId);
+    if (!action) return 0;
+    const children = this.data.goalActions.filter((item) => item.parentId === actionId);
+    if (children.length === 0) return Math.max(0, Math.min(100, action.progress ?? (action.status === "completed" ? 100 : 0)));
+    const total = children.reduce((sum, child) => sum + this.getGoalActionProgress(child.id), 0);
+    return Math.round(total / children.length);
+  }
+
+  private withGoalActionComputedState(action: GoalAction): GoalAction {
+    const progress = this.getGoalActionProgress(action.id);
+    const status = action.status !== "completed" && action.deadline && action.deadline < formatDateKey(new Date())
+      ? "overdue"
+      : action.status;
+    return { ...action, status, progress };
+  }
+
+  private normalizeGoalAction(action: GoalAction): GoalAction {
+    const timestamp = Date.now();
+    return {
+      id: action.id ?? `goal-action-${timestamp}`,
+      goalId: action.goalId,
+      parentId: action.parentId,
+      title: action.title || "目标任务",
+      description: action.description ?? "",
+      status: action.status ?? "todo",
+      startDate: action.startDate,
+      deadline: action.deadline,
+      completedDate: action.completedDate,
+      progress: Math.max(0, Math.min(100, action.progress ?? 0)),
+      isMilestone: action.isMilestone ?? false,
+      milestoneDate: action.milestoneDate,
+      importance: action.importance,
+      urgency: action.urgency,
+      note: action.note ?? "",
+      collapsed: action.collapsed ?? false,
+      createdAt: action.createdAt ?? timestamp,
+      updatedAt: timestamp
+    };
   }
 
   async addKeyResult(keyResult: KeyResult): Promise<void> {
@@ -2252,7 +2350,7 @@ export class DashboardStore {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.5",
+      dataVersion: "0.3.6",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2317,6 +2415,9 @@ export class DashboardStore {
         ? partial.financeTodos.map((item) => this.normalizeFinanceTodo(item))
         : structuredClone(DEFAULT_DATA.financeTodos),
       goals: Array.isArray(partial.goals) ? partial.goals : structuredClone(DEFAULT_DATA.goals),
+      goalActions: Array.isArray(partial.goalActions)
+        ? partial.goalActions.map((action) => this.normalizeGoalAction(action))
+        : this.createInitialGoalActions(partial),
       objectives: Array.isArray(partial.objectives)
         ? partial.objectives
         : structuredClone(DEFAULT_DATA.objectives),
@@ -2483,6 +2584,60 @@ export class DashboardStore {
       createdAt: timestamp,
       updatedAt: todo.updatedAt ?? timestamp
     };
+  }
+
+  private createInitialGoalActions(partial: Partial<WorkbenchData>): GoalAction[] {
+    const goals = Array.isArray(partial.goals) ? partial.goals : DEFAULT_DATA.goals;
+    const fallbackGoal = goals[0];
+    const actions: GoalAction[] = [];
+    goals.forEach((goal, index) => {
+      actions.push(this.normalizeGoalAction({
+        id: `goal-action-root-${goal.id}`,
+        goalId: goal.id,
+        title: `${goal.title} 拆解`,
+        description: goal.description,
+        status: goal.status === "已完成" ? "completed" : goal.status === "未开始" ? "todo" : "in-progress",
+        deadline: goal.deadline,
+        progress: goal.progress,
+        note: "",
+        createdAt: Date.now() + index,
+        updatedAt: Date.now() + index
+      }));
+    });
+    if (Array.isArray(partial.milestones)) {
+      partial.milestones.forEach((milestone, index) => {
+        actions.push(this.normalizeGoalAction({
+          id: `goal-action-milestone-${milestone.id}`,
+          goalId: milestone.goalId || fallbackGoal?.id || "goal-default",
+          title: milestone.title,
+          status: milestone.status === "已完成" ? "completed" : milestone.status === "未开始" ? "todo" : "in-progress",
+          deadline: milestone.date,
+          progress: milestone.status === "已完成" ? 100 : 0,
+          isMilestone: true,
+          milestoneDate: milestone.date,
+          note: "",
+          createdAt: Date.now() + 100 + index,
+          updatedAt: Date.now() + 100 + index
+        }));
+      });
+    }
+    if (Array.isArray(partial.priorityMatrixItems)) {
+      partial.priorityMatrixItems.forEach((item, index) => {
+        actions.push(this.normalizeGoalAction({
+          id: `goal-action-priority-${item.id}`,
+          goalId: fallbackGoal?.id || "goal-default",
+          title: item.title,
+          status: item.completed ? "completed" : "todo",
+          progress: item.completed ? 100 : 0,
+          importance: item.quadrant.includes("important") && !item.quadrant.includes("not-important") ? "important" : "not-important",
+          urgency: item.quadrant.includes("urgent") && !item.quadrant.includes("not-urgent") ? "urgent" : "not-urgent",
+          note: item.note,
+          createdAt: Date.now() + 200 + index,
+          updatedAt: Date.now() + 200 + index
+        }));
+      });
+    }
+    return actions;
   }
 
   private normalizeInvestmentWatchItem(item: InvestmentWatchItem): InvestmentWatchItem {

@@ -251,6 +251,30 @@ export interface Goal {
   progress: number;
   deadline: string;
   status: "未开始" | "进行中" | "已完成" | "暂停";
+  startDate?: string;
+  completedDate?: string;
+  updatedAt?: number;
+}
+
+export interface GoalAction {
+  id: string;
+  goalId: string;
+  parentId?: string;
+  title: string;
+  description?: string;
+  status: "todo" | "in-progress" | "completed" | "overdue";
+  startDate?: string;
+  deadline?: string;
+  completedDate?: string;
+  progress?: number;
+  isMilestone?: boolean;
+  milestoneDate?: string;
+  importance?: "important" | "not-important";
+  urgency?: "urgent" | "not-urgent";
+  note?: string;
+  collapsed?: boolean;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface Objective {
@@ -281,6 +305,11 @@ export interface Risk {
   title: string;
   level: "low" | "medium" | "high";
   solution: string;
+  goalId?: string;
+  status?: "todo" | "in-progress" | "resolved";
+  discoveredDate?: string;
+  resolvedDate?: string;
+  note?: string;
 }
 
 export interface BannerSettings {
@@ -460,6 +489,7 @@ export interface WorkbenchData {
   bills: Bill[];
   financeTodos: FinanceTodo[];
   goals: Goal[];
+  goalActions: GoalAction[];
   objectives: Objective[];
   keyResults: KeyResult[];
   milestones: Milestone[];

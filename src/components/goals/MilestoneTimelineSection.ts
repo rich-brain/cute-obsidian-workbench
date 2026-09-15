@@ -1,7 +1,6 @@
 import { App, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
-import { MilestoneModal } from "./GoalModals";
-import { CrudItemModal } from "../CrudItemModal";
+import { openGoalActionModal, statusLabel } from "./GoalActionModals";
 
 export class MilestoneTimelineSection {
   constructor(
@@ -11,43 +10,32 @@ export class MilestoneTimelineSection {
   ) {}
 
   render(container: HTMLElement): void {
-    const add = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    setIcon(add.createSpan(), "plus");
-    add.createSpan({ text: "新增里程碑" });
-    add.addEventListener("click", () => {
-      new MilestoneModal(this.app, this.store.getGoals(), async (milestone) => {
-        await this.store.addMilestone(milestone);
-        this.onDataChanged();
-      }).open();
-    });
-
-    const timeline = container.createDiv({ cls: "cow-timeline" });
-    this.store.getMilestones().forEach((milestone) => {
-      const item = timeline.createDiv({ cls: "cow-timeline-item priority-medium" });
-      item.createEl("time", { text: milestone.date });
+    const milestones = this.store.getGoalActions().filter((action) => action.isMilestone).sort((left, right) => (left.milestoneDate ?? left.deadline ?? "").localeCompare(right.milestoneDate ?? right.deadline ?? ""));
+    const timeline = container.createDiv({ cls: "cow-goal-timeline" });
+    if (milestones.length === 0) {
+      timeline.createDiv({ cls: "cow-empty-state", text: "还没有里程碑，点击右上角新增里程碑。" });
+    }
+    milestones.forEach((milestone) => {
+      const goal = this.store.getGoals().find((item) => item.id === milestone.goalId);
+      const date = milestone.milestoneDate ?? milestone.deadline ?? "";
+      const item = timeline.createDiv({ cls: `cow-goal-timeline-item is-${milestone.status}` });
+      item.createEl("time", { text: date || "--" });
       item.createEl("strong", { text: milestone.title });
-      item.createSpan({ text: milestone.status });
+      item.createSpan({ text: `${goal?.title ?? "未关联目标"} · ${statusLabel(milestone.status)}` });
       const actions = item.createDiv({ cls: "cow-list-item-actions" });
+      const complete = actions.createEl("button", { attr: { type: "button", "aria-label": "切换完成状态" } });
+      setIcon(complete, milestone.status === "completed" ? "rotate-ccw" : "check");
+      complete.addEventListener("click", async () => {
+        await this.store.toggleGoalActionCompleted(milestone.id);
+        this.onDataChanged();
+      });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑里程碑" } });
       setIcon(edit, "pencil");
-      edit.addEventListener("click", () => {
-        new CrudItemModal(this.app, "编辑里程碑", {
-          title: milestone.title,
-          date: milestone.date,
-          status: milestone.status
-        }, [
-          { key: "title", name: "标题" },
-          { key: "date", name: "日期" },
-          { key: "status", name: "状态", type: "select", options: ["未开始", "进行中", "已完成"].map((value) => ({ value, label: value })) }
-        ], async (values) => {
-          await this.store.updateMilestone(milestone.id, values);
-          this.onDataChanged();
-        }).open();
-      });
+      edit.addEventListener("click", () => openGoalActionModal(this.app, this.store, this.onDataChanged, milestone));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "删除里程碑" } });
       setIcon(remove, "trash-2");
       remove.addEventListener("click", async () => {
-        await this.store.deleteMilestone(milestone.id);
+        await this.store.deleteGoalAction(milestone.id);
         this.onDataChanged();
       });
     });

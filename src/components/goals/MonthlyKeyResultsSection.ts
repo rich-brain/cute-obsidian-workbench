@@ -1,6 +1,5 @@
 import { App, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
-import { KeyResultModal } from "./GoalModals";
 import { CrudItemModal } from "../CrudItemModal";
 
 export class MonthlyKeyResultsSection {
@@ -11,16 +10,6 @@ export class MonthlyKeyResultsSection {
   ) {}
 
   render(container: HTMLElement): void {
-    const add = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    setIcon(add.createSpan(), "plus");
-    add.createSpan({ text: "新增 KR" });
-    add.addEventListener("click", () => {
-      new KeyResultModal(this.app, this.store.getObjectives(), async (kr) => {
-        await this.store.addKeyResult(kr);
-        this.onDataChanged();
-      }).open();
-    });
-
     const list = container.createEl("ul", { cls: "cow-focus-list" });
     this.store.getKeyResults().forEach((kr) => {
       const item = list.createEl("li");

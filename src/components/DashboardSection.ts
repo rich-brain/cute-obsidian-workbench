@@ -3,7 +3,7 @@ import type { DashboardStore } from "../core/DashboardStore";
 import type { DashboardSectionConfig } from "../types/dashboard";
 import { SectionActionMenu } from "./SectionActionMenu";
 import { getSectionCapabilities } from "../core/SectionCapabilities";
-import { openAddContentModal } from "./SectionContentActions";
+import { openAddContentModal, openObjectiveModal } from "./SectionContentActions";
 import { HabitStatisticsModal } from "./overview/HabitStatisticsModal";
 import { MonthlyProgressStatisticsModal } from "./overview/MonthlyProgressStatisticsModal";
 import { ContributionHeatmapSection } from "./overview/ContributionHeatmapSection";
@@ -78,6 +78,18 @@ import { QuarterlyOkrSection } from "./goals/QuarterlyOkrSection";
 import { ReviewChecklistSection } from "./goals/ReviewChecklistSection";
 import { RisksBlockersSection } from "./goals/RisksBlockersSection";
 import { YearlyGoalsSection } from "./goals/YearlyGoalsSection";
+import { KeyResultModal } from "./goals/GoalModals";
+import {
+  AnnualGoalStatisticsModal,
+  GoalBreakdownStatisticsModal,
+  MilestoneStatisticsModal,
+  PriorityStatisticsModal,
+  RiskStatisticsModal,
+  SimpleGoalStatisticsModal,
+  openAnnualGoalModal,
+  openGoalActionModal,
+  openRiskModal
+} from "./goals/GoalActionModals";
 import { HealthRemindersSection } from "./fitness/HealthRemindersSection";
 import { TodayWorkoutSection } from "./fitness/TodayWorkoutSection";
 import { WaterSleepHabitsSection } from "./fitness/WaterSleepHabitsSection";
@@ -179,6 +191,7 @@ export class DashboardSection {
     }
     this.renderFitnessHeaderActions(actions);
     this.renderFinanceHeaderActions(actions);
+    this.renderGoalHeaderActions(actions);
 
     const menuButton = actions.createEl("button", {
       cls: "cow-icon-button",
@@ -255,6 +268,61 @@ export class DashboardSection {
     }
     if (this.section.type === "finance-ledger") {
       addAction("统计", "bar-chart-3", () => new TransactionStatisticsModal(this.app, this.store, this.onDataChanged).open());
+    }
+  }
+
+  private renderGoalHeaderActions(actions: HTMLElement): void {
+    const addAction = (label: string, icon: string, onClick: () => void): void => {
+      const button = actions.createEl("button", {
+        cls: "cow-section-add-button",
+        attr: { type: "button", "aria-label": label }
+      });
+      setIcon(button.createSpan(), icon);
+      button.createSpan({ text: label });
+      button.addEventListener("click", onClick);
+    };
+
+    if (this.section.type === "yearly-goals") {
+      addAction("新增目标", "plus", () => openAnnualGoalModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new AnnualGoalStatisticsModal(this.app, this.store).open());
+    }
+    if (this.section.type === "quarterly-okr") {
+      addAction("新增 OKR", "plus", () => openObjectiveModal(this.app, async (objective) => {
+        await this.store.addObjective({ id: `objective-${Date.now()}`, ...objective });
+        this.onDataChanged();
+      }));
+      addAction("统计", "bar-chart-3", () => new SimpleGoalStatisticsModal(this.app, this.store, "OKR 统计").open());
+    }
+    if (this.section.type === "monthly-key-results") {
+      addAction("新增 KR", "plus", () => {
+        new KeyResultModal(this.app, this.store.getObjectives(), async (kr) => {
+          await this.store.addKeyResult(kr);
+          this.onDataChanged();
+        }).open();
+      });
+      addAction("统计", "bar-chart-3", () => new SimpleGoalStatisticsModal(this.app, this.store, "月度关键结果统计").open());
+    }
+    if (this.section.type === "goal-breakdown") {
+      addAction("新增拆解", "plus", () => openGoalActionModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new GoalBreakdownStatisticsModal(this.app, this.store).open());
+    }
+    if (this.section.type === "milestone-timeline") {
+      addAction("新增里程碑", "plus", () => openGoalActionModal(this.app, this.store, this.onDataChanged, undefined, { isMilestone: true, status: "todo" }));
+      addAction("统计", "bar-chart-3", () => new MilestoneStatisticsModal(this.app, this.store).open());
+    }
+    if (this.section.type === "priority-matrix") {
+      addAction("新增任务", "plus", () => openGoalActionModal(this.app, this.store, this.onDataChanged, undefined, { importance: "important", urgency: "urgent", status: "todo" }));
+      addAction("统计", "bar-chart-3", () => new PriorityStatisticsModal(this.app, this.store).open());
+    }
+    if (this.section.type === "goals-checkin") {
+      addAction("统计", "bar-chart-3", () => new SimpleGoalStatisticsModal(this.app, this.store, "本周目标打卡统计").open());
+    }
+    if (this.section.type === "risks-blockers") {
+      addAction("新增风险", "plus", () => openRiskModal(this.app, this.store, this.onDataChanged));
+      addAction("统计", "bar-chart-3", () => new RiskStatisticsModal(this.app, this.store).open());
+    }
+    if (this.section.type === "long-term-progress") {
+      addAction("统计", "bar-chart-3", () => new SimpleGoalStatisticsModal(this.app, this.store, "长期进展统计").open());
     }
   }
 
@@ -429,7 +497,7 @@ export class DashboardSection {
         new MonthlyKeyResultsSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "goal-breakdown":
-        new GoalBreakdownSection(this.store).render(container);
+        new GoalBreakdownSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "milestone-timeline":
         new MilestoneTimelineSection(this.app, this.store, this.onDataChanged).render(container);

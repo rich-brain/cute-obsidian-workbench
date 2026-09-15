@@ -1,6 +1,6 @@
 import { App, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
-import { GoalEditorModal } from "./GoalModals";
+import { openAnnualGoalModal } from "./GoalActionModals";
 
 export class YearlyGoalsSection {
   constructor(
@@ -10,29 +10,16 @@ export class YearlyGoalsSection {
   ) {}
 
   render(container: HTMLElement): void {
-    const add = container.createEl("button", { cls: "cow-small-action", attr: { type: "button" } });
-    setIcon(add.createSpan(), "plus");
-    add.createSpan({ text: "新增目标" });
-    add.addEventListener("click", () => {
-      new GoalEditorModal(this.app, undefined, async (goal) => {
-        await this.store.addGoal(goal);
-        this.onDataChanged();
-      }).open();
-    });
-
     const list = container.createDiv({ cls: "cow-data-list" });
     this.store.getGoals().forEach((goal) => {
+      const actions = this.store.getGoalActionsForGoal(goal.id);
+      const milestones = actions.filter((action) => action.isMilestone);
       const row = list.createDiv({ cls: "cow-data-card" });
       const title = row.createDiv({ cls: "cow-inline-title" });
       title.createEl("strong", { text: goal.title });
       const edit = title.createEl("button", { attr: { type: "button", "aria-label": "修改目标" } });
       setIcon(edit, "pencil");
-      edit.addEventListener("click", () => {
-        new GoalEditorModal(this.app, goal, async (updated) => {
-          await this.store.updateGoal(goal.id, updated);
-          this.onDataChanged();
-        }).open();
-      });
+      edit.addEventListener("click", () => openAnnualGoalModal(this.app, this.store, this.onDataChanged, goal));
       const remove = title.createEl("button", { attr: { type: "button", "aria-label": "删除目标" } });
       setIcon(remove, "trash-2");
       remove.addEventListener("click", async () => {
@@ -42,7 +29,7 @@ export class YearlyGoalsSection {
       row.createEl("p", { text: goal.description });
       const meta = row.createDiv({ cls: "cow-meta-line" });
       meta.createSpan({ cls: "cow-status is-green", text: goal.status });
-      meta.createSpan({ text: `${goal.category} · ${goal.deadline}` });
+      meta.createSpan({ text: `${goal.category} · ${goal.deadline} · 拆解 ${actions.length} · 里程碑 ${milestones.filter((item) => item.status === "completed").length}/${milestones.length}` });
       const input = row.createEl("input", {
         type: "range",
         value: String(goal.progress),

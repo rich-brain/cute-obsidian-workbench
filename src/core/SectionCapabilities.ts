@@ -19,11 +19,6 @@ const ADDABLE_SECTION_TYPES = new Set([
   "account-overview",
   "saving-goals",
   "bill-reminders",
-  "yearly-goals",
-  "quarterly-okr",
-  "monthly-key-results",
-  "milestone-timeline",
-  "risks-blockers",
   "today-focus"
 ]);
 
