@@ -89,7 +89,7 @@ export class AllBooksModal extends Modal {
     const row = container.createDiv({ cls: "cow-all-book-row" });
     const cover = row.createDiv({ cls: "cow-book-result-cover" });
     const src = this.getCoverSrc(book);
-    if (src) cover.createEl("img", { attr: { src, alt: book.title } });
+    if (src) this.renderCoverImage(cover, src, book.title);
     else cover.createSpan({ text: book.title.slice(0, 2) });
     const body = row.createDiv({ cls: "cow-all-book-body" });
     body.createEl("strong", { text: book.title });
@@ -166,6 +166,14 @@ export class AllBooksModal extends Modal {
   private getCoverSrc(book: BookItem): string | undefined {
     if (book.coverPath) return this.app.vault.adapter.getResourcePath(book.coverPath);
     return book.cover ?? book.coverUrl;
+  }
+
+  private renderCoverImage(container: HTMLElement, src: string, title: string): void {
+    const img = container.createEl("img", { attr: { src, alt: title } });
+    img.addEventListener("error", () => {
+      container.empty();
+      container.createSpan({ text: title.slice(0, 2) });
+    });
   }
 
   private statusLabel(book: BookItem): string {

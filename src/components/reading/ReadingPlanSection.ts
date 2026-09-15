@@ -33,7 +33,7 @@ export class ReadingPlanSection {
 
     const cover = card.createDiv({ cls: "cow-reading-plan-cover" });
     const src = book ? this.getCoverSrc(book) : undefined;
-    if (src) cover.createEl("img", { attr: { src, alt: book?.title ?? "阅读计划" } });
+    if (src) this.renderCoverImage(cover, src, book?.title ?? "阅读计划");
     else cover.createSpan({ text: (book?.title ?? "计划").slice(0, 2) });
 
     const body = card.createDiv({ cls: "cow-reading-plan-body" });
@@ -96,6 +96,14 @@ export class ReadingPlanSection {
   private getCoverSrc(book: BookItem): string | undefined {
     if (book.coverPath) return this.app.vault.adapter.getResourcePath(book.coverPath);
     return book.cover ?? book.coverUrl;
+  }
+
+  private renderCoverImage(container: HTMLElement, src: string, title: string): void {
+    const img = container.createEl("img", { attr: { src, alt: title } });
+    img.addEventListener("error", () => {
+      container.empty();
+      container.createSpan({ text: title.slice(0, 2) });
+    });
   }
 
   private iconButton(container: HTMLElement, icon: string, label: string, onClick: () => void): void {

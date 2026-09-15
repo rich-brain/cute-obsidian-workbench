@@ -12,6 +12,8 @@ export interface ResizableModalOptions {
 
 export function applyResizableModal(modal: Modal, options: ResizableModalOptions): void {
   modal.modalEl.addClass("cute-resizable-modal", options.className);
+  modal.modalEl.style.resize = "both";
+  modal.modalEl.style.overflow = "hidden";
   modal.modalEl.style.width = options.width;
   if (options.height) {
     modal.modalEl.style.height = options.height;
@@ -27,4 +29,3 @@ export function applyResizableModal(modal: Modal, options: ResizableModalOptions
     modal.modalEl.style.minHeight = options.minHeight;
   }
 }
-

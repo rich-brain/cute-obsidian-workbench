@@ -111,6 +111,8 @@ export interface BookItem {
   finishDate?: string;
   notePath?: string;
   bookFilePath?: string;
+  createdAt?: string;
+  updatedAt?: string;
   tags: string[];
 }
 

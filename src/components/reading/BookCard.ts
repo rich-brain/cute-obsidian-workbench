@@ -16,7 +16,7 @@ export class BookCard {
     const cover = card.createDiv({ cls: "cow-book-cover" });
     const coverSrc = this.getCoverSrc();
     if (coverSrc) {
-      cover.createEl("img", { attr: { src: coverSrc, alt: this.book.title } });
+      this.renderCoverImage(cover, coverSrc, this.book.title);
     } else {
       cover.createSpan({ text: this.book.title.slice(0, 2) });
     }
@@ -125,6 +125,14 @@ export class BookCard {
   private getCoverSrc(): string | undefined {
     if (this.book.coverPath) return this.app.vault.adapter.getResourcePath(this.book.coverPath);
     return this.book.cover ?? this.book.coverUrl;
+  }
+
+  private renderCoverImage(container: HTMLElement, src: string, title: string): void {
+    const img = container.createEl("img", { attr: { src, alt: title } });
+    img.addEventListener("error", () => {
+      container.empty();
+      container.createSpan({ text: title.slice(0, 2) });
+    });
   }
 
   private statusLabel(): string {

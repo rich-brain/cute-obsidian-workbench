@@ -84,6 +84,7 @@ export class AddBookModal extends Modal {
   }
 
   private renderSearchTab(container: HTMLElement): void {
+    const panel = container.createDiv({ cls: "cow-book-search-panel" });
     const search = container.createDiv({ cls: "cow-book-search" });
     const input = search.createEl("input", { attr: { type: "search", placeholder: "输入书名、作者或 ISBN" } });
     input.value = [this.draft.title, this.draft.author].filter(Boolean).join(" ");
@@ -96,20 +97,29 @@ export class AddBookModal extends Modal {
     });
     const results = container.createDiv({ cls: "cow-book-search-results" });
     this.searchResults.forEach((result) => this.renderSearchResult(results, result));
+    panel.appendChild(search);
+    panel.appendChild(results);
   }
 
   private renderSearchResult(container: HTMLElement, result: BookSearchResult): void {
-    const item = container.createEl("button", { cls: "cow-book-search-result", attr: { type: "button" } });
+    const item = container.createDiv({ cls: "cow-book-search-result" });
     const cover = item.createDiv({ cls: "cow-book-result-cover" });
-    if (result.coverUrl) cover.createEl("img", { attr: { src: result.coverUrl, alt: result.title } });
+    if (result.coverUrl) this.renderCoverImage(cover, result.coverUrl, result.title);
     else cover.createSpan({ text: result.title.slice(0, 2) });
     const body = item.createDiv({ cls: "cow-book-result-body" });
     body.createEl("strong", { text: result.title });
     body.createSpan({ text: [result.author, result.publisher, result.publishDate].filter(Boolean).join(" · ") || "未知作者" });
     body.createSpan({ text: [`ISBN ${result.isbn13 ?? result.isbn10 ?? "--"}`, result.totalPages ? `${result.totalPages} 页` : ""].filter(Boolean).join(" · ") });
-    item.addEventListener("click", () => {
-      this.draft = { ...this.draft, ...result, author: result.author || this.draft.author, totalPages: result.totalPages ?? this.draft.totalPages ?? 200 };
-      new Notice("已填入书籍元数据，可继续修改。");
+    const select = item.createEl("button", { text: "选择", attr: { type: "button" } });
+    select.addEventListener("click", () => {
+      this.draft = {
+        ...this.draft,
+        ...result,
+        author: result.author || this.draft.author,
+        totalPages: result.totalPages ?? this.draft.totalPages ?? 200,
+        bookFilePath: this.draft.bookFilePath
+      };
+      new Notice("已填入书籍元数据。搜索结果不包含全文，请按需关联本地电子书。");
       this.activeTab = "manual";
       this.render();
     });
@@ -135,7 +145,7 @@ export class AddBookModal extends Modal {
     const form = container.createDiv({ cls: "cow-book-form" });
     const cover = form.createDiv({ cls: "cow-book-form-cover" });
     const coverSrc = this.draft.coverPath ? this.app.vault.adapter.getResourcePath(this.draft.coverPath) : this.draft.coverUrl ?? this.draft.cover;
-    if (coverSrc) cover.createEl("img", { attr: { src: coverSrc, alt: this.draft.title || "封面" } });
+    if (coverSrc) this.renderCoverImage(cover, coverSrc, this.draft.title || "封面");
     else cover.createSpan({ text: (this.draft.title || "书").slice(0, 2) });
     const coverInput = cover.createEl("input", { attr: { type: "file", accept: "image/*" } });
     coverInput.addEventListener("change", async () => {
@@ -159,6 +169,7 @@ export class AddBookModal extends Modal {
     this.bindInput(this.textField(fields, "分类", this.draft.category ?? ""), (value) => this.draft.category = value);
     this.renderDateField(fields, "开始阅读日期", "startDate");
     this.renderDateField(fields, "结束阅读日期", "finishDate");
+    this.renderBookFileField(fields);
     this.renderSelect(fields, "阅读状态", this.draft.readingStatus ?? "want-to-read", [
       { value: "want-to-read", label: "想读" },
       { value: "reading", label: "在读" },
@@ -181,6 +192,22 @@ export class AddBookModal extends Modal {
     this.bindInput(this.textareaField(fields, "简介", this.draft.description ?? ""), (value) => this.draft.description = value);
   }
 
+  private renderBookFileField(container: HTMLElement): void {
+    const row = container.createDiv({ cls: "cow-book-form-row cow-book-file-field" });
+    row.createEl("label", { text: "书籍文件" });
+    row.createSpan({ text: this.draft.bookFilePath ?? "未关联书籍文件。搜索导入只会导入元数据；如需阅读全文，请选择本地 PDF / EPUB 文件。" });
+    const input = row.createEl("input", { attr: { type: "file", accept: ".pdf,.epub,.fb2,.mobi,.azw3,application/pdf" } });
+    input.addEventListener("change", async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const path = await this.copyBookFile(file);
+      if (!path) return;
+      this.draft.bookFilePath = path;
+      if (!this.draft.title) this.draft.title = file.name.replace(/\.[^.]+$/, "");
+      this.render();
+    });
+  }
+
   private renderActions(): void {
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
@@ -190,6 +217,10 @@ export class AddBookModal extends Modal {
   private async saveBook(): Promise<void> {
     if (!this.draft.title.trim()) {
       new Notice("请输入书名。");
+      return;
+    }
+    if (this.draft.bookFilePath && !await this.verifyVaultFile(this.draft.bookFilePath)) {
+      new Notice(`书籍文件导入失败：${this.draft.bookFilePath} 不存在。已取消创建记录。`);
       return;
     }
     const book = await this.prepareBook();
@@ -217,6 +248,8 @@ export class AddBookModal extends Modal {
       readingStatus,
       shelfStatus: this.draft.shelfStatus ?? "on-shelf",
       notePath,
+      createdAt: this.book?.createdAt ?? new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       tags: this.draft.tags ?? []
     };
   }
@@ -277,6 +310,10 @@ export class AddBookModal extends Modal {
     const target = await this.resolveConflict(`Books/Files/${this.safeName(file.name)}`);
     if (!target) return undefined;
     await this.app.vault.adapter.writeBinary(target, await file.arrayBuffer());
+    if (!await this.verifyVaultFile(target)) {
+      new Notice("书籍文件写入失败，没有创建书籍记录。");
+      return undefined;
+    }
     return target;
   }
 
@@ -285,6 +322,17 @@ export class AddBookModal extends Modal {
     const target = await this.uniquePath(`Books/Covers/${this.safeName(file.name)}`);
     await this.app.vault.adapter.writeBinary(target, await file.arrayBuffer());
     return target;
+  }
+
+  private async verifyVaultFile(path: string): Promise<boolean> {
+    if (!path) return false;
+    if (!await this.app.vault.adapter.exists(path)) return false;
+    try {
+      const stat = await this.app.vault.adapter.stat(path);
+      return !stat || stat.size > 0;
+    } catch {
+      return true;
+    }
   }
 
   private async downloadCover(url: string, title: string): Promise<string | undefined> {
@@ -415,6 +463,14 @@ export class AddBookModal extends Modal {
     return `"${value.replace(/"/g, '\\"')}"`;
   }
 
+  private renderCoverImage(container: HTMLElement, src: string, title: string): void {
+    const img = container.createEl("img", { attr: { src, alt: title } });
+    img.addEventListener("error", () => {
+      container.empty();
+      container.createSpan({ text: title.slice(0, 2) });
+    });
+  }
+
   private today(): string {
     return new Date().toISOString().slice(0, 10);
   }
@@ -426,6 +482,14 @@ class FileConflictModal extends Modal {
   }
 
   onOpen(): void {
+    applyResizableModal(this, {
+      className: "cute-file-conflict-modal",
+      width: "min(520px, 90vw)",
+      maxWidth: "96vw",
+      maxHeight: "80vh",
+      minWidth: "min(360px, 90vw)",
+      minHeight: "min(220px, 70vh)"
+    });
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     this.contentEl.createEl("h2", { text: "文件已存在" });

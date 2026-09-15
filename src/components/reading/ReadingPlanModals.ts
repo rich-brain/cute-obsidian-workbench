@@ -102,7 +102,7 @@ class ReadingPlanModal extends Modal {
       });
       const cover = row.createDiv({ cls: "cow-reading-plan-book-cover" });
       const src = this.getCoverSrc(book);
-      if (src) cover.createEl("img", { attr: { src, alt: book.title } });
+      if (src) renderCoverImage(cover, src, book.title);
       else cover.createSpan({ text: book.title.slice(0, 2) });
       const body = row.createDiv({ cls: "cow-reading-plan-book-meta" });
       body.createEl("strong", { text: book.title });
@@ -427,4 +427,12 @@ function bookStatusLabel(book: BookItem): string {
   if (book.readingStatus === "reading") return "在读";
   if (book.readingStatus === "finished") return "已读";
   return "想读";
+}
+
+function renderCoverImage(container: HTMLElement, src: string, title: string): void {
+  const img = container.createEl("img", { attr: { src, alt: title } });
+  img.addEventListener("error", () => {
+    container.empty();
+    container.createSpan({ text: title.slice(0, 2) });
+  });
 }

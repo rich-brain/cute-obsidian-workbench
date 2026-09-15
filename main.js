@@ -133,7 +133,7 @@ function todayKey() {
   return formatDateKey(/* @__PURE__ */ new Date());
 }
 var DEFAULT_DATA = {
-  dataVersion: "0.3.8",
+  dataVersion: "0.3.9",
   currentPage: "overview",
   sections: [
     {
@@ -2313,7 +2313,7 @@ var DashboardStore = class {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.8",
+      dataVersion: "0.3.9",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2490,24 +2490,27 @@ var DashboardStore = class {
     };
   }
   normalizeBook(book) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
     const readingStatus = (_a = book.readingStatus) != null ? _a : this.readingStatusFromLegacy(book.status);
+    const timestamp = (_b = book.createdAt) != null ? _b : nowIso();
     const normalized = {
       ...book,
-      id: (_b = book.id) != null ? _b : `book-${Date.now()}`,
+      id: (_c = book.id) != null ? _c : `book-${Date.now()}`,
       title: book.title || "\u672A\u547D\u540D\u4E66\u7C4D",
       author: book.author || "\u672A\u77E5\u4F5C\u8005",
       totalPages: Math.max(1, Number(book.totalPages) || 1),
       currentPage: Math.max(0, Math.min(Number(book.currentPage) || 0, Math.max(1, Number(book.totalPages) || 1))),
       status: this.legacyBookStatus(readingStatus),
       readingStatus,
-      shelfStatus: (_c = book.shelfStatus) != null ? _c : "on-shelf",
-      coverPath: book.coverPath,
-      coverUrl: (_d = book.coverUrl) != null ? _d : book.cover,
-      bookFilePath: book.bookFilePath,
-      notePath: book.notePath,
+      shelfStatus: (_d = book.shelfStatus) != null ? _d : "on-shelf",
+      coverPath: typeof book.coverPath === "string" && book.coverPath.length > 0 ? book.coverPath : void 0,
+      coverUrl: typeof ((_e = book.coverUrl) != null ? _e : book.cover) === "string" && ((_g = (_f = book.coverUrl) != null ? _f : book.cover) == null ? void 0 : _g.length) ? (_h = book.coverUrl) != null ? _h : book.cover : void 0,
+      bookFilePath: typeof book.bookFilePath === "string" && book.bookFilePath.length > 0 ? book.bookFilePath : void 0,
+      notePath: typeof book.notePath === "string" && book.notePath.length > 0 ? book.notePath : void 0,
       startDate: book.startDate,
       finishDate: readingStatus === "finished" ? book.finishDate : book.finishDate,
+      createdAt: timestamp,
+      updatedAt: (_i = book.updatedAt) != null ? _i : timestamp,
       tags: Array.isArray(book.tags) ? book.tags : []
     };
     if (normalized.readingStatus === "reading") normalized.startDate = normalized.startDate || formatDateKey(/* @__PURE__ */ new Date());
@@ -3479,6 +3482,8 @@ var import_obsidian8 = require("obsidian");
 // src/components/ResizableModal.ts
 function applyResizableModal(modal, options) {
   modal.modalEl.addClass("cute-resizable-modal", options.className);
+  modal.modalEl.style.resize = "both";
+  modal.modalEl.style.overflow = "hidden";
   modal.modalEl.style.width = options.width;
   if (options.height) {
     modal.modalEl.style.height = options.height;
@@ -3554,6 +3559,7 @@ var AddBookModal = class extends import_obsidian8.Modal {
     });
   }
   renderSearchTab(container) {
+    const panel = container.createDiv({ cls: "cow-book-search-panel" });
     const search = container.createDiv({ cls: "cow-book-search" });
     const input = search.createEl("input", { attr: { type: "search", placeholder: "\u8F93\u5165\u4E66\u540D\u3001\u4F5C\u8005\u6216 ISBN" } });
     input.value = [this.draft.title, this.draft.author].filter(Boolean).join(" ");
@@ -3566,21 +3572,30 @@ var AddBookModal = class extends import_obsidian8.Modal {
     });
     const results = container.createDiv({ cls: "cow-book-search-results" });
     this.searchResults.forEach((result) => this.renderSearchResult(results, result));
+    panel.appendChild(search);
+    panel.appendChild(results);
   }
   renderSearchResult(container, result) {
     var _a, _b;
-    const item = container.createEl("button", { cls: "cow-book-search-result", attr: { type: "button" } });
+    const item = container.createDiv({ cls: "cow-book-search-result" });
     const cover = item.createDiv({ cls: "cow-book-result-cover" });
-    if (result.coverUrl) cover.createEl("img", { attr: { src: result.coverUrl, alt: result.title } });
+    if (result.coverUrl) this.renderCoverImage(cover, result.coverUrl, result.title);
     else cover.createSpan({ text: result.title.slice(0, 2) });
     const body = item.createDiv({ cls: "cow-book-result-body" });
     body.createEl("strong", { text: result.title });
     body.createSpan({ text: [result.author, result.publisher, result.publishDate].filter(Boolean).join(" \xB7 ") || "\u672A\u77E5\u4F5C\u8005" });
     body.createSpan({ text: [`ISBN ${(_b = (_a = result.isbn13) != null ? _a : result.isbn10) != null ? _b : "--"}`, result.totalPages ? `${result.totalPages} \u9875` : ""].filter(Boolean).join(" \xB7 ") });
-    item.addEventListener("click", () => {
+    const select = item.createEl("button", { text: "\u9009\u62E9", attr: { type: "button" } });
+    select.addEventListener("click", () => {
       var _a2, _b2;
-      this.draft = { ...this.draft, ...result, author: result.author || this.draft.author, totalPages: (_b2 = (_a2 = result.totalPages) != null ? _a2 : this.draft.totalPages) != null ? _b2 : 200 };
-      new import_obsidian8.Notice("\u5DF2\u586B\u5165\u4E66\u7C4D\u5143\u6570\u636E\uFF0C\u53EF\u7EE7\u7EED\u4FEE\u6539\u3002");
+      this.draft = {
+        ...this.draft,
+        ...result,
+        author: result.author || this.draft.author,
+        totalPages: (_b2 = (_a2 = result.totalPages) != null ? _a2 : this.draft.totalPages) != null ? _b2 : 200,
+        bookFilePath: this.draft.bookFilePath
+      };
+      new import_obsidian8.Notice("\u5DF2\u586B\u5165\u4E66\u7C4D\u5143\u6570\u636E\u3002\u641C\u7D22\u7ED3\u679C\u4E0D\u5305\u542B\u5168\u6587\uFF0C\u8BF7\u6309\u9700\u5173\u8054\u672C\u5730\u7535\u5B50\u4E66\u3002");
       this.activeTab = "manual";
       this.render();
     });
@@ -3606,7 +3621,7 @@ var AddBookModal = class extends import_obsidian8.Modal {
     const form = container.createDiv({ cls: "cow-book-form" });
     const cover = form.createDiv({ cls: "cow-book-form-cover" });
     const coverSrc = this.draft.coverPath ? this.app.vault.adapter.getResourcePath(this.draft.coverPath) : (_a = this.draft.coverUrl) != null ? _a : this.draft.cover;
-    if (coverSrc) cover.createEl("img", { attr: { src: coverSrc, alt: this.draft.title || "\u5C01\u9762" } });
+    if (coverSrc) this.renderCoverImage(cover, coverSrc, this.draft.title || "\u5C01\u9762");
     else cover.createSpan({ text: (this.draft.title || "\u4E66").slice(0, 2) });
     const coverInput = cover.createEl("input", { attr: { type: "file", accept: "image/*" } });
     coverInput.addEventListener("change", async () => {
@@ -3630,6 +3645,7 @@ var AddBookModal = class extends import_obsidian8.Modal {
     this.bindInput(this.textField(fields, "\u5206\u7C7B", (_h = this.draft.category) != null ? _h : ""), (value) => this.draft.category = value);
     this.renderDateField(fields, "\u5F00\u59CB\u9605\u8BFB\u65E5\u671F", "startDate");
     this.renderDateField(fields, "\u7ED3\u675F\u9605\u8BFB\u65E5\u671F", "finishDate");
+    this.renderBookFileField(fields);
     this.renderSelect(fields, "\u9605\u8BFB\u72B6\u6001", (_i = this.draft.readingStatus) != null ? _i : "want-to-read", [
       { value: "want-to-read", label: "\u60F3\u8BFB" },
       { value: "reading", label: "\u5728\u8BFB" },
@@ -3652,6 +3668,23 @@ var AddBookModal = class extends import_obsidian8.Modal {
     this.bindInput(this.textField(fields, "\u6807\u7B7E", ((_k = this.draft.tags) != null ? _k : []).join(", ")), (value) => this.draft.tags = value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean));
     this.bindInput(this.textareaField(fields, "\u7B80\u4ECB", (_l = this.draft.description) != null ? _l : ""), (value) => this.draft.description = value);
   }
+  renderBookFileField(container) {
+    var _a;
+    const row = container.createDiv({ cls: "cow-book-form-row cow-book-file-field" });
+    row.createEl("label", { text: "\u4E66\u7C4D\u6587\u4EF6" });
+    row.createSpan({ text: (_a = this.draft.bookFilePath) != null ? _a : "\u672A\u5173\u8054\u4E66\u7C4D\u6587\u4EF6\u3002\u641C\u7D22\u5BFC\u5165\u53EA\u4F1A\u5BFC\u5165\u5143\u6570\u636E\uFF1B\u5982\u9700\u9605\u8BFB\u5168\u6587\uFF0C\u8BF7\u9009\u62E9\u672C\u5730 PDF / EPUB \u6587\u4EF6\u3002" });
+    const input = row.createEl("input", { attr: { type: "file", accept: ".pdf,.epub,.fb2,.mobi,.azw3,application/pdf" } });
+    input.addEventListener("change", async () => {
+      var _a2;
+      const file = (_a2 = input.files) == null ? void 0 : _a2[0];
+      if (!file) return;
+      const path = await this.copyBookFile(file);
+      if (!path) return;
+      this.draft.bookFilePath = path;
+      if (!this.draft.title) this.draft.title = file.name.replace(/\.[^.]+$/, "");
+      this.render();
+    });
+  }
   renderActions() {
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
@@ -3662,6 +3695,10 @@ var AddBookModal = class extends import_obsidian8.Modal {
       new import_obsidian8.Notice("\u8BF7\u8F93\u5165\u4E66\u540D\u3002");
       return;
     }
+    if (this.draft.bookFilePath && !await this.verifyVaultFile(this.draft.bookFilePath)) {
+      new import_obsidian8.Notice(`\u4E66\u7C4D\u6587\u4EF6\u5BFC\u5165\u5931\u8D25\uFF1A${this.draft.bookFilePath} \u4E0D\u5B58\u5728\u3002\u5DF2\u53D6\u6D88\u521B\u5EFA\u8BB0\u5F55\u3002`);
+      return;
+    }
     const book = await this.prepareBook();
     if (this.book) await this.store.updateBook(this.book.id, book);
     else await this.store.addBook(book);
@@ -3669,7 +3706,7 @@ var AddBookModal = class extends import_obsidian8.Modal {
     this.close();
   }
   async prepareBook() {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f, _g;
     const readingStatus = (_a = this.draft.readingStatus) != null ? _a : "want-to-read";
     if (this.draft.coverUrl && !this.draft.coverPath) {
       this.draft.coverPath = await this.downloadCover(this.draft.coverUrl, this.draft.title);
@@ -3687,7 +3724,9 @@ var AddBookModal = class extends import_obsidian8.Modal {
       readingStatus,
       shelfStatus: (_d = this.draft.shelfStatus) != null ? _d : "on-shelf",
       notePath,
-      tags: (_e = this.draft.tags) != null ? _e : []
+      createdAt: (_f = (_e = this.book) == null ? void 0 : _e.createdAt) != null ? _f : (/* @__PURE__ */ new Date()).toISOString(),
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      tags: (_g = this.draft.tags) != null ? _g : []
     };
   }
   async searchBooks(query) {
@@ -3750,6 +3789,10 @@ var AddBookModal = class extends import_obsidian8.Modal {
     const target = await this.resolveConflict(`Books/Files/${this.safeName(file.name)}`);
     if (!target) return void 0;
     await this.app.vault.adapter.writeBinary(target, await file.arrayBuffer());
+    if (!await this.verifyVaultFile(target)) {
+      new import_obsidian8.Notice("\u4E66\u7C4D\u6587\u4EF6\u5199\u5165\u5931\u8D25\uFF0C\u6CA1\u6709\u521B\u5EFA\u4E66\u7C4D\u8BB0\u5F55\u3002");
+      return void 0;
+    }
     return target;
   }
   async copyCoverFile(file) {
@@ -3757,6 +3800,16 @@ var AddBookModal = class extends import_obsidian8.Modal {
     const target = await this.uniquePath(`Books/Covers/${this.safeName(file.name)}`);
     await this.app.vault.adapter.writeBinary(target, await file.arrayBuffer());
     return target;
+  }
+  async verifyVaultFile(path) {
+    if (!path) return false;
+    if (!await this.app.vault.adapter.exists(path)) return false;
+    try {
+      const stat = await this.app.vault.adapter.stat(path);
+      return !stat || stat.size > 0;
+    } catch (e) {
+      return true;
+    }
   }
   async downloadCover(url, title) {
     var _a;
@@ -3878,6 +3931,13 @@ var AddBookModal = class extends import_obsidian8.Modal {
   escapeYaml(value) {
     return `"${value.replace(/"/g, '\\"')}"`;
   }
+  renderCoverImage(container, src, title) {
+    const img = container.createEl("img", { attr: { src, alt: title } });
+    img.addEventListener("error", () => {
+      container.empty();
+      container.createSpan({ text: title.slice(0, 2) });
+    });
+  }
   today() {
     return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
   }
@@ -3889,6 +3949,14 @@ var FileConflictModal = class extends import_obsidian8.Modal {
     this.resolve = resolve;
   }
   onOpen() {
+    applyResizableModal(this, {
+      className: "cute-file-conflict-modal",
+      width: "min(520px, 90vw)",
+      maxWidth: "96vw",
+      maxHeight: "80vh",
+      minWidth: "min(360px, 90vw)",
+      minHeight: "min(220px, 70vh)"
+    });
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     this.contentEl.createEl("h2", { text: "\u6587\u4EF6\u5DF2\u5B58\u5728" });
@@ -10807,7 +10875,7 @@ var AllBooksModal = class extends import_obsidian54.Modal {
     const row = container.createDiv({ cls: "cow-all-book-row" });
     const cover = row.createDiv({ cls: "cow-book-result-cover" });
     const src = this.getCoverSrc(book);
-    if (src) cover.createEl("img", { attr: { src, alt: book.title } });
+    if (src) this.renderCoverImage(cover, src, book.title);
     else cover.createSpan({ text: book.title.slice(0, 2) });
     const body = row.createDiv({ cls: "cow-all-book-body" });
     body.createEl("strong", { text: book.title });
@@ -10880,6 +10948,13 @@ var AllBooksModal = class extends import_obsidian54.Modal {
     if (book.coverPath) return this.app.vault.adapter.getResourcePath(book.coverPath);
     return (_a = book.cover) != null ? _a : book.coverUrl;
   }
+  renderCoverImage(container, src, title) {
+    const img = container.createEl("img", { attr: { src, alt: title } });
+    img.addEventListener("error", () => {
+      container.empty();
+      container.createSpan({ text: title.slice(0, 2) });
+    });
+  }
   statusLabel(book) {
     if (book.readingStatus === "reading") return "\u5728\u8BFB";
     if (book.readingStatus === "finished") return "\u5DF2\u8BFB";
@@ -10935,7 +11010,7 @@ var BookCard = class {
     const cover = card.createDiv({ cls: "cow-book-cover" });
     const coverSrc = this.getCoverSrc();
     if (coverSrc) {
-      cover.createEl("img", { attr: { src: coverSrc, alt: this.book.title } });
+      this.renderCoverImage(cover, coverSrc, this.book.title);
     } else {
       cover.createSpan({ text: this.book.title.slice(0, 2) });
     }
@@ -11036,6 +11111,13 @@ var BookCard = class {
     var _a;
     if (this.book.coverPath) return this.app.vault.adapter.getResourcePath(this.book.coverPath);
     return (_a = this.book.cover) != null ? _a : this.book.coverUrl;
+  }
+  renderCoverImage(container, src, title) {
+    const img = container.createEl("img", { attr: { src, alt: title } });
+    img.addEventListener("error", () => {
+      container.empty();
+      container.createSpan({ text: title.slice(0, 2) });
+    });
   }
   statusLabel() {
     if (this.book.readingStatus === "reading") return "\u5728\u8BFB";
@@ -11139,8 +11221,21 @@ var ReadingNotesSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    const list = container.createDiv({ cls: "cow-data-list" });
-    this.store.getBooks().forEach((book) => {
+    const list = container.createDiv({ cls: "cow-data-list cow-reading-note-list" });
+    const booksWithNotes = this.store.getBooks().filter((book) => {
+      if (!book.notePath) return false;
+      const file = this.app.vault.getFileByPath(book.notePath);
+      if (!file) {
+        void this.clearMissingNote(book);
+        return false;
+      }
+      return true;
+    });
+    if (booksWithNotes.length === 0) {
+      list.createDiv({ cls: "cow-empty-state", text: "\u6682\u65E0\u5DF2\u7ED1\u5B9A\u7684\u9605\u8BFB\u7B14\u8BB0\u3002" });
+      return;
+    }
+    booksWithNotes.forEach((book) => {
       var _a;
       const button = list.createEl("button", { cls: "cow-data-card cow-click-card", attr: { type: "button" } });
       const head = button.createDiv({ cls: "cow-list-item-head" });
@@ -11156,16 +11251,19 @@ var ReadingNotesSection = class {
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u9605\u8BFB\u7B14\u8BB0" } });
       (0, import_obsidian58.setIcon)(remove, "trash-2");
-      remove.addEventListener("click", async (event) => {
+      remove.addEventListener("click", (event) => {
         event.stopPropagation();
-        if (!book.notePath) return;
-        if (!confirm(`\u89E3\u7ED1\u300A${book.title}\u300B\u7684\u9605\u8BFB\u7B14\u8BB0\uFF1F\u4E0D\u4F1A\u5220\u9664 Markdown \u6587\u4EF6\u3002`)) return;
-        await this.store.updateBook(book.id, { notePath: void 0 });
-        this.onDataChanged();
+        new ReadingNoteDeleteModal(this.app, this.store, book, () => {
+          this.onDataChanged();
+        }).open();
       });
-      button.createDiv({ cls: "cow-meta-line" }).createSpan({ text: (_a = book.notePath) != null ? _a : "\u672A\u7ED1\u5B9A\u9605\u8BFB\u7B14\u8BB0" });
+      button.createDiv({ cls: "cow-meta-line" }).createSpan({ text: (_a = book.notePath) != null ? _a : "" });
       button.addEventListener("click", () => void this.openNote(book));
     });
+  }
+  async clearMissingNote(book) {
+    await this.store.updateBook(book.id, { notePath: void 0 });
+    this.onDataChanged();
   }
   async openNote(book) {
     if (!book.notePath) {
@@ -11173,7 +11271,56 @@ var ReadingNotesSection = class {
       return;
     }
     const file = this.app.vault.getFileByPath(book.notePath);
-    if (file) await this.app.workspace.getLeaf(false).openFile(file);
+    if (!file) {
+      await this.clearMissingNote(book);
+      new import_obsidian58.Notice("\u9605\u8BFB\u7B14\u8BB0\u6587\u4EF6\u4E0D\u5B58\u5728\uFF0C\u5DF2\u6E05\u7406\u65E0\u6548\u5173\u8054\u3002");
+      return;
+    }
+    await this.app.workspace.getLeaf(false).openFile(file);
+  }
+};
+var ReadingNoteDeleteModal = class extends import_obsidian58.Modal {
+  constructor(app, store, book, onDone) {
+    super(app);
+    this.store = store;
+    this.book = book;
+    this.onDone = onDone;
+  }
+  onOpen() {
+    var _a;
+    applyResizableModal(this, {
+      className: "cute-reading-note-delete-modal",
+      width: "min(560px, 90vw)",
+      maxWidth: "96vw",
+      maxHeight: "82vh",
+      minWidth: "min(380px, 90vw)",
+      minHeight: "min(260px, 72vh)"
+    });
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-reading-note-delete-modal-content");
+    this.contentEl.createEl("h2", { text: "\u5904\u7406\u9605\u8BFB\u7B14\u8BB0" });
+    this.contentEl.createEl("p", { text: `\u300A${this.book.title}\u300B\u7ED1\u5B9A\u7684\u7B14\u8BB0\uFF1A${(_a = this.book.notePath) != null ? _a : "\u65E0"}` });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "\u4EC5\u4ECE\u5217\u8868\u79FB\u9664", attr: { type: "button" } }).addEventListener("click", () => void this.unlinkOnly());
+    actions.createEl("button", { text: "\u5220\u9664\u7B14\u8BB0\u6587\u4EF6", cls: "mod-warning", attr: { type: "button" } }).addEventListener("click", () => void this.trashNoteFile());
+  }
+  async unlinkOnly() {
+    await this.store.updateBook(this.book.id, { notePath: void 0 });
+    this.onDone();
+    this.close();
+  }
+  async trashNoteFile() {
+    const notePath = this.book.notePath;
+    if (notePath) {
+      const file = this.app.vault.getFileByPath(notePath);
+      if (file instanceof import_obsidian58.TFile) {
+        await this.app.vault.trash(file, true);
+      }
+    }
+    await this.store.updateBook(this.book.id, { notePath: void 0 });
+    this.onDone();
+    this.close();
   }
 };
 
@@ -11259,7 +11406,7 @@ var ReadingPlanModal = class extends import_obsidian59.Modal {
       });
       const cover = row.createDiv({ cls: "cow-reading-plan-book-cover" });
       const src = this.getCoverSrc(book);
-      if (src) cover.createEl("img", { attr: { src, alt: book.title } });
+      if (src) renderCoverImage(cover, src, book.title);
       else cover.createSpan({ text: book.title.slice(0, 2) });
       const body = row.createDiv({ cls: "cow-reading-plan-book-meta" });
       body.createEl("strong", { text: book.title });
@@ -11568,6 +11715,13 @@ function bookStatusLabel(book) {
   if (book.readingStatus === "finished") return "\u5DF2\u8BFB";
   return "\u60F3\u8BFB";
 }
+function renderCoverImage(container, src, title) {
+  const img = container.createEl("img", { attr: { src, alt: title } });
+  img.addEventListener("error", () => {
+    container.empty();
+    container.createSpan({ text: title.slice(0, 2) });
+  });
+}
 
 // src/components/reading/ReadingPlanSection.ts
 var ReadingPlanSection = class {
@@ -11593,7 +11747,7 @@ var ReadingPlanSection = class {
     const card = container.createDiv({ cls: `cow-reading-plan-card is-${status}` });
     const cover = card.createDiv({ cls: "cow-reading-plan-cover" });
     const src = book ? this.getCoverSrc(book) : void 0;
-    if (src) cover.createEl("img", { attr: { src, alt: (_a = book == null ? void 0 : book.title) != null ? _a : "\u9605\u8BFB\u8BA1\u5212" } });
+    if (src) this.renderCoverImage(cover, src, (_a = book == null ? void 0 : book.title) != null ? _a : "\u9605\u8BFB\u8BA1\u5212");
     else cover.createSpan({ text: ((_b = book == null ? void 0 : book.title) != null ? _b : "\u8BA1\u5212").slice(0, 2) });
     const body = card.createDiv({ cls: "cow-reading-plan-body" });
     const head = body.createDiv({ cls: "cow-list-item-head" });
@@ -11651,6 +11805,13 @@ var ReadingPlanSection = class {
     var _a;
     if (book.coverPath) return this.app.vault.adapter.getResourcePath(book.coverPath);
     return (_a = book.cover) != null ? _a : book.coverUrl;
+  }
+  renderCoverImage(container, src, title) {
+    const img = container.createEl("img", { attr: { src, alt: title } });
+    img.addEventListener("error", () => {
+      container.empty();
+      container.createSpan({ text: title.slice(0, 2) });
+    });
   }
   iconButton(container, icon, label, onClick) {
     const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });

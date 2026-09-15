@@ -166,7 +166,7 @@ function todayKey(): string {
 }
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.3.8",
+  dataVersion: "0.3.9",
   currentPage: "overview",
   sections: [
     {
@@ -2572,7 +2572,7 @@ export class DashboardStore {
     return {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.8",
+      dataVersion: "0.3.9",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2818,6 +2818,7 @@ export class DashboardStore {
 
   private normalizeBook(book: BookItem): BookItem {
     const readingStatus = book.readingStatus ?? this.readingStatusFromLegacy(book.status);
+    const timestamp = book.createdAt ?? nowIso();
     const normalized: BookItem = {
       ...book,
       id: book.id ?? `book-${Date.now()}`,
@@ -2828,12 +2829,14 @@ export class DashboardStore {
       status: this.legacyBookStatus(readingStatus),
       readingStatus,
       shelfStatus: book.shelfStatus ?? "on-shelf",
-      coverPath: book.coverPath,
-      coverUrl: book.coverUrl ?? book.cover,
-      bookFilePath: book.bookFilePath,
-      notePath: book.notePath,
+      coverPath: typeof book.coverPath === "string" && book.coverPath.length > 0 ? book.coverPath : undefined,
+      coverUrl: typeof (book.coverUrl ?? book.cover) === "string" && (book.coverUrl ?? book.cover)?.length ? book.coverUrl ?? book.cover : undefined,
+      bookFilePath: typeof book.bookFilePath === "string" && book.bookFilePath.length > 0 ? book.bookFilePath : undefined,
+      notePath: typeof book.notePath === "string" && book.notePath.length > 0 ? book.notePath : undefined,
       startDate: book.startDate,
       finishDate: readingStatus === "finished" ? book.finishDate : book.finishDate,
+      createdAt: timestamp,
+      updatedAt: book.updatedAt ?? timestamp,
       tags: Array.isArray(book.tags) ? book.tags : []
     };
     if (normalized.readingStatus === "reading") normalized.startDate = normalized.startDate || formatDateKey(new Date());
