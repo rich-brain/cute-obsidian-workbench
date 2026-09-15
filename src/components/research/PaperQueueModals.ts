@@ -8,7 +8,18 @@ import { DeleteLiteratureNoteModal, openLiteratureNoteFile, openLiteratureNoteMo
 
 type FieldKind = "status" | "venue" | "tag";
 
+interface PaperManagerFilters {
+  statusId?: string;
+  venueId?: string;
+  tagIds: string[];
+}
+
 export class PaperQueueManagerModal extends Modal {
+  private query = "";
+  private filters: PaperManagerFilters = { tagIds: [] };
+  private listEl?: HTMLElement;
+  private filterEl?: HTMLElement;
+
   constructor(app: App, private readonly store: DashboardStore, private readonly onDone: () => void) {
     super(app);
   }
@@ -20,7 +31,7 @@ export class PaperQueueManagerModal extends Modal {
       height: "min(720px, 86vh)",
       maxWidth: "96vw",
       maxHeight: "94vh",
-      minWidth: "min(560px, 92vw)",
+      minWidth: "min(620px, 92vw)",
       minHeight: "min(420px, 82vh)"
     });
     this.render();
@@ -28,47 +39,167 @@ export class PaperQueueManagerModal extends Modal {
 
   private render(): void {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cow-paper-modal");
-    const head = this.contentEl.createDiv({ cls: "cow-list-item-head" });
-    head.createEl("h2", { text: "论文阅读队列管理" });
-    const actions = head.createDiv({ cls: "cow-list-item-actions" });
+    this.contentEl.addClass("cow-modal", "cow-paper-modal", "cow-paper-manager-modal");
+    const root = this.contentEl.createDiv({ cls: "cow-paper-manager-root" });
+    const header = root.createDiv({ cls: "cow-paper-manager-header" });
+    header.createEl("h2", { text: "论文阅读队列管理" });
+    const toolbar = root.createDiv({ cls: "cow-paper-manager-toolbar" });
+    const search = toolbar.createEl("input", {
+      cls: "cow-paper-manager-search",
+      attr: { type: "search", placeholder: "搜索论文标题、会议/期刊、年份、标签..." }
+    });
+    search.value = this.query;
+    search.addEventListener("input", () => {
+      this.query = search.value;
+      this.refreshList();
+    });
+    const actions = toolbar.createDiv({ cls: "cow-paper-manager-actions" });
     const add = actions.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     setIcon(add.createSpan(), "plus");
     add.createSpan({ text: "手动添加" });
     add.addEventListener("click", () => new PaperEditModal(this.app, this.store, () => {
       this.onDone();
-      this.render();
+      this.refreshList();
     }).open());
     const zotero = actions.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     setIcon(zotero.createSpan(), "download");
-    zotero.createSpan({ text: "从 Zotero 导入" });
+    zotero.createSpan({ text: "Zotero 导入" });
     zotero.addEventListener("click", () => new ZoteroPaperImportModal(this.app, this.store, () => {
       this.onDone();
-      this.render();
+      this.refreshList();
     }).open());
     const update = actions.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     setIcon(update.createSpan(), "refresh-cw");
-    update.createSpan({ text: "更新 Zotero 条目" });
+    update.createSpan({ text: "更新 Zotero" });
     update.addEventListener("click", () => void this.updateZoteroLinkedPapers());
 
-    const list = this.contentEl.createDiv({ cls: "cow-paper-manager-list" });
-    this.store.getResearchPapers().forEach((paper) => this.renderPaperRow(list, paper));
+    this.filterEl = root.createDiv({ cls: "cow-paper-manager-filterbar" });
+    this.listEl = root.createDiv({ cls: "cow-paper-manager-list" });
+    this.refreshFilters();
+    this.refreshList();
+  }
+
+  private refreshFilters(): void {
+    if (!this.filterEl) return;
+    this.filterEl.empty();
+    const filters = this.filterEl.createDiv({ cls: "cow-paper-manager-filter-controls" });
+    this.renderSelect(filters, "阅读状态", this.filters.statusId ?? "", [
+      { value: "", label: "全部状态" },
+      ...this.store.getPaperStatuses().map((status) => ({ value: status.id, label: status.name }))
+    ], (value) => {
+      this.filters.statusId = value || undefined;
+      this.refreshFilters();
+      this.refreshList();
+    });
+    this.renderSelect(filters, "会议 / 期刊", this.filters.venueId ?? "", [
+      { value: "", label: "全部会议 / 期刊" },
+      ...this.store.getPaperVenues().map((venue) => ({ value: venue.id, label: venue.name }))
+    ], (value) => {
+      this.filters.venueId = value || undefined;
+      this.refreshFilters();
+      this.refreshList();
+    });
+    const tagWrap = filters.createDiv({ cls: "cow-paper-manager-tag-filter" });
+    tagWrap.createSpan({ text: "标签" });
+    const tagList = tagWrap.createDiv({ cls: "cow-paper-filter-tags" });
+    this.store.getPaperTags().forEach((tag) => {
+      const active = this.filters.tagIds.includes(tag.id);
+      const button = tagList.createEl("button", { text: tag.name, cls: active ? "is-active" : "", attr: { type: "button", style: `--paper-color: ${tag.color}` } });
+      button.addEventListener("click", () => {
+        this.filters.tagIds = active ? this.filters.tagIds.filter((id) => id !== tag.id) : [...this.filters.tagIds, tag.id];
+        this.refreshFilters();
+        this.refreshList();
+      });
+    });
+    const chips = this.filterEl.createDiv({ cls: "cow-paper-filter-chips" });
+    const addChip = (label: string, onRemove: () => void): void => {
+      const chip = chips.createEl("button", { text: `${label} ×`, attr: { type: "button" } });
+      chip.addEventListener("click", () => {
+        onRemove();
+        this.refreshFilters();
+        this.refreshList();
+      });
+    };
+    if (this.filters.statusId) addChip(this.store.getPaperStatuses().find((status) => status.id === this.filters.statusId)?.name ?? "状态", () => this.filters.statusId = undefined);
+    if (this.filters.venueId) addChip(this.store.getPaperVenues().find((venue) => venue.id === this.filters.venueId)?.name ?? "会议 / 期刊", () => this.filters.venueId = undefined);
+    this.filters.tagIds.forEach((id) => addChip(this.store.getPaperTags().find((tag) => tag.id === id)?.name ?? "标签", () => this.filters.tagIds = this.filters.tagIds.filter((tagId) => tagId !== id)));
+    if (this.hasActiveFilters()) addChip("清除筛选", () => this.filters = { tagIds: [] });
+  }
+
+  private refreshList(): void {
+    if (!this.listEl) return;
+    this.listEl.empty();
+    const allPapers = this.store.getResearchPapers();
+    const papers = this.filteredPapers(allPapers);
+    if (allPapers.length === 0) {
+      this.listEl.createDiv({ cls: "cow-empty-state", text: "暂无论文，可以通过“手动添加”或“Zotero 导入”添加论文。" });
+      return;
+    }
+    if (papers.length === 0) {
+      this.listEl.createDiv({ cls: "cow-empty-state", text: "暂无符合条件的论文。" });
+      return;
+    }
+    papers.forEach((paper) => this.renderPaperRow(this.listEl as HTMLElement, paper));
   }
 
   private renderPaperRow(container: HTMLElement, paper: ResearchPaper): void {
-    const row = container.createDiv({ cls: "cow-paper-card" });
-    const body = row.createDiv({ cls: "cow-paper-body" });
-    body.createEl("strong", { text: paper.title });
-    body.createDiv({ cls: "cow-meta-line", text: paperMetaText(this.store, paper) });
-    const actions = row.createDiv({ cls: "cow-list-item-actions" });
+    const row = container.createDiv({ cls: "cow-paper-manager-item" });
+    const header = row.createDiv({ cls: "cow-paper-manager-item-header" });
+    const title = header.createEl("button", { cls: "cow-paper-title-button", text: paper.title, attr: { type: "button" } });
+    title.addEventListener("click", () => new PaperDetailModal(this.app, this.store, paper, () => {
+      this.onDone();
+      this.refreshList();
+    }).open());
+    const actions = header.createDiv({ cls: "cow-list-item-actions" });
     iconButton(actions, "pencil", "编辑论文", () => new PaperEditModal(this.app, this.store, () => {
       this.onDone();
-      this.render();
+      this.refreshList();
     }, paper).open());
     iconButton(actions, "trash-2", "删除论文", () => new DeletePaperReadingModal(this.app, this.store, paper, () => {
       this.onDone();
-      this.render();
+      this.refreshList();
     }).open());
+    const metadata = row.createDiv({ cls: "cow-paper-meta-row" });
+    metadata.createSpan({ cls: "cow-status is-blue", text: statusName(this.store, paper) });
+    metadata.createSpan({ text: paperMetaText(this.store, paper) });
+    const progress = row.createDiv({ cls: "cow-paper-progress-row" });
+    progress.createDiv({ cls: "cow-month-progress-track" }).createDiv({ cls: "cow-month-progress-fill is-blue", attr: { style: `width: ${paper.readingProgress}%` } });
+    progress.createSpan({ text: `${paper.readingProgress}%` });
+    const tags = row.createDiv({ cls: "cow-paper-tags" });
+    tagNames(this.store, paper).forEach((tag) => tags.createSpan({ text: tag }));
+    row.createDiv({ cls: "cow-meta-line", text: `${paper.readingStartDate ?? "-"} → ${paper.readingEndDate ?? "-"}` });
+  }
+
+  private renderSelect(container: HTMLElement, label: string, value: string, options: Array<{ value: string; label: string }>, onChange: (value: string) => void): void {
+    const wrap = container.createDiv({ cls: "cow-paper-manager-filter-field" });
+    wrap.createSpan({ text: label });
+    const select = wrap.createEl("select");
+    options.forEach((option) => select.createEl("option", { value: option.value, text: option.label }));
+    select.value = value;
+    select.addEventListener("change", () => onChange(select.value));
+  }
+
+  private filteredPapers(papers: ResearchPaper[]): ResearchPaper[] {
+    const query = this.query.trim().toLowerCase();
+    return papers.filter((paper) => {
+      if (this.filters.statusId && paper.statusId !== this.filters.statusId) return false;
+      if (this.filters.venueId && paper.venueId !== this.filters.venueId) return false;
+      if (this.filters.tagIds.some((tagId) => !(paper.tagIds ?? []).includes(tagId))) return false;
+      if (!query) return true;
+      const haystack = [
+        paper.title,
+        paper.year,
+        venueName(this.store, paper),
+        statusName(this.store, paper),
+        paperMetaText(this.store, paper),
+        ...tagNames(this.store, paper)
+      ].filter(Boolean).join(" ").toLowerCase();
+      return haystack.includes(query);
+    });
+  }
+
+  private hasActiveFilters(): boolean {
+    return Boolean(this.filters.statusId || this.filters.venueId || this.filters.tagIds.length > 0);
   }
 
   private async updateZoteroLinkedPapers(): Promise<void> {
@@ -85,7 +216,7 @@ export class PaperQueueManagerModal extends Modal {
     const result = await this.store.importZoteroPapers(matches);
     new Notice(`Zotero 更新完成：新增 ${result.created}，更新 ${result.updated}，跳过 ${result.skipped}。`);
     this.onDone();
-    this.render();
+    this.refreshList();
   }
 }
 

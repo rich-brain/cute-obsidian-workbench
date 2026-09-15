@@ -12982,6 +12982,8 @@ var PaperQueueManagerModal = class extends import_obsidian67.Modal {
     super(app);
     this.store = store;
     this.onDone = onDone;
+    this.query = "";
+    this.filters = { tagIds: [] };
   }
   onOpen() {
     applyResizableModal(this, {
@@ -12990,52 +12992,175 @@ var PaperQueueManagerModal = class extends import_obsidian67.Modal {
       height: "min(720px, 86vh)",
       maxWidth: "96vw",
       maxHeight: "94vh",
-      minWidth: "min(560px, 92vw)",
+      minWidth: "min(620px, 92vw)",
       minHeight: "min(420px, 82vh)"
     });
     this.render();
   }
   render() {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cow-paper-modal");
-    const head = this.contentEl.createDiv({ cls: "cow-list-item-head" });
-    head.createEl("h2", { text: "\u8BBA\u6587\u9605\u8BFB\u961F\u5217\u7BA1\u7406" });
-    const actions = head.createDiv({ cls: "cow-list-item-actions" });
+    this.contentEl.addClass("cow-modal", "cow-paper-modal", "cow-paper-manager-modal");
+    const root = this.contentEl.createDiv({ cls: "cow-paper-manager-root" });
+    const header = root.createDiv({ cls: "cow-paper-manager-header" });
+    header.createEl("h2", { text: "\u8BBA\u6587\u9605\u8BFB\u961F\u5217\u7BA1\u7406" });
+    const toolbar = root.createDiv({ cls: "cow-paper-manager-toolbar" });
+    const search = toolbar.createEl("input", {
+      cls: "cow-paper-manager-search",
+      attr: { type: "search", placeholder: "\u641C\u7D22\u8BBA\u6587\u6807\u9898\u3001\u4F1A\u8BAE/\u671F\u520A\u3001\u5E74\u4EFD\u3001\u6807\u7B7E..." }
+    });
+    search.value = this.query;
+    search.addEventListener("input", () => {
+      this.query = search.value;
+      this.refreshList();
+    });
+    const actions = toolbar.createDiv({ cls: "cow-paper-manager-actions" });
     const add = actions.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     (0, import_obsidian67.setIcon)(add.createSpan(), "plus");
     add.createSpan({ text: "\u624B\u52A8\u6DFB\u52A0" });
     add.addEventListener("click", () => new PaperEditModal(this.app, this.store, () => {
       this.onDone();
-      this.render();
+      this.refreshList();
     }).open());
     const zotero = actions.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     (0, import_obsidian67.setIcon)(zotero.createSpan(), "download");
-    zotero.createSpan({ text: "\u4ECE Zotero \u5BFC\u5165" });
+    zotero.createSpan({ text: "Zotero \u5BFC\u5165" });
     zotero.addEventListener("click", () => new ZoteroPaperImportModal(this.app, this.store, () => {
       this.onDone();
-      this.render();
+      this.refreshList();
     }).open());
     const update = actions.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     (0, import_obsidian67.setIcon)(update.createSpan(), "refresh-cw");
-    update.createSpan({ text: "\u66F4\u65B0 Zotero \u6761\u76EE" });
+    update.createSpan({ text: "\u66F4\u65B0 Zotero" });
     update.addEventListener("click", () => void this.updateZoteroLinkedPapers());
-    const list = this.contentEl.createDiv({ cls: "cow-paper-manager-list" });
-    this.store.getResearchPapers().forEach((paper) => this.renderPaperRow(list, paper));
+    this.filterEl = root.createDiv({ cls: "cow-paper-manager-filterbar" });
+    this.listEl = root.createDiv({ cls: "cow-paper-manager-list" });
+    this.refreshFilters();
+    this.refreshList();
+  }
+  refreshFilters() {
+    var _a, _b, _c, _d, _e, _f;
+    if (!this.filterEl) return;
+    this.filterEl.empty();
+    const filters = this.filterEl.createDiv({ cls: "cow-paper-manager-filter-controls" });
+    this.renderSelect(filters, "\u9605\u8BFB\u72B6\u6001", (_a = this.filters.statusId) != null ? _a : "", [
+      { value: "", label: "\u5168\u90E8\u72B6\u6001" },
+      ...this.store.getPaperStatuses().map((status) => ({ value: status.id, label: status.name }))
+    ], (value) => {
+      this.filters.statusId = value || void 0;
+      this.refreshFilters();
+      this.refreshList();
+    });
+    this.renderSelect(filters, "\u4F1A\u8BAE / \u671F\u520A", (_b = this.filters.venueId) != null ? _b : "", [
+      { value: "", label: "\u5168\u90E8\u4F1A\u8BAE / \u671F\u520A" },
+      ...this.store.getPaperVenues().map((venue) => ({ value: venue.id, label: venue.name }))
+    ], (value) => {
+      this.filters.venueId = value || void 0;
+      this.refreshFilters();
+      this.refreshList();
+    });
+    const tagWrap = filters.createDiv({ cls: "cow-paper-manager-tag-filter" });
+    tagWrap.createSpan({ text: "\u6807\u7B7E" });
+    const tagList = tagWrap.createDiv({ cls: "cow-paper-filter-tags" });
+    this.store.getPaperTags().forEach((tag) => {
+      const active = this.filters.tagIds.includes(tag.id);
+      const button = tagList.createEl("button", { text: tag.name, cls: active ? "is-active" : "", attr: { type: "button", style: `--paper-color: ${tag.color}` } });
+      button.addEventListener("click", () => {
+        this.filters.tagIds = active ? this.filters.tagIds.filter((id) => id !== tag.id) : [...this.filters.tagIds, tag.id];
+        this.refreshFilters();
+        this.refreshList();
+      });
+    });
+    const chips = this.filterEl.createDiv({ cls: "cow-paper-filter-chips" });
+    const addChip = (label, onRemove) => {
+      const chip = chips.createEl("button", { text: `${label} \xD7`, attr: { type: "button" } });
+      chip.addEventListener("click", () => {
+        onRemove();
+        this.refreshFilters();
+        this.refreshList();
+      });
+    };
+    if (this.filters.statusId) addChip((_d = (_c = this.store.getPaperStatuses().find((status) => status.id === this.filters.statusId)) == null ? void 0 : _c.name) != null ? _d : "\u72B6\u6001", () => this.filters.statusId = void 0);
+    if (this.filters.venueId) addChip((_f = (_e = this.store.getPaperVenues().find((venue) => venue.id === this.filters.venueId)) == null ? void 0 : _e.name) != null ? _f : "\u4F1A\u8BAE / \u671F\u520A", () => this.filters.venueId = void 0);
+    this.filters.tagIds.forEach((id) => {
+      var _a2, _b2;
+      return addChip((_b2 = (_a2 = this.store.getPaperTags().find((tag) => tag.id === id)) == null ? void 0 : _a2.name) != null ? _b2 : "\u6807\u7B7E", () => this.filters.tagIds = this.filters.tagIds.filter((tagId) => tagId !== id));
+    });
+    if (this.hasActiveFilters()) addChip("\u6E05\u9664\u7B5B\u9009", () => this.filters = { tagIds: [] });
+  }
+  refreshList() {
+    if (!this.listEl) return;
+    this.listEl.empty();
+    const allPapers = this.store.getResearchPapers();
+    const papers = this.filteredPapers(allPapers);
+    if (allPapers.length === 0) {
+      this.listEl.createDiv({ cls: "cow-empty-state", text: "\u6682\u65E0\u8BBA\u6587\uFF0C\u53EF\u4EE5\u901A\u8FC7\u201C\u624B\u52A8\u6DFB\u52A0\u201D\u6216\u201CZotero \u5BFC\u5165\u201D\u6DFB\u52A0\u8BBA\u6587\u3002" });
+      return;
+    }
+    if (papers.length === 0) {
+      this.listEl.createDiv({ cls: "cow-empty-state", text: "\u6682\u65E0\u7B26\u5408\u6761\u4EF6\u7684\u8BBA\u6587\u3002" });
+      return;
+    }
+    papers.forEach((paper) => this.renderPaperRow(this.listEl, paper));
   }
   renderPaperRow(container, paper) {
-    const row = container.createDiv({ cls: "cow-paper-card" });
-    const body = row.createDiv({ cls: "cow-paper-body" });
-    body.createEl("strong", { text: paper.title });
-    body.createDiv({ cls: "cow-meta-line", text: paperMetaText(this.store, paper) });
-    const actions = row.createDiv({ cls: "cow-list-item-actions" });
+    var _a, _b;
+    const row = container.createDiv({ cls: "cow-paper-manager-item" });
+    const header = row.createDiv({ cls: "cow-paper-manager-item-header" });
+    const title = header.createEl("button", { cls: "cow-paper-title-button", text: paper.title, attr: { type: "button" } });
+    title.addEventListener("click", () => new PaperDetailModal(this.app, this.store, paper, () => {
+      this.onDone();
+      this.refreshList();
+    }).open());
+    const actions = header.createDiv({ cls: "cow-list-item-actions" });
     iconButton(actions, "pencil", "\u7F16\u8F91\u8BBA\u6587", () => new PaperEditModal(this.app, this.store, () => {
       this.onDone();
-      this.render();
+      this.refreshList();
     }, paper).open());
     iconButton(actions, "trash-2", "\u5220\u9664\u8BBA\u6587", () => new DeletePaperReadingModal(this.app, this.store, paper, () => {
       this.onDone();
-      this.render();
+      this.refreshList();
     }).open());
+    const metadata = row.createDiv({ cls: "cow-paper-meta-row" });
+    metadata.createSpan({ cls: "cow-status is-blue", text: statusName(this.store, paper) });
+    metadata.createSpan({ text: paperMetaText(this.store, paper) });
+    const progress = row.createDiv({ cls: "cow-paper-progress-row" });
+    progress.createDiv({ cls: "cow-month-progress-track" }).createDiv({ cls: "cow-month-progress-fill is-blue", attr: { style: `width: ${paper.readingProgress}%` } });
+    progress.createSpan({ text: `${paper.readingProgress}%` });
+    const tags = row.createDiv({ cls: "cow-paper-tags" });
+    tagNames(this.store, paper).forEach((tag) => tags.createSpan({ text: tag }));
+    row.createDiv({ cls: "cow-meta-line", text: `${(_a = paper.readingStartDate) != null ? _a : "-"} \u2192 ${(_b = paper.readingEndDate) != null ? _b : "-"}` });
+  }
+  renderSelect(container, label, value, options, onChange) {
+    const wrap = container.createDiv({ cls: "cow-paper-manager-filter-field" });
+    wrap.createSpan({ text: label });
+    const select = wrap.createEl("select");
+    options.forEach((option) => select.createEl("option", { value: option.value, text: option.label }));
+    select.value = value;
+    select.addEventListener("change", () => onChange(select.value));
+  }
+  filteredPapers(papers) {
+    const query = this.query.trim().toLowerCase();
+    return papers.filter((paper) => {
+      if (this.filters.statusId && paper.statusId !== this.filters.statusId) return false;
+      if (this.filters.venueId && paper.venueId !== this.filters.venueId) return false;
+      if (this.filters.tagIds.some((tagId) => {
+        var _a;
+        return !((_a = paper.tagIds) != null ? _a : []).includes(tagId);
+      })) return false;
+      if (!query) return true;
+      const haystack = [
+        paper.title,
+        paper.year,
+        venueName(this.store, paper),
+        statusName(this.store, paper),
+        paperMetaText(this.store, paper),
+        ...tagNames(this.store, paper)
+      ].filter(Boolean).join(" ").toLowerCase();
+      return haystack.includes(query);
+    });
+  }
+  hasActiveFilters() {
+    return Boolean(this.filters.statusId || this.filters.venueId || this.filters.tagIds.length > 0);
   }
   async updateZoteroLinkedPapers() {
     const candidates = await loadZoteroCandidates(this.app, this.store);
@@ -13049,7 +13174,7 @@ var PaperQueueManagerModal = class extends import_obsidian67.Modal {
     const result = await this.store.importZoteroPapers(matches);
     new import_obsidian67.Notice(`Zotero \u66F4\u65B0\u5B8C\u6210\uFF1A\u65B0\u589E ${result.created}\uFF0C\u66F4\u65B0 ${result.updated}\uFF0C\u8DF3\u8FC7 ${result.skipped}\u3002`);
     this.onDone();
-    this.render();
+    this.refreshList();
   }
 };
 var PaperDetailModal = class extends import_obsidian67.Modal {
