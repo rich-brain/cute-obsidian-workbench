@@ -1,7 +1,7 @@
 import { App, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import type { LiteratureNote } from "../../types/dashboard";
-import { MissingLiteratureNoteModal, openLiteratureNoteFile, openLiteratureNoteModal, paperLabel } from "./LiteratureNoteModals";
+import { DeleteLiteratureNoteModal, openLiteratureNoteFile, openLiteratureNoteModal, paperLabel } from "./LiteratureNoteModals";
 
 export class LiteratureNotesSection {
   constructor(
@@ -12,7 +12,14 @@ export class LiteratureNotesSection {
 
   render(container: HTMLElement): void {
     const list = container.createDiv({ cls: "cow-data-list" });
-    const notes = this.store.getLiteratureNotes();
+    const validPaths = new Set(this.app.vault.getMarkdownFiles().map((file) => file.path));
+    const allNotes = this.store.getLiteratureNotes();
+    const notes = allNotes.filter((note) => validPaths.has(note.notePath));
+    if (notes.length !== allNotes.length) {
+      void this.store.cleanupInvalidLiteratureNotes(validPaths).then((removed) => {
+        if (removed > 0) this.onDataChanged();
+      });
+    }
     if (notes.length === 0) {
       list.createDiv({ cls: "cow-empty-state", text: "暂无文献笔记。可以从右上角添加，或在论文详情中关联已有笔记。" });
       return;
@@ -21,9 +28,11 @@ export class LiteratureNotesSection {
   }
 
   private renderNote(container: HTMLElement, note: LiteratureNote): void {
-    const button = container.createEl("button", { cls: "cow-data-card cow-click-card", attr: { type: "button" } });
-    const head = button.createDiv({ cls: "cow-list-item-head" });
-    head.createEl("strong", { text: note.title });
+    const card = container.createDiv({ cls: "cow-data-card cow-literature-note-row" });
+    const body = card.createDiv({ cls: "cow-paper-body" });
+    const head = body.createDiv({ cls: "cow-list-item-head" });
+    const title = head.createEl("button", { cls: "cow-paper-title-button", text: note.title, attr: { type: "button" } });
+    title.addEventListener("click", () => void openLiteratureNoteFile(this.app, this.store, note, this.onDataChanged));
     const actions = head.createDiv({ cls: "cow-list-item-actions" });
     const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑文献笔记" } });
     setIcon(edit, "pencil");
@@ -32,14 +41,13 @@ export class LiteratureNotesSection {
       openLiteratureNoteModal(this.app, this.store, this.onDataChanged, note);
     });
     const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "清理文献笔记关联" } });
-    setIcon(remove, "unlink");
+    setIcon(remove, "trash-2");
     remove.addEventListener("click", (event) => {
       event.stopPropagation();
-      new MissingLiteratureNoteModal(this.app, this.store, note, this.onDataChanged).open();
+      new DeleteLiteratureNoteModal(this.app, this.store, note, this.onDataChanged).open();
     });
     const paper = this.store.getResearchPapers().find((item) => item.id === note.paperReadingId);
-    button.createDiv({ cls: "cow-meta-line", text: paperLabel(paper) });
-    button.createDiv({ cls: "cow-meta-line", text: note.notePath });
-    button.addEventListener("click", () => void openLiteratureNoteFile(this.app, this.store, note, this.onDataChanged));
+    body.createDiv({ cls: "cow-meta-line", text: paperLabel(paper) });
+    body.createDiv({ cls: "cow-meta-line", text: note.notePath });
   }
 }

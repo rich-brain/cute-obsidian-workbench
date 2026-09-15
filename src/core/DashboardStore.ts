@@ -1442,6 +1442,10 @@ export class DashboardStore {
     await this.save();
   }
 
+  async deletePaperReading(paperId: string): Promise<void> {
+    await this.deleteResearchPaper(paperId);
+  }
+
   getLiteratureNotes(): LiteratureNote[] {
     return this.data.literatureNotes.filter((note) => note.notePath);
   }
@@ -1474,9 +1478,23 @@ export class DashboardStore {
     await this.save();
   }
 
-  async deleteLiteratureNote(noteId: string): Promise<void> {
+  async deleteLiteratureNote(noteId: string, options?: { clearPaperNotePath?: boolean }): Promise<void> {
+    const note = this.data.literatureNotes.find((item) => item.id === noteId);
+    if (note && options?.clearPaperNotePath) {
+      this.data.researchPapers.forEach((paper) => {
+        if (paper.notePath === note.notePath) paper.notePath = undefined;
+      });
+    }
     this.data.literatureNotes = this.data.literatureNotes.filter((item) => item.id !== noteId);
     await this.save();
+  }
+
+  async cleanupInvalidLiteratureNotes(validPaths: Set<string>): Promise<number> {
+    const before = this.data.literatureNotes.length;
+    this.data.literatureNotes = this.data.literatureNotes.filter((note) => validPaths.has(note.notePath));
+    const removed = before - this.data.literatureNotes.length;
+    if (removed > 0) await this.save();
+    return removed;
   }
 
   async importZoteroPapers(items: ZoteroPaperImportInput[]): Promise<{ created: number; updated: number; skipped: number }> {

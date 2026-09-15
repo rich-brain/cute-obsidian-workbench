@@ -1328,6 +1328,9 @@ var DashboardStore = class {
     });
     await this.save();
   }
+  async deletePaperReading(paperId) {
+    await this.deleteResearchPaper(paperId);
+  }
   getLiteratureNotes() {
     return this.data.literatureNotes.filter((note) => note.notePath);
   }
@@ -1355,9 +1358,22 @@ var DashboardStore = class {
     Object.assign(note, this.normalizeLiteratureNote(note));
     await this.save();
   }
-  async deleteLiteratureNote(noteId) {
+  async deleteLiteratureNote(noteId, options) {
+    const note = this.data.literatureNotes.find((item) => item.id === noteId);
+    if (note && (options == null ? void 0 : options.clearPaperNotePath)) {
+      this.data.researchPapers.forEach((paper) => {
+        if (paper.notePath === note.notePath) paper.notePath = void 0;
+      });
+    }
     this.data.literatureNotes = this.data.literatureNotes.filter((item) => item.id !== noteId);
     await this.save();
+  }
+  async cleanupInvalidLiteratureNotes(validPaths) {
+    const before = this.data.literatureNotes.length;
+    this.data.literatureNotes = this.data.literatureNotes.filter((note) => validPaths.has(note.notePath));
+    const removed = before - this.data.literatureNotes.length;
+    if (removed > 0) await this.save();
+    return removed;
   }
   async importZoteroPapers(items) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
@@ -4531,6 +4547,59 @@ var MissingLiteratureNoteModal = class extends import_obsidian9.Modal {
   }
   async clear() {
     await this.store.deleteLiteratureNote(this.note.id);
+    this.onDone();
+    this.close();
+  }
+};
+var DeleteLiteratureNoteModal = class extends import_obsidian9.Modal {
+  constructor(app, store, note, onDone) {
+    super(app);
+    this.store = store;
+    this.note = note;
+    this.onDone = onDone;
+  }
+  onOpen() {
+    applyResizableModal(this, {
+      className: "cute-literature-note-modal",
+      width: "min(580px, 90vw)",
+      maxWidth: "96vw",
+      maxHeight: "84vh",
+      minWidth: "min(420px, 90vw)",
+      minHeight: "min(300px, 70vh)"
+    });
+    this.render();
+  }
+  render() {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-delete-modal");
+    this.contentEl.createEl("h2", { text: "\u5220\u9664\u6587\u732E\u7B14\u8BB0" });
+    const summary = this.contentEl.createDiv({ cls: "cow-delete-summary" });
+    summary.createSpan({ text: "\u7B14\u8BB0\uFF1A" });
+    summary.createEl("strong", { text: `\u300A${this.note.title}\u300B` });
+    const description = this.contentEl.createDiv({ cls: "cow-delete-description" });
+    description.createEl("p", { text: "\u53EF\u4EE5\u53EA\u4ECE\u79D1\u7814\u6587\u732E\u7B14\u8BB0\u4E2D\u79FB\u9664\u8BB0\u5F55\uFF0C\u4E5F\u53EF\u4EE5\u540C\u65F6\u628A\u5BF9\u5E94 Markdown \u79FB\u5165\u56DE\u6536\u7AD9\u3002" });
+    description.createEl("p", { text: "\u4E0D\u4F1A\u5220\u9664 Zotero \u6761\u76EE\u3001Zotero PDF \u6216\u5176\u5B83\u672C\u5730\u8BBA\u6587\u6587\u4EF6\u3002" });
+    description.createDiv({ cls: "cow-meta-line", text: this.note.notePath });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "\u4EC5\u4ECE\u79D1\u7814\u6587\u732E\u7B14\u8BB0\u4E2D\u79FB\u9664", attr: { type: "button" } }).addEventListener("click", () => void this.removeRecordOnly());
+    actions.createEl("button", { text: "\u540C\u65F6\u5220\u9664 Obsidian \u7B14\u8BB0\u6587\u4EF6", cls: "mod-warning", attr: { type: "button" } }).addEventListener("click", () => void this.trashMarkdownAndRemove());
+  }
+  async removeRecordOnly() {
+    await this.store.deleteLiteratureNote(this.note.id);
+    new import_obsidian9.Notice("\u6587\u732E\u7B14\u8BB0\u8BB0\u5F55\u5DF2\u79FB\u9664\uFF0CMarkdown \u6587\u4EF6\u5DF2\u4FDD\u7559\u3002");
+    this.onDone();
+    this.close();
+  }
+  async trashMarkdownAndRemove() {
+    const file = this.app.vault.getFileByPath(this.note.notePath);
+    if (file instanceof import_obsidian9.TFile) {
+      await this.app.vault.trash(file, true);
+    } else {
+      new import_obsidian9.Notice("\u7B14\u8BB0\u6587\u4EF6\u4E0D\u5B58\u5728\uFF0C\u5DF2\u6E05\u7406\u79D1\u7814\u8BB0\u5F55\u3002");
+    }
+    await this.store.deleteLiteratureNote(this.note.id, { clearPaperNotePath: true });
+    new import_obsidian9.Notice("\u6587\u732E\u7B14\u8BB0\u5DF2\u79FB\u9664\u3002");
     this.onDone();
     this.close();
   }
@@ -12761,7 +12830,14 @@ var LiteratureNotesSection = class {
   }
   render(container) {
     const list = container.createDiv({ cls: "cow-data-list" });
-    const notes = this.store.getLiteratureNotes();
+    const validPaths = new Set(this.app.vault.getMarkdownFiles().map((file) => file.path));
+    const allNotes = this.store.getLiteratureNotes();
+    const notes = allNotes.filter((note) => validPaths.has(note.notePath));
+    if (notes.length !== allNotes.length) {
+      void this.store.cleanupInvalidLiteratureNotes(validPaths).then((removed) => {
+        if (removed > 0) this.onDataChanged();
+      });
+    }
     if (notes.length === 0) {
       list.createDiv({ cls: "cow-empty-state", text: "\u6682\u65E0\u6587\u732E\u7B14\u8BB0\u3002\u53EF\u4EE5\u4ECE\u53F3\u4E0A\u89D2\u6DFB\u52A0\uFF0C\u6216\u5728\u8BBA\u6587\u8BE6\u60C5\u4E2D\u5173\u8054\u5DF2\u6709\u7B14\u8BB0\u3002" });
       return;
@@ -12769,9 +12845,11 @@ var LiteratureNotesSection = class {
     notes.forEach((note) => this.renderNote(list, note));
   }
   renderNote(container, note) {
-    const button = container.createEl("button", { cls: "cow-data-card cow-click-card", attr: { type: "button" } });
-    const head = button.createDiv({ cls: "cow-list-item-head" });
-    head.createEl("strong", { text: note.title });
+    const card = container.createDiv({ cls: "cow-data-card cow-literature-note-row" });
+    const body = card.createDiv({ cls: "cow-paper-body" });
+    const head = body.createDiv({ cls: "cow-list-item-head" });
+    const title = head.createEl("button", { cls: "cow-paper-title-button", text: note.title, attr: { type: "button" } });
+    title.addEventListener("click", () => void openLiteratureNoteFile(this.app, this.store, note, this.onDataChanged));
     const actions = head.createDiv({ cls: "cow-list-item-actions" });
     const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u6587\u732E\u7B14\u8BB0" } });
     (0, import_obsidian66.setIcon)(edit, "pencil");
@@ -12780,15 +12858,14 @@ var LiteratureNotesSection = class {
       openLiteratureNoteModal(this.app, this.store, this.onDataChanged, note);
     });
     const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u6E05\u7406\u6587\u732E\u7B14\u8BB0\u5173\u8054" } });
-    (0, import_obsidian66.setIcon)(remove, "unlink");
+    (0, import_obsidian66.setIcon)(remove, "trash-2");
     remove.addEventListener("click", (event) => {
       event.stopPropagation();
-      new MissingLiteratureNoteModal(this.app, this.store, note, this.onDataChanged).open();
+      new DeleteLiteratureNoteModal(this.app, this.store, note, this.onDataChanged).open();
     });
     const paper = this.store.getResearchPapers().find((item) => item.id === note.paperReadingId);
-    button.createDiv({ cls: "cow-meta-line", text: paperLabel(paper) });
-    button.createDiv({ cls: "cow-meta-line", text: note.notePath });
-    button.addEventListener("click", () => void openLiteratureNoteFile(this.app, this.store, note, this.onDataChanged));
+    body.createDiv({ cls: "cow-meta-line", text: paperLabel(paper) });
+    body.createDiv({ cls: "cow-meta-line", text: note.notePath });
   }
 };
 
@@ -12955,12 +13032,10 @@ var PaperQueueManagerModal = class extends import_obsidian67.Modal {
       this.onDone();
       this.render();
     }, paper).open());
-    iconButton(actions, "trash-2", "\u5220\u9664\u8BBA\u6587", async () => {
-      if (!confirm("\u5220\u9664\u8BBA\u6587\u6761\u76EE\uFF1F\u4E0D\u4F1A\u5220\u9664 Markdown \u7B14\u8BB0\u3001PDF \u6216 Zotero \u6761\u76EE\u3002")) return;
-      await this.store.deleteResearchPaper(paper.id);
+    iconButton(actions, "trash-2", "\u5220\u9664\u8BBA\u6587", () => new DeletePaperReadingModal(this.app, this.store, paper, () => {
       this.onDone();
       this.render();
-    });
+    }).open());
   }
   async updateZoteroLinkedPapers() {
     const candidates = await loadZoteroCandidates(this.app, this.store);
@@ -13009,6 +13084,13 @@ var PaperDetailModal = class extends import_obsidian67.Modal {
       this.onDone();
       this.render();
     }, paper).open());
+    const remove = header.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
+    (0, import_obsidian67.setIcon)(remove.createSpan(), "trash-2");
+    remove.createSpan({ text: "\u5220\u9664" });
+    remove.addEventListener("click", () => new DeletePaperReadingModal(this.app, this.store, paper, () => {
+      this.onDone();
+      this.close();
+    }).open());
     const refresh = header.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     (0, import_obsidian67.setIcon)(refresh.createSpan(), "refresh-cw");
     refresh.createSpan({ text: "\u91CD\u65B0\u4ECE Zotero \u66F4\u65B0" });
@@ -13057,19 +13139,39 @@ var PaperDetailModal = class extends import_obsidian67.Modal {
   renderLiteratureNotes(paper) {
     const section = this.contentEl.createDiv({ cls: "cow-paper-linked-notes" });
     section.createEl("h3", { text: "\u6587\u732E\u7B14\u8BB0" });
-    const notes = this.store.getLiteratureNotesForPaper(paper.id);
+    const validPaths = new Set(this.app.vault.getMarkdownFiles().map((file) => file.path));
+    const allNotes = this.store.getLiteratureNotesForPaper(paper.id);
+    const notes = allNotes.filter((note) => validPaths.has(note.notePath));
+    if (notes.length !== allNotes.length) {
+      void this.store.cleanupInvalidLiteratureNotes(validPaths).then((removed) => {
+        if (removed > 0) {
+          this.onDone();
+          this.render();
+        }
+      });
+    }
     if (notes.length === 0) {
       section.createDiv({ cls: "cow-empty-state", text: "\u6682\u65E0\u5173\u8054\u6587\u732E\u7B14\u8BB0\u3002" });
       return;
     }
     notes.forEach((note) => {
-      const row = section.createEl("button", { cls: "cow-data-card cow-click-card", attr: { type: "button" } });
-      row.createEl("strong", { text: note.title });
-      row.createDiv({ cls: "cow-meta-line", text: note.notePath });
-      row.addEventListener("click", () => void openLiteratureNoteFile(this.app, this.store, note, () => {
+      const row = section.createDiv({ cls: "cow-data-card cow-literature-note-row" });
+      const body = row.createDiv({ cls: "cow-paper-body" });
+      const title = body.createEl("button", { cls: "cow-paper-title-button", text: note.title, attr: { type: "button" } });
+      title.addEventListener("click", () => void openLiteratureNoteFile(this.app, this.store, note, () => {
         this.onDone();
         this.render();
       }));
+      body.createDiv({ cls: "cow-meta-line", text: note.notePath });
+      const actions = row.createDiv({ cls: "cow-list-item-actions" });
+      iconButton(actions, "pencil", "\u7F16\u8F91\u6587\u732E\u7B14\u8BB0", () => openLiteratureNoteModal(this.app, this.store, () => {
+        this.onDone();
+        this.render();
+      }, note));
+      iconButton(actions, "trash-2", "\u5220\u9664\u6587\u732E\u7B14\u8BB0", () => new DeleteLiteratureNoteModal(this.app, this.store, note, () => {
+        this.onDone();
+        this.render();
+      }).open());
     });
   }
   async importZoteroNote(paper) {
@@ -13176,6 +13278,49 @@ var PaperEditModal = class extends import_obsidian67.Modal {
     } else {
       await this.store.addResearchPaper(this.draft);
     }
+    this.onDone();
+    this.close();
+  }
+};
+var DeletePaperReadingModal = class extends import_obsidian67.Modal {
+  constructor(app, store, paper, onDone) {
+    super(app);
+    this.store = store;
+    this.paper = paper;
+    this.onDone = onDone;
+  }
+  onOpen() {
+    applyResizableModal(this, {
+      className: "cute-paper-delete-modal",
+      width: "min(560px, 90vw)",
+      maxWidth: "96vw",
+      maxHeight: "84vh",
+      minWidth: "min(420px, 90vw)",
+      minHeight: "min(260px, 70vh)"
+    });
+    this.render();
+  }
+  render() {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-paper-modal", "cow-delete-modal");
+    const linkedNotes = this.store.getLiteratureNotesForPaper(this.paper.id);
+    this.contentEl.createEl("h2", { text: "\u5220\u9664\u8BBA\u6587\u6761\u76EE\uFF1F" });
+    const summary = this.contentEl.createDiv({ cls: "cow-delete-summary" });
+    summary.createSpan({ text: "\u8BBA\u6587\uFF1A" });
+    summary.createEl("strong", { text: `\u300A${this.paper.title}\u300B` });
+    const description = this.contentEl.createDiv({ cls: "cow-delete-description" });
+    description.createEl("p", { text: "\u8BE5\u64CD\u4F5C\u53EA\u4F1A\u5220\u9664 Cute Workbench \u4E2D\u7684\u8BBA\u6587\u9605\u8BFB\u8BB0\u5F55\u3002" });
+    description.createEl("p", { text: "\u4E0D\u4F1A\u5220\u9664 Zotero \u4E2D\u7684\u539F\u59CB\u6761\u76EE\u3001Zotero PDF\u3001Obsidian Markdown \u7B14\u8BB0\u6216\u672C\u5730 PDF \u6587\u4EF6\u3002" });
+    if (linkedNotes.length > 0) {
+      description.createEl("p", { text: `\u8BE5\u8BBA\u6587\u5173\u8054\u4E86 ${linkedNotes.length} \u6761\u6587\u732E\u7B14\u8BB0\u3002\u5220\u9664\u8BBA\u6587\u8BB0\u5F55\u4E0D\u4F1A\u5220\u9664\u7B14\u8BB0\uFF0C\u7B14\u8BB0\u5C06\u53D8\u4E3A\u672A\u5173\u8054\u72B6\u6001\u3002` });
+    }
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "\u5220\u9664\u8BBA\u6587\u8BB0\u5F55", cls: "mod-warning", attr: { type: "button" } }).addEventListener("click", () => void this.delete());
+  }
+  async delete() {
+    await this.store.deletePaperReading(this.paper.id);
+    new import_obsidian67.Notice("\u8BBA\u6587\u9605\u8BFB\u8BB0\u5F55\u5DF2\u5220\u9664\uFF0C\u5173\u8054\u6587\u732E\u7B14\u8BB0\u5DF2\u4FDD\u7559\u3002");
     this.onDone();
     this.close();
   }
@@ -13719,6 +13864,8 @@ var PaperQueueSection = class {
     tagNames(this.store, paper).forEach((tag) => tags.createSpan({ text: tag }));
     body.createDiv({ cls: "cow-meta-line", text: `${(_c = paper.readingStartDate) != null ? _c : "-"} \u2192 ${(_d = paper.readingEndDate) != null ? _d : "-"}` });
     const actions = card.createDiv({ cls: "cow-list-item-actions" });
+    iconButton2(actions, "pencil", "\u7F16\u8F91\u8BBA\u6587", () => new PaperEditModal(this.app, this.store, this.onDataChanged, paper).open());
+    iconButton2(actions, "trash-2", "\u5220\u9664\u8BBA\u6587", () => new DeletePaperReadingModal(this.app, this.store, paper, this.onDataChanged).open());
     iconButton2(actions, "external-link", "\u6253\u5F00\u8BBA\u6587\u94FE\u63A5", () => void this.openPaperUrl(paper));
     iconButton2(actions, "notebook-tabs", "\u6253\u5F00\u7B14\u8BB0", () => void this.openNote(paper.notePath));
   }

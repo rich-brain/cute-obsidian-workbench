@@ -4,7 +4,7 @@ import type { ZoteroPaperImportInput } from "../../core/DashboardStore";
 import type { PaperStatusDefinition, PaperTagDefinition, ResearchPaper, VenueDefinition } from "../../types/dashboard";
 import { applyResizableModal } from "../ResizableModal";
 import { ZoteroImportCandidate, ZoteroService } from "../../services/ZoteroService";
-import { openLiteratureNoteFile, openLiteratureNoteModal } from "./LiteratureNoteModals";
+import { DeleteLiteratureNoteModal, openLiteratureNoteFile, openLiteratureNoteModal } from "./LiteratureNoteModals";
 
 type FieldKind = "status" | "venue" | "tag";
 
@@ -65,12 +65,10 @@ export class PaperQueueManagerModal extends Modal {
       this.onDone();
       this.render();
     }, paper).open());
-    iconButton(actions, "trash-2", "删除论文", async () => {
-      if (!confirm("删除论文条目？不会删除 Markdown 笔记、PDF 或 Zotero 条目。")) return;
-      await this.store.deleteResearchPaper(paper.id);
+    iconButton(actions, "trash-2", "删除论文", () => new DeletePaperReadingModal(this.app, this.store, paper, () => {
       this.onDone();
       this.render();
-    });
+    }).open());
   }
 
   private async updateZoteroLinkedPapers(): Promise<void> {
@@ -121,6 +119,13 @@ export class PaperDetailModal extends Modal {
       this.onDone();
       this.render();
     }, paper).open());
+    const remove = header.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
+    setIcon(remove.createSpan(), "trash-2");
+    remove.createSpan({ text: "删除" });
+    remove.addEventListener("click", () => new DeletePaperReadingModal(this.app, this.store, paper, () => {
+      this.onDone();
+      this.close();
+    }).open());
     const refresh = header.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     setIcon(refresh.createSpan(), "refresh-cw");
     refresh.createSpan({ text: "重新从 Zotero 更新" });
@@ -172,19 +177,39 @@ export class PaperDetailModal extends Modal {
   private renderLiteratureNotes(paper: ResearchPaper): void {
     const section = this.contentEl.createDiv({ cls: "cow-paper-linked-notes" });
     section.createEl("h3", { text: "文献笔记" });
-    const notes = this.store.getLiteratureNotesForPaper(paper.id);
+    const validPaths = new Set(this.app.vault.getMarkdownFiles().map((file) => file.path));
+    const allNotes = this.store.getLiteratureNotesForPaper(paper.id);
+    const notes = allNotes.filter((note) => validPaths.has(note.notePath));
+    if (notes.length !== allNotes.length) {
+      void this.store.cleanupInvalidLiteratureNotes(validPaths).then((removed) => {
+        if (removed > 0) {
+          this.onDone();
+          this.render();
+        }
+      });
+    }
     if (notes.length === 0) {
       section.createDiv({ cls: "cow-empty-state", text: "暂无关联文献笔记。" });
       return;
     }
     notes.forEach((note) => {
-      const row = section.createEl("button", { cls: "cow-data-card cow-click-card", attr: { type: "button" } });
-      row.createEl("strong", { text: note.title });
-      row.createDiv({ cls: "cow-meta-line", text: note.notePath });
-      row.addEventListener("click", () => void openLiteratureNoteFile(this.app, this.store, note, () => {
+      const row = section.createDiv({ cls: "cow-data-card cow-literature-note-row" });
+      const body = row.createDiv({ cls: "cow-paper-body" });
+      const title = body.createEl("button", { cls: "cow-paper-title-button", text: note.title, attr: { type: "button" } });
+      title.addEventListener("click", () => void openLiteratureNoteFile(this.app, this.store, note, () => {
         this.onDone();
         this.render();
       }));
+      body.createDiv({ cls: "cow-meta-line", text: note.notePath });
+      const actions = row.createDiv({ cls: "cow-list-item-actions" });
+      iconButton(actions, "pencil", "编辑文献笔记", () => openLiteratureNoteModal(this.app, this.store, () => {
+        this.onDone();
+        this.render();
+      }, note));
+      iconButton(actions, "trash-2", "删除文献笔记", () => new DeleteLiteratureNoteModal(this.app, this.store, note, () => {
+        this.onDone();
+        this.render();
+      }).open());
     });
   }
 
@@ -214,7 +239,7 @@ export class PaperDetailModal extends Modal {
   }
 }
 
-class PaperEditModal extends Modal {
+export class PaperEditModal extends Modal {
   private draft: ResearchPaper;
 
   constructor(
@@ -299,6 +324,55 @@ class PaperEditModal extends Modal {
     } else {
       await this.store.addResearchPaper(this.draft);
     }
+    this.onDone();
+    this.close();
+  }
+}
+
+export class DeletePaperReadingModal extends Modal {
+  constructor(
+    app: App,
+    private readonly store: DashboardStore,
+    private readonly paper: ResearchPaper,
+    private readonly onDone: () => void
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    applyResizableModal(this, {
+      className: "cute-paper-delete-modal",
+      width: "min(560px, 90vw)",
+      maxWidth: "96vw",
+      maxHeight: "84vh",
+      minWidth: "min(420px, 90vw)",
+      minHeight: "min(260px, 70vh)"
+    });
+    this.render();
+  }
+
+  private render(): void {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-paper-modal", "cow-delete-modal");
+    const linkedNotes = this.store.getLiteratureNotesForPaper(this.paper.id);
+    this.contentEl.createEl("h2", { text: "删除论文条目？" });
+    const summary = this.contentEl.createDiv({ cls: "cow-delete-summary" });
+    summary.createSpan({ text: "论文：" });
+    summary.createEl("strong", { text: `《${this.paper.title}》` });
+    const description = this.contentEl.createDiv({ cls: "cow-delete-description" });
+    description.createEl("p", { text: "该操作只会删除 Cute Workbench 中的论文阅读记录。" });
+    description.createEl("p", { text: "不会删除 Zotero 中的原始条目、Zotero PDF、Obsidian Markdown 笔记或本地 PDF 文件。" });
+    if (linkedNotes.length > 0) {
+      description.createEl("p", { text: `该论文关联了 ${linkedNotes.length} 条文献笔记。删除论文记录不会删除笔记，笔记将变为未关联状态。` });
+    }
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "删除论文记录", cls: "mod-warning", attr: { type: "button" } }).addEventListener("click", () => void this.delete());
+  }
+
+  private async delete(): Promise<void> {
+    await this.store.deletePaperReading(this.paper.id);
+    new Notice("论文阅读记录已删除，关联文献笔记已保留。");
     this.onDone();
     this.close();
   }

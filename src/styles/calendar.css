@@ -637,6 +637,16 @@
   box-sizing: border-box;
 }
 
+.cow-literature-note-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  min-width: 0;
+  height: auto;
+  box-sizing: border-box;
+}
+
 .cow-paper-body,
 .cow-paper-field-group,
 .cow-paper-filter-field {
@@ -664,6 +674,10 @@
   line-height: 1.35;
   text-align: left;
   overflow-wrap: anywhere;
+}
+
+.cow-paper-title-button:hover {
+  color: var(--cow-pink-strong);
 }
 
 .cow-paper-meta-row,
@@ -795,6 +809,31 @@
   border: 1px solid rgba(242, 59, 141, 0.16);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.44);
+}
+
+.cow-delete-modal {
+  gap: 12px;
+}
+
+.cow-delete-summary,
+.cow-delete-description {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cow-delete-summary {
+  padding: 10px 12px;
+  border: 1px dashed rgba(242, 59, 141, 0.24);
+  border-radius: 14px;
+  background: rgba(255, 246, 250, 0.62);
+}
+
+.cow-delete-summary strong,
+.cow-delete-description p {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .cow-paper-linked-notes h3,

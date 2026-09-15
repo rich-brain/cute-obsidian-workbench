@@ -166,6 +166,66 @@ export class MissingLiteratureNoteModal extends Modal {
   }
 }
 
+export class DeleteLiteratureNoteModal extends Modal {
+  constructor(
+    app: App,
+    private readonly store: DashboardStore,
+    private readonly note: LiteratureNote,
+    private readonly onDone: () => void
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    applyResizableModal(this, {
+      className: "cute-literature-note-modal",
+      width: "min(580px, 90vw)",
+      maxWidth: "96vw",
+      maxHeight: "84vh",
+      minWidth: "min(420px, 90vw)",
+      minHeight: "min(300px, 70vh)"
+    });
+    this.render();
+  }
+
+  private render(): void {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-delete-modal");
+    this.contentEl.createEl("h2", { text: "删除文献笔记" });
+    const summary = this.contentEl.createDiv({ cls: "cow-delete-summary" });
+    summary.createSpan({ text: "笔记：" });
+    summary.createEl("strong", { text: `《${this.note.title}》` });
+    const description = this.contentEl.createDiv({ cls: "cow-delete-description" });
+    description.createEl("p", { text: "可以只从科研文献笔记中移除记录，也可以同时把对应 Markdown 移入回收站。" });
+    description.createEl("p", { text: "不会删除 Zotero 条目、Zotero PDF 或其它本地论文文件。" });
+    description.createDiv({ cls: "cow-meta-line", text: this.note.notePath });
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "仅从科研文献笔记中移除", attr: { type: "button" } }).addEventListener("click", () => void this.removeRecordOnly());
+    actions.createEl("button", { text: "同时删除 Obsidian 笔记文件", cls: "mod-warning", attr: { type: "button" } }).addEventListener("click", () => void this.trashMarkdownAndRemove());
+  }
+
+  private async removeRecordOnly(): Promise<void> {
+    await this.store.deleteLiteratureNote(this.note.id);
+    new Notice("文献笔记记录已移除，Markdown 文件已保留。");
+    this.onDone();
+    this.close();
+  }
+
+  private async trashMarkdownAndRemove(): Promise<void> {
+    const file = this.app.vault.getFileByPath(this.note.notePath);
+    if (file instanceof TFile) {
+      await this.app.vault.trash(file, true);
+    } else {
+      new Notice("笔记文件不存在，已清理科研记录。");
+    }
+    await this.store.deleteLiteratureNote(this.note.id, { clearPaperNotePath: true });
+    new Notice("文献笔记已移除。");
+    this.onDone();
+    this.close();
+  }
+}
+
 export async function openLiteratureNoteFile(app: App, store: DashboardStore, note: LiteratureNote, onDone: () => void): Promise<void> {
   const file = app.vault.getFileByPath(note.notePath);
   if (!(file instanceof TFile)) {

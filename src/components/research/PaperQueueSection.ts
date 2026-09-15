@@ -1,7 +1,7 @@
 import { App, Notice, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import type { ResearchPaper } from "../../types/dashboard";
-import { PaperDetailModal, paperMetaText, tagNames, venueName, statusName } from "./PaperQueueModals";
+import { DeletePaperReadingModal, PaperDetailModal, PaperEditModal, tagNames, venueName, statusName } from "./PaperQueueModals";
 
 interface PaperFilters {
   statusId?: string;
@@ -96,6 +96,8 @@ export class PaperQueueSection {
     tagNames(this.store, paper).forEach((tag) => tags.createSpan({ text: tag }));
     body.createDiv({ cls: "cow-meta-line", text: `${paper.readingStartDate ?? "-"} → ${paper.readingEndDate ?? "-"}` });
     const actions = card.createDiv({ cls: "cow-list-item-actions" });
+    iconButton(actions, "pencil", "编辑论文", () => new PaperEditModal(this.app, this.store, this.onDataChanged, paper).open());
+    iconButton(actions, "trash-2", "删除论文", () => new DeletePaperReadingModal(this.app, this.store, paper, this.onDataChanged).open());
     iconButton(actions, "external-link", "打开论文链接", () => void this.openPaperUrl(paper));
     iconButton(actions, "notebook-tabs", "打开笔记", () => void this.openNote(paper.notePath));
   }
