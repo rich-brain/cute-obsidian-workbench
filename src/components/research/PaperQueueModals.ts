@@ -5,7 +5,7 @@ import type { PaperStatusDefinition, PaperTagDefinition, ResearchPaper, VenueDef
 import { applyResizableModal } from "../ResizableModal";
 import { ZoteroImportCandidate, ZoteroService } from "../../services/ZoteroService";
 import { DeleteLiteratureNoteModal, openLiteratureNoteFile, openLiteratureNoteModal } from "./LiteratureNoteModals";
-import { ZoteroLocalApiService, type ZoteroPaperItem } from "../../services/ZoteroLocalApiService";
+import { ZoteroLocalApiService, zoteroErrorMessage, type ZoteroLocalApiDiagnostic, type ZoteroPaperItem } from "../../services/ZoteroLocalApiService";
 import { PaperZoteroSyncService } from "../../services/PaperZoteroSyncService";
 
 type FieldKind = "status" | "venue" | "tag";
@@ -527,6 +527,7 @@ class ZoteroPaperImportModal extends Modal {
   private loading = true;
   private connected = false;
   private error = "";
+  private diagnostic?: ZoteroLocalApiDiagnostic;
 
   constructor(app: App, private readonly store: DashboardStore, private readonly onDone: () => void) {
     super(app);
@@ -554,14 +555,16 @@ class ZoteroPaperImportModal extends Modal {
   private async load(): Promise<void> {
     this.loading = true;
     this.error = "";
+    this.diagnostic = undefined;
     this.visibleLimit = this.pageSize;
     this.render();
     const service = new ZoteroLocalApiService();
     this.connected = await service.checkConnection();
+    this.diagnostic = service.getDiagnostic();
     if (!this.connected) {
       this.items = [];
       this.loading = false;
-      this.error = "无法连接 Zotero";
+      this.error = zoteroErrorMessage(this.diagnostic);
       this.render();
       return;
     }
@@ -569,7 +572,8 @@ class ZoteroPaperImportModal extends Modal {
       this.items = await service.getPapers();
     } catch {
       this.items = [];
-      this.error = "读取 Zotero 论文失败";
+      this.diagnostic = service.getDiagnostic();
+      this.error = zoteroErrorMessage(this.diagnostic);
     } finally {
       this.loading = false;
       this.render();
@@ -615,7 +619,7 @@ class ZoteroPaperImportModal extends Modal {
       return;
     }
     if (this.error) {
-      list.createDiv({ cls: "cow-empty-state", text: this.error });
+      this.renderErrorState(list);
       this.renderSelectionSummary();
       this.renderFooter();
       return;
@@ -652,9 +656,33 @@ class ZoteroPaperImportModal extends Modal {
 
   private renderConnectionHelp(container: HTMLElement): void {
     const empty = container.createDiv({ cls: "cow-empty-state cow-zotero-help" });
-    empty.createEl("strong", { text: "无法连接 Zotero" });
-    empty.createSpan({ text: "请确认 Zotero Desktop 已打开，并在 Zotero 设置 -> Advanced 中开启 Allow other applications on this computer to communicate with Zotero。" });
+    empty.createEl("strong", { text: this.error || "无法连接 Zotero" });
+    empty.createSpan({ text: this.connectionHelpText() });
+    this.renderDiagnosticDetails(empty);
     empty.createEl("button", { text: "重新连接", attr: { type: "button" } }).addEventListener("click", () => void this.load());
+  }
+
+  private renderErrorState(container: HTMLElement): void {
+    const empty = container.createDiv({ cls: "cow-empty-state cow-zotero-help" });
+    empty.createEl("strong", { text: this.error });
+    this.renderDiagnosticDetails(empty);
+    empty.createEl("button", { text: "重新连接", attr: { type: "button" } }).addEventListener("click", () => void this.load());
+  }
+
+  private renderDiagnosticDetails(container: HTMLElement): void {
+    if (!this.diagnostic) return;
+    const details = container.createEl("details", { cls: "cow-zotero-diagnostics" });
+    details.createEl("summary", { text: "查看错误详情" });
+    details.createDiv({ text: `Request: ${this.diagnostic.url}` });
+    if (this.diagnostic.status) details.createDiv({ text: `Status: ${this.diagnostic.status}` });
+    details.createDiv({ text: `Error: ${this.diagnostic.message}` });
+  }
+
+  private connectionHelpText(): string {
+    if (this.diagnostic?.kind === "forbidden") {
+      return "Zotero 拒绝了本地请求，请检查 Zotero 设置中的 Allow other applications on this computer to communicate with Zotero。";
+    }
+    return "请确认 Zotero Desktop 正在运行，本地 API 地址为 127.0.0.1:23119，失败时会自动尝试 localhost。";
   }
 
   private renderStatusFilters(): void {

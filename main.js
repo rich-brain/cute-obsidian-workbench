@@ -23,7 +23,7 @@ __export(main_exports, {
   default: () => CuteObsidianWorkbenchPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian83 = require("obsidian");
+var import_obsidian84 = require("obsidian");
 
 // src/core/DashboardStore.ts
 var DASHBOARD_PAGES = [
@@ -3426,7 +3426,7 @@ var HealthReminderService = class {
 };
 
 // src/views/WorkbenchView.ts
-var import_obsidian82 = require("obsidian");
+var import_obsidian83 = require("obsidian");
 
 // src/core/DashboardRouter.ts
 var ROUTE_CHANGED_EVENT = "route-changed";
@@ -3808,7 +3808,7 @@ var TopNavigation = class {
 };
 
 // src/components/DashboardSection.ts
-var import_obsidian75 = require("obsidian");
+var import_obsidian76 = require("obsidian");
 
 // src/components/SectionActionMenu.ts
 var import_obsidian15 = require("obsidian");
@@ -12870,10 +12870,10 @@ var LiteratureNotesSection = class {
 };
 
 // src/components/research/PaperFieldManagerSection.ts
-var import_obsidian68 = require("obsidian");
+var import_obsidian69 = require("obsidian");
 
 // src/components/research/PaperQueueModals.ts
-var import_obsidian67 = require("obsidian");
+var import_obsidian68 = require("obsidian");
 
 // src/services/ZoteroService.ts
 var ZoteroService = class {
@@ -12977,25 +12977,62 @@ function firstString(value) {
 }
 
 // src/services/ZoteroLocalApiService.ts
-var ZOTERO_LOCAL_API_BASE = "http://localhost:23119/api";
+var import_obsidian67 = require("obsidian");
+var ZoteroLocalApiError = class extends Error {
+  constructor(diagnostic) {
+    super(diagnostic.message);
+    this.diagnostic = diagnostic;
+    this.name = "ZoteroLocalApiError";
+  }
+};
+var ZOTERO_LOCAL_API_BASES = ["http://127.0.0.1:23119/api", "http://localhost:23119/api"];
 var PAPER_TYPES = /* @__PURE__ */ new Set(["journalArticle", "conferencePaper", "preprint", "thesis"]);
 var ZoteroLocalApiService = class {
   async checkConnection() {
-    try {
-      const response = await fetch(`${ZOTERO_LOCAL_API_BASE}/`, { method: "GET" });
-      return response.ok;
-    } catch (e) {
-      return false;
+    this.activeBaseUrl = void 0;
+    this.diagnostic = void 0;
+    for (const baseUrl of ZOTERO_LOCAL_API_BASES) {
+      try {
+        const response = await this.requestZotero("/", baseUrl);
+        if (isOk(response.status)) {
+          this.activeBaseUrl = baseUrl;
+          return true;
+        }
+        this.diagnostic = createDiagnostic(baseUrl, response.status);
+        this.logDiagnostic(this.diagnostic);
+      } catch (error) {
+        this.diagnostic = toDiagnostic(baseUrl, error);
+        this.logDiagnostic(this.diagnostic);
+      }
     }
+    return false;
   }
   async getTopItems() {
+    var _a;
+    if (!this.activeBaseUrl && !await this.checkConnection()) {
+      throw new ZoteroLocalApiError((_a = this.diagnostic) != null ? _a : {
+        url: ZOTERO_LOCAL_API_BASES[0],
+        message: "Zotero Local API \u8BF7\u6C42\u5931\u8D25\u3002",
+        kind: "request-failed"
+      });
+    }
     const items = [];
     const limit = 100;
     let start = 0;
     for (; ; ) {
-      const response = await fetch(`${ZOTERO_LOCAL_API_BASE}/users/0/items/top?format=json&limit=${limit}&start=${start}`, { method: "GET" });
-      if (!response.ok) throw new Error(`Zotero Local API returned ${response.status}`);
-      const page = await response.json();
+      const path = `/users/0/items/top?format=json&limit=${limit}&start=${start}`;
+      const response = await this.requestZotero(path, this.activeBaseUrl);
+      if (!isOk(response.status)) {
+        this.diagnostic = {
+          url: `${this.activeBaseUrl}${path}`,
+          status: response.status,
+          message: `Zotero \u5DF2\u8FDE\u63A5\uFF0C\u4F46\u8BFB\u53D6\u6587\u732E\u5217\u8868\u5931\u8D25\uFF08HTTP ${response.status}\uFF09\u3002`,
+          kind: "items-failed"
+        };
+        this.logDiagnostic(this.diagnostic);
+        throw new ZoteroLocalApiError(this.diagnostic);
+      }
+      const page = response.json;
       if (!Array.isArray(page)) break;
       items.push(...page.filter(isZoteroTopItem));
       if (page.length < limit) break;
@@ -13018,7 +13055,38 @@ var ZoteroLocalApiService = class {
       };
     }).filter((item) => item.itemKey && item.title);
   }
+  getDiagnostic() {
+    return this.diagnostic;
+  }
+  async requestZotero(path, baseUrl = ((_a) => (_a = this.activeBaseUrl) != null ? _a : ZOTERO_LOCAL_API_BASES[0])()) {
+    const url = `${baseUrl}${path}`;
+    try {
+      return await (0, import_obsidian67.requestUrl)({
+        url,
+        method: "GET",
+        headers: {
+          "Zotero-Allowed-Request": "true",
+          "Zotero-API-Version": "3"
+        },
+        throw: false
+      });
+    } catch (error) {
+      const diagnostic = toDiagnostic(url, error);
+      this.logDiagnostic(diagnostic);
+      throw new ZoteroLocalApiError(diagnostic);
+    }
+  }
+  logDiagnostic(diagnostic) {
+    console.warn("[Cute Workbench][Zotero]", diagnostic);
+  }
 };
+function zoteroErrorMessage(diagnostic) {
+  if (!diagnostic) return "Zotero Local API \u8BF7\u6C42\u5931\u8D25\u3002";
+  if (diagnostic.kind === "connection-refused") return "Zotero Desktop \u672A\u8FD0\u884C\uFF0C\u6216\u672C\u5730 API \u6682\u4E0D\u53EF\u8FBE\u3002";
+  if (diagnostic.kind === "forbidden") return "Zotero Local API \u62D2\u7EDD\u8BF7\u6C42\uFF0C\u8BF7\u68C0\u67E5 Allow other applications... \u8BBE\u7F6E\u3002";
+  if (diagnostic.kind === "items-failed") return "Zotero \u5DF2\u8FDE\u63A5\uFF0C\u4F46\u8BFB\u53D6\u6587\u732E\u5217\u8868\u5931\u8D25\u3002";
+  return "Zotero Local API \u8BF7\u6C42\u5931\u8D25\u3002";
+}
 function isZoteroTopItem(value) {
   return typeof value === "object" && value !== null && "data" in value;
 }
@@ -13028,6 +13096,27 @@ function firstText(...values) {
 function extractYear(value) {
   const match = value == null ? void 0 : value.match(/\b(19|20)\d{2}\b/);
   return match ? Number(match[0]) : void 0;
+}
+function isOk(status) {
+  return status >= 200 && status < 300;
+}
+function createDiagnostic(url, status) {
+  return {
+    url,
+    status,
+    message: `Zotero Local API returned HTTP ${status}`,
+    kind: status === 403 ? "forbidden" : "request-failed"
+  };
+}
+function toDiagnostic(url, error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const lower = message.toLowerCase();
+  const refused = lower.includes("econnrefused") || lower.includes("failed to fetch") || lower.includes("network") || lower.includes("connect");
+  return {
+    url,
+    message,
+    kind: refused ? "connection-refused" : "request-failed"
+  };
 }
 
 // src/services/PaperZoteroSyncService.ts
@@ -13112,7 +13201,7 @@ function sameVenue(left, right) {
 }
 
 // src/components/research/PaperQueueModals.ts
-var PaperQueueManagerModal = class extends import_obsidian67.Modal {
+var PaperQueueManagerModal = class extends import_obsidian68.Modal {
   constructor(app, store, onDone) {
     super(app);
     this.store = store;
@@ -13150,16 +13239,16 @@ var PaperQueueManagerModal = class extends import_obsidian67.Modal {
     });
     const actions = toolbar.createDiv({ cls: "cow-paper-manager-actions" });
     const add = actions.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
-    (0, import_obsidian67.setIcon)(add.createSpan(), "plus");
+    (0, import_obsidian68.setIcon)(add.createSpan(), "plus");
     add.createSpan({ text: "\u624B\u52A8\u6DFB\u52A0" });
     add.addEventListener("click", () => new PaperEditModal(this.app, this.store, () => {
       this.onDone();
       this.refreshList();
     }).open());
     const zotero = actions.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
-    (0, import_obsidian67.setIcon)(zotero.createSpan(), "download");
+    (0, import_obsidian68.setIcon)(zotero.createSpan(), "download");
     zotero.createSpan({ text: "Zotero \u5BFC\u5165" });
-    if (import_obsidian67.Platform.isMobileApp) {
+    if (import_obsidian68.Platform.isMobileApp) {
       zotero.disabled = true;
       zotero.setAttr("aria-label", "Zotero Local API \u4EC5\u652F\u6301\u684C\u9762\u7AEF");
     }
@@ -13168,7 +13257,7 @@ var PaperQueueManagerModal = class extends import_obsidian67.Modal {
       this.refreshList();
     }).open());
     const update = actions.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
-    (0, import_obsidian67.setIcon)(update.createSpan(), "refresh-cw");
+    (0, import_obsidian68.setIcon)(update.createSpan(), "refresh-cw");
     update.createSpan({ text: "\u66F4\u65B0 Zotero" });
     update.addEventListener("click", () => void this.updateZoteroLinkedPapers());
     this.filterEl = root.createDiv({ cls: "cow-paper-manager-filterbar" });
@@ -13307,16 +13396,16 @@ var PaperQueueManagerModal = class extends import_obsidian67.Modal {
     const linked = this.store.getResearchPapers().filter((paper) => paper.zoteroItemKey || paper.citekey || paper.doi || paper.paperUrl);
     const matches = linked.map((paper) => candidates.find((candidate) => candidateMatchesPaper(candidate, paper))).filter(Boolean);
     if (matches.length === 0) {
-      new import_obsidian67.Notice("\u6CA1\u6709\u627E\u5230\u53EF\u66F4\u65B0\u7684 Zotero \u6761\u76EE\uFF0C\u672C\u5730\u8BBA\u6587\u5DF2\u4FDD\u7559\u3002");
+      new import_obsidian68.Notice("\u6CA1\u6709\u627E\u5230\u53EF\u66F4\u65B0\u7684 Zotero \u6761\u76EE\uFF0C\u672C\u5730\u8BBA\u6587\u5DF2\u4FDD\u7559\u3002");
       return;
     }
     const result = await this.store.importZoteroPapers(matches);
-    new import_obsidian67.Notice(`Zotero \u66F4\u65B0\u5B8C\u6210\uFF1A\u65B0\u589E ${result.created}\uFF0C\u66F4\u65B0 ${result.updated}\uFF0C\u8DF3\u8FC7 ${result.skipped}\u3002`);
+    new import_obsidian68.Notice(`Zotero \u66F4\u65B0\u5B8C\u6210\uFF1A\u65B0\u589E ${result.created}\uFF0C\u66F4\u65B0 ${result.updated}\uFF0C\u8DF3\u8FC7 ${result.skipped}\u3002`);
     this.onDone();
     this.refreshList();
   }
 };
-var PaperDetailModal = class extends import_obsidian67.Modal {
+var PaperDetailModal = class extends import_obsidian68.Modal {
   constructor(app, store, paper, onDone) {
     super(app);
     this.store = store;
@@ -13342,29 +13431,29 @@ var PaperDetailModal = class extends import_obsidian67.Modal {
     const header = this.contentEl.createDiv({ cls: "cow-list-item-head" });
     header.createEl("h2", { text: paper.title });
     const edit = header.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
-    (0, import_obsidian67.setIcon)(edit.createSpan(), "pencil");
+    (0, import_obsidian68.setIcon)(edit.createSpan(), "pencil");
     edit.createSpan({ text: "\u7F16\u8F91" });
     edit.addEventListener("click", () => new PaperEditModal(this.app, this.store, () => {
       this.onDone();
       this.render();
     }, paper).open());
     const remove = header.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
-    (0, import_obsidian67.setIcon)(remove.createSpan(), "trash-2");
+    (0, import_obsidian68.setIcon)(remove.createSpan(), "trash-2");
     remove.createSpan({ text: "\u5220\u9664" });
     remove.addEventListener("click", () => new DeletePaperReadingModal(this.app, this.store, paper, () => {
       this.onDone();
       this.close();
     }).open());
     const refresh = header.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
-    (0, import_obsidian67.setIcon)(refresh.createSpan(), "refresh-cw");
+    (0, import_obsidian68.setIcon)(refresh.createSpan(), "refresh-cw");
     refresh.createSpan({ text: "\u91CD\u65B0\u4ECE Zotero \u66F4\u65B0" });
     refresh.addEventListener("click", () => void this.updateFromZotero(paper));
     const importNote = header.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
-    (0, import_obsidian67.setIcon)(importNote.createSpan(), "notebook-tabs");
+    (0, import_obsidian68.setIcon)(importNote.createSpan(), "notebook-tabs");
     importNote.createSpan({ text: "\u5BFC\u5165/\u66F4\u65B0 Zotero \u7B14\u8BB0" });
     importNote.addEventListener("click", () => void this.importZoteroNote(paper));
     const linkNote = header.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
-    (0, import_obsidian67.setIcon)(linkNote.createSpan(), "link");
+    (0, import_obsidian68.setIcon)(linkNote.createSpan(), "link");
     linkNote.createSpan({ text: "\u5173\u8054\u5DF2\u6709\u7B14\u8BB0" });
     linkNote.addEventListener("click", () => openLiteratureNoteModal(this.app, this.store, () => {
       this.onDone();
@@ -13392,11 +13481,11 @@ var PaperDetailModal = class extends import_obsidian67.Modal {
     const candidates = await loadZoteroCandidates(this.app, this.store);
     const match = candidates.find((candidate) => candidateMatchesPaper(candidate, paper));
     if (!match) {
-      new import_obsidian67.Notice("Zotero \u6761\u76EE\u672A\u627E\u5230\uFF0C\u672C\u5730\u8BBA\u6587\u5DF2\u4FDD\u7559\u3002");
+      new import_obsidian68.Notice("Zotero \u6761\u76EE\u672A\u627E\u5230\uFF0C\u672C\u5730\u8BBA\u6587\u5DF2\u4FDD\u7559\u3002");
       return;
     }
     const result = await this.store.importZoteroPapers([match]);
-    new import_obsidian67.Notice(`Zotero \u66F4\u65B0\u5B8C\u6210\uFF1A\u65B0\u589E ${result.created}\uFF0C\u66F4\u65B0 ${result.updated}\uFF0C\u8DF3\u8FC7 ${result.skipped}\u3002`);
+    new import_obsidian68.Notice(`Zotero \u66F4\u65B0\u5B8C\u6210\uFF1A\u65B0\u589E ${result.created}\uFF0C\u66F4\u65B0 ${result.updated}\uFF0C\u8DF3\u8FC7 ${result.skipped}\u3002`);
     this.onDone();
     this.render();
   }
@@ -13441,13 +13530,13 @@ var PaperDetailModal = class extends import_obsidian67.Modal {
   async importZoteroNote(paper) {
     const command = findZoteroNoteCommand(this.app);
     if (!command) {
-      new import_obsidian67.Notice("\u672A\u627E\u5230\u53EF\u7528\u7684 Zotero Integration \u7B14\u8BB0\u5BFC\u5165\u547D\u4EE4\u3002\u53EF\u4EE5\u4F7F\u7528\u201C\u5173\u8054\u5DF2\u6709\u7B14\u8BB0\u201D\u624B\u52A8\u5173\u8054 Markdown\u3002");
+      new import_obsidian68.Notice("\u672A\u627E\u5230\u53EF\u7528\u7684 Zotero Integration \u7B14\u8BB0\u5BFC\u5165\u547D\u4EE4\u3002\u53EF\u4EE5\u4F7F\u7528\u201C\u5173\u8054\u5DF2\u6709\u7B14\u8BB0\u201D\u624B\u52A8\u5173\u8054 Markdown\u3002");
       return;
     }
     await executeCommand(this.app, command.id);
     const note = findLikelyZoteroNote(this.app, paper);
     if (!note) {
-      new import_obsidian67.Notice("\u5DF2\u89E6\u53D1 Zotero Integration \u547D\u4EE4\uFF0C\u4F46\u672A\u80FD\u81EA\u52A8\u5B9A\u4F4D\u751F\u6210\u7684 Markdown\u3002\u8BF7\u4F7F\u7528\u201C\u5173\u8054\u5DF2\u6709\u7B14\u8BB0\u201D\u3002");
+      new import_obsidian68.Notice("\u5DF2\u89E6\u53D1 Zotero Integration \u547D\u4EE4\uFF0C\u4F46\u672A\u80FD\u81EA\u52A8\u5B9A\u4F4D\u751F\u6210\u7684 Markdown\u3002\u8BF7\u4F7F\u7528\u201C\u5173\u8054\u5DF2\u6709\u7B14\u8BB0\u201D\u3002");
       return;
     }
     await this.store.upsertLiteratureNote({
@@ -13458,12 +13547,12 @@ var PaperDetailModal = class extends import_obsidian67.Modal {
       createdAt: Date.now(),
       updatedAt: Date.now()
     });
-    new import_obsidian67.Notice("Zotero \u7B14\u8BB0\u5DF2\u5173\u8054\u5230\u8BBA\u6587\u3002");
+    new import_obsidian68.Notice("Zotero \u7B14\u8BB0\u5DF2\u5173\u8054\u5230\u8BBA\u6587\u3002");
     this.onDone();
     this.render();
   }
 };
-var PaperEditModal = class extends import_obsidian67.Modal {
+var PaperEditModal = class extends import_obsidian68.Modal {
   constructor(app, store, onDone, paper) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
     super(app);
@@ -13529,11 +13618,11 @@ var PaperEditModal = class extends import_obsidian67.Modal {
   }
   async save() {
     if (!this.draft.title.trim()) {
-      new import_obsidian67.Notice("\u8BF7\u8F93\u5165\u8BBA\u6587\u540D\u79F0\u3002");
+      new import_obsidian68.Notice("\u8BF7\u8F93\u5165\u8BBA\u6587\u540D\u79F0\u3002");
       return;
     }
     if (this.draft.readingEndDate && this.draft.readingStartDate && this.draft.readingEndDate < this.draft.readingStartDate) {
-      new import_obsidian67.Notice("\u9605\u8BFB\u7ED3\u675F\u65E5\u671F\u4E0D\u80FD\u65E9\u4E8E\u5F00\u59CB\u65E5\u671F\u3002");
+      new import_obsidian68.Notice("\u9605\u8BFB\u7ED3\u675F\u65E5\u671F\u4E0D\u80FD\u65E9\u4E8E\u5F00\u59CB\u65E5\u671F\u3002");
       return;
     }
     this.draft.updatedAt = Date.now();
@@ -13546,7 +13635,7 @@ var PaperEditModal = class extends import_obsidian67.Modal {
     this.close();
   }
 };
-var DeletePaperReadingModal = class extends import_obsidian67.Modal {
+var DeletePaperReadingModal = class extends import_obsidian68.Modal {
   constructor(app, store, paper, onDone) {
     super(app);
     this.store = store;
@@ -13584,12 +13673,12 @@ var DeletePaperReadingModal = class extends import_obsidian67.Modal {
   }
   async delete() {
     await this.store.deletePaperReading(this.paper.id);
-    new import_obsidian67.Notice("\u8BBA\u6587\u9605\u8BFB\u8BB0\u5F55\u5DF2\u5220\u9664\uFF0C\u5173\u8054\u6587\u732E\u7B14\u8BB0\u5DF2\u4FDD\u7559\u3002");
+    new import_obsidian68.Notice("\u8BBA\u6587\u9605\u8BFB\u8BB0\u5F55\u5DF2\u5220\u9664\uFF0C\u5173\u8054\u6587\u732E\u7B14\u8BB0\u5DF2\u4FDD\u7559\u3002");
     this.onDone();
     this.close();
   }
 };
-var ZoteroPaperImportModal = class extends import_obsidian67.Modal {
+var ZoteroPaperImportModal = class extends import_obsidian68.Modal {
   constructor(app, store, onDone) {
     super(app);
     this.store = store;
@@ -13605,8 +13694,8 @@ var ZoteroPaperImportModal = class extends import_obsidian67.Modal {
     this.error = "";
   }
   async onOpen() {
-    if (import_obsidian67.Platform.isMobileApp) {
-      new import_obsidian67.Notice("Zotero Local API \u4EC5\u652F\u6301\u684C\u9762\u7AEF\u3002");
+    if (import_obsidian68.Platform.isMobileApp) {
+      new import_obsidian68.Notice("Zotero Local API \u4EC5\u652F\u6301\u684C\u9762\u7AEF\u3002");
       this.close();
       return;
     }
@@ -13625,14 +13714,16 @@ var ZoteroPaperImportModal = class extends import_obsidian67.Modal {
   async load() {
     this.loading = true;
     this.error = "";
+    this.diagnostic = void 0;
     this.visibleLimit = this.pageSize;
     this.render();
     const service = new ZoteroLocalApiService();
     this.connected = await service.checkConnection();
+    this.diagnostic = service.getDiagnostic();
     if (!this.connected) {
       this.items = [];
       this.loading = false;
-      this.error = "\u65E0\u6CD5\u8FDE\u63A5 Zotero";
+      this.error = zoteroErrorMessage(this.diagnostic);
       this.render();
       return;
     }
@@ -13640,7 +13731,8 @@ var ZoteroPaperImportModal = class extends import_obsidian67.Modal {
       this.items = await service.getPapers();
     } catch (e) {
       this.items = [];
-      this.error = "\u8BFB\u53D6 Zotero \u8BBA\u6587\u5931\u8D25";
+      this.diagnostic = service.getDiagnostic();
+      this.error = zoteroErrorMessage(this.diagnostic);
     } finally {
       this.loading = false;
       this.render();
@@ -13684,7 +13776,7 @@ var ZoteroPaperImportModal = class extends import_obsidian67.Modal {
       return;
     }
     if (this.error) {
-      list.createDiv({ cls: "cow-empty-state", text: this.error });
+      this.renderErrorState(list);
       this.renderSelectionSummary();
       this.renderFooter();
       return;
@@ -13719,9 +13811,31 @@ var ZoteroPaperImportModal = class extends import_obsidian67.Modal {
   }
   renderConnectionHelp(container) {
     const empty = container.createDiv({ cls: "cow-empty-state cow-zotero-help" });
-    empty.createEl("strong", { text: "\u65E0\u6CD5\u8FDE\u63A5 Zotero" });
-    empty.createSpan({ text: "\u8BF7\u786E\u8BA4 Zotero Desktop \u5DF2\u6253\u5F00\uFF0C\u5E76\u5728 Zotero \u8BBE\u7F6E -> Advanced \u4E2D\u5F00\u542F Allow other applications on this computer to communicate with Zotero\u3002" });
+    empty.createEl("strong", { text: this.error || "\u65E0\u6CD5\u8FDE\u63A5 Zotero" });
+    empty.createSpan({ text: this.connectionHelpText() });
+    this.renderDiagnosticDetails(empty);
     empty.createEl("button", { text: "\u91CD\u65B0\u8FDE\u63A5", attr: { type: "button" } }).addEventListener("click", () => void this.load());
+  }
+  renderErrorState(container) {
+    const empty = container.createDiv({ cls: "cow-empty-state cow-zotero-help" });
+    empty.createEl("strong", { text: this.error });
+    this.renderDiagnosticDetails(empty);
+    empty.createEl("button", { text: "\u91CD\u65B0\u8FDE\u63A5", attr: { type: "button" } }).addEventListener("click", () => void this.load());
+  }
+  renderDiagnosticDetails(container) {
+    if (!this.diagnostic) return;
+    const details = container.createEl("details", { cls: "cow-zotero-diagnostics" });
+    details.createEl("summary", { text: "\u67E5\u770B\u9519\u8BEF\u8BE6\u60C5" });
+    details.createDiv({ text: `Request: ${this.diagnostic.url}` });
+    if (this.diagnostic.status) details.createDiv({ text: `Status: ${this.diagnostic.status}` });
+    details.createDiv({ text: `Error: ${this.diagnostic.message}` });
+  }
+  connectionHelpText() {
+    var _a;
+    if (((_a = this.diagnostic) == null ? void 0 : _a.kind) === "forbidden") {
+      return "Zotero \u62D2\u7EDD\u4E86\u672C\u5730\u8BF7\u6C42\uFF0C\u8BF7\u68C0\u67E5 Zotero \u8BBE\u7F6E\u4E2D\u7684 Allow other applications on this computer to communicate with Zotero\u3002";
+    }
+    return "\u8BF7\u786E\u8BA4 Zotero Desktop \u6B63\u5728\u8FD0\u884C\uFF0C\u672C\u5730 API \u5730\u5740\u4E3A 127.0.0.1:23119\uFF0C\u5931\u8D25\u65F6\u4F1A\u81EA\u52A8\u5C1D\u8BD5 localhost\u3002";
   }
   renderStatusFilters() {
     const filters = this.contentEl.createDiv({ cls: "cow-zotero-status-filters" });
@@ -13809,12 +13923,12 @@ var ZoteroPaperImportModal = class extends import_obsidian67.Modal {
   async syncSelected() {
     const selected = this.items.filter((item) => this.selectedKeys.has(item.itemKey));
     if (selected.length === 0) {
-      new import_obsidian67.Notice("\u8BF7\u9009\u62E9\u8981\u5BFC\u5165\u6216\u66F4\u65B0\u7684 Zotero \u6761\u76EE\u3002");
+      new import_obsidian68.Notice("\u8BF7\u9009\u62E9\u8981\u5BFC\u5165\u6216\u66F4\u65B0\u7684 Zotero \u6761\u76EE\u3002");
       return;
     }
     const service = new PaperZoteroSyncService(this.store);
     const result = await service.importOrUpdateMany(selected);
-    new import_obsidian67.Notice(`\u540C\u6B65\u5B8C\u6210\uFF1A\u65B0\u589E ${result.created}\uFF0C\u66F4\u65B0 ${result.updated}\uFF0C\u672A\u53D8\u5316 ${result.unchanged}\uFF0C\u5931\u8D25 ${result.failed}\u3002`);
+    new import_obsidian68.Notice(`\u540C\u6B65\u5B8C\u6210\uFF1A\u65B0\u589E ${result.created}\uFF0C\u66F4\u65B0 ${result.updated}\uFF0C\u672A\u53D8\u5316 ${result.unchanged}\uFF0C\u5931\u8D25 ${result.failed}\u3002`);
     this.onDone();
     this.selectedKeys.clear();
     this.render();
@@ -13831,7 +13945,7 @@ var ZoteroPaperImportModal = class extends import_obsidian67.Modal {
     return sameTitle && sameVenue2 && sameYear ? "imported" : "update-available";
   }
 };
-var PaperFieldManagerModal = class extends import_obsidian67.Modal {
+var PaperFieldManagerModal = class extends import_obsidian68.Modal {
   constructor(app, store, onDone) {
     super(app);
     this.store = store;
@@ -13897,7 +14011,7 @@ var PaperFieldManagerModal = class extends import_obsidian67.Modal {
   }
   renderAddField(label, onClick) {
     const add = this.contentEl.createEl("button", { cls: "cow-bottom-add", attr: { type: "button" } });
-    (0, import_obsidian67.setIcon)(add.createSpan(), "plus");
+    (0, import_obsidian68.setIcon)(add.createSpan(), "plus");
     add.createSpan({ text: label });
     add.addEventListener("click", onClick);
   }
@@ -13938,7 +14052,7 @@ var PaperFieldManagerModal = class extends import_obsidian67.Modal {
     this.render();
   }
 };
-var PaperFieldEditModal = class extends import_obsidian67.Modal {
+var PaperFieldEditModal = class extends import_obsidian68.Modal {
   constructor(app, store, kind, onDone, field) {
     var _a, _b;
     super(app);
@@ -13984,7 +14098,7 @@ var PaperFieldEditModal = class extends import_obsidian67.Modal {
   async save() {
     var _a;
     if (!this.name.trim()) {
-      new import_obsidian67.Notice("\u8BF7\u8F93\u5165\u540D\u79F0\u3002");
+      new import_obsidian68.Notice("\u8BF7\u8F93\u5165\u540D\u79F0\u3002");
       return;
     }
     const id = (_a = this.fieldId) != null ? _a : `${this.kind}-${Date.now()}`;
@@ -14084,7 +14198,7 @@ function tagField(container, tags, selected, onChange) {
 }
 function iconButton(container, icon, label, onClick) {
   const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
-  (0, import_obsidian67.setIcon)(button, icon);
+  (0, import_obsidian68.setIcon)(button, icon);
   button.addEventListener("click", onClick);
 }
 async function loadZoteroCandidates(app, store, notify = true) {
@@ -14094,16 +14208,16 @@ async function loadZoteroCandidates(app, store, notify = true) {
   const commands = service.getRegisteredZoteroCommands();
   if (!path) {
     if (notify) {
-      new import_obsidian67.Notice(commands.length > 0 ? "\u68C0\u6D4B\u5230 Zotero Integration \u547D\u4EE4\uFF0C\u4F46\u6CA1\u6709\u516C\u5F00\u6761\u76EE\u8BFB\u53D6\u63A5\u53E3\u3002\u8BF7\u914D\u7F6E Better BibTeX JSON \u8DEF\u5F84\u3002" : "\u672A\u68C0\u6D4B\u5230\u53EF\u7528\u7684 Zotero \u6570\u636E\u6E90\u3002\u8BF7\u914D\u7F6E Better BibTeX JSON \u8DEF\u5F84\u3002");
+      new import_obsidian68.Notice(commands.length > 0 ? "\u68C0\u6D4B\u5230 Zotero Integration \u547D\u4EE4\uFF0C\u4F46\u6CA1\u6709\u516C\u5F00\u6761\u76EE\u8BFB\u53D6\u63A5\u53E3\u3002\u8BF7\u914D\u7F6E Better BibTeX JSON \u8DEF\u5F84\u3002" : "\u672A\u68C0\u6D4B\u5230\u53EF\u7528\u7684 Zotero \u6570\u636E\u6E90\u3002\u8BF7\u914D\u7F6E Better BibTeX JSON \u8DEF\u5F84\u3002");
     }
     return [];
   }
   try {
     const candidates = await service.loadBetterBibtexJson(path);
-    if (candidates.length === 0 && notify) new import_obsidian67.Notice("Better BibTeX JSON \u4E2D\u6CA1\u6709\u53EF\u5BFC\u5165\u6761\u76EE\u3002");
+    if (candidates.length === 0 && notify) new import_obsidian68.Notice("Better BibTeX JSON \u4E2D\u6CA1\u6709\u53EF\u5BFC\u5165\u6761\u76EE\u3002");
     return candidates;
   } catch (e) {
-    if (notify) new import_obsidian67.Notice("\u8BFB\u53D6 Better BibTeX JSON \u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5 JSON \u8DEF\u5F84\u548C\u683C\u5F0F\u3002");
+    if (notify) new import_obsidian68.Notice("\u8BFB\u53D6 Better BibTeX JSON \u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5 JSON \u8DEF\u5F84\u548C\u683C\u5F0F\u3002");
     return [];
   }
 }
@@ -14161,7 +14275,7 @@ var PaperFieldManagerSection = class {
     this.renderGroup(shell, "\u4F1A\u8BAE / \u671F\u520A", this.store.getPaperVenues().map((item) => ({ name: item.name, color: item.color })));
     this.renderGroup(shell, "\u6807\u7B7E", this.store.getPaperTags().map((item) => ({ name: item.name, color: item.color })));
     const button = shell.createEl("button", { cls: "cow-bottom-add", attr: { type: "button" } });
-    (0, import_obsidian68.setIcon)(button.createSpan(), "pencil");
+    (0, import_obsidian69.setIcon)(button.createSpan(), "pencil");
     button.createSpan({ text: "\u7F16\u8F91\u5B57\u6BB5" });
     button.addEventListener("click", () => new PaperFieldManagerModal(this.app, this.store, this.onDataChanged).open());
   }
@@ -14174,7 +14288,7 @@ var PaperFieldManagerSection = class {
 };
 
 // src/components/research/PaperQueueSection.ts
-var import_obsidian69 = require("obsidian");
+var import_obsidian70 = require("obsidian");
 var PaperQueueSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -14289,19 +14403,19 @@ var PaperQueueSection = class {
   }
   async openNote(notePath) {
     if (!notePath) {
-      new import_obsidian69.Notice("\u8FD9\u7BC7\u6587\u732E\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u7B14\u8BB0\u3002");
+      new import_obsidian70.Notice("\u8FD9\u7BC7\u6587\u732E\u8FD8\u6CA1\u6709\u7ED1\u5B9A\u7B14\u8BB0\u3002");
       return;
     }
     const file = this.app.vault.getFileByPath(notePath);
     if (!file) {
-      new import_obsidian69.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${notePath}`);
+      new import_obsidian70.Notice(`\u6CA1\u6709\u627E\u5230\u7B14\u8BB0\uFF1A${notePath}`);
       return;
     }
     await this.app.workspace.getLeaf(false).openFile(file);
   }
   async openPaperUrl(paper) {
     if (!paper.paperUrl) {
-      new import_obsidian69.Notice("\u8FD9\u7BC7\u8BBA\u6587\u8FD8\u6CA1\u6709\u586B\u5199\u94FE\u63A5\u3002");
+      new import_obsidian70.Notice("\u8FD9\u7BC7\u8BBA\u6587\u8FD8\u6CA1\u6709\u586B\u5199\u94FE\u63A5\u3002");
       return;
     }
     window.open(paper.paperUrl);
@@ -14309,12 +14423,12 @@ var PaperQueueSection = class {
 };
 function iconButton2(container, icon, label, onClick) {
   const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
-  (0, import_obsidian69.setIcon)(button, icon);
+  (0, import_obsidian70.setIcon)(button, icon);
   button.addEventListener("click", onClick);
 }
 
 // src/components/research/ResearchCheckinSection.ts
-var import_obsidian70 = require("obsidian");
+var import_obsidian71 = require("obsidian");
 var ResearchCheckinSection = class {
   constructor(store, onDataChanged) {
     this.store = store;
@@ -14332,7 +14446,7 @@ var ResearchCheckinSection = class {
       dates.forEach((date) => {
         const done = this.store.isHabitCompleted(habit.id, date);
         const button = row.createEl("button", { cls: `cow-habit-dot ${done ? "is-done" : ""}`, attr: { type: "button" } });
-        if (done) (0, import_obsidian70.setIcon)(button, "check");
+        if (done) (0, import_obsidian71.setIcon)(button, "check");
         button.addEventListener("click", async () => {
           await this.store.toggleHabit(habit.id, date);
           this.onDataChanged();
@@ -14344,7 +14458,7 @@ var ResearchCheckinSection = class {
 };
 
 // src/components/research/ResearchMemoSection.ts
-var import_obsidian71 = require("obsidian");
+var import_obsidian72 = require("obsidian");
 var ResearchMemoSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -14359,13 +14473,13 @@ var ResearchMemoSection = class {
       head.createSpan({ text: memo });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91 Memo" } });
-      (0, import_obsidian71.setIcon)(edit, "pencil");
+      (0, import_obsidian72.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openTextModal(this.app, "\u7F16\u8F91\u79D1\u7814 Memo", "Memo", memo, async (value) => {
         await this.store.updateResearchMemo(index, value);
         this.onDataChanged();
       }));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664 Memo" } });
-      (0, import_obsidian71.setIcon)(remove, "trash-2");
+      (0, import_obsidian72.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteResearchMemo(index);
         this.onDataChanged();
@@ -14375,11 +14489,11 @@ var ResearchMemoSection = class {
 };
 
 // src/components/research/ResearchProjectsSection.ts
-var import_obsidian73 = require("obsidian");
+var import_obsidian74 = require("obsidian");
 
 // src/components/research/ResearchProjectModals.ts
-var import_obsidian72 = require("obsidian");
-var ResearchProjectDetailModal = class extends import_obsidian72.Modal {
+var import_obsidian73 = require("obsidian");
+var ResearchProjectDetailModal = class extends import_obsidian73.Modal {
   constructor(app, store, project, onDone) {
     super(app);
     this.store = store;
@@ -14406,7 +14520,7 @@ var ResearchProjectDetailModal = class extends import_obsidian72.Modal {
     const header = this.contentEl.createDiv({ cls: "cow-list-item-head" });
     header.createEl("h2", { text: project.title });
     const edit = header.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
-    (0, import_obsidian72.setIcon)(edit.createSpan(), "pencil");
+    (0, import_obsidian73.setIcon)(edit.createSpan(), "pencil");
     edit.createSpan({ text: "\u7F16\u8F91" });
     edit.addEventListener("click", () => openResearchProjectModal(this.app, async (values) => {
       await this.store.updateResearchProject(project.id, { ...values, tags: values.tagsText.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean) });
@@ -14459,7 +14573,7 @@ var ResearchProjectDetailModal = class extends import_obsidian72.Modal {
     });
   }
 };
-var DeleteResearchProjectModal = class extends import_obsidian72.Modal {
+var DeleteResearchProjectModal = class extends import_obsidian73.Modal {
   constructor(app, store, project, onDone) {
     super(app);
     this.store = store;
@@ -14507,7 +14621,7 @@ var ResearchProjectsSection = class {
       head.createEl("strong", { text: project.title });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u9879\u76EE" } });
-      (0, import_obsidian73.setIcon)(edit, "pencil");
+      (0, import_obsidian74.setIcon)(edit, "pencil");
       edit.addEventListener("click", (event) => {
         event.stopPropagation();
         openResearchProjectModal(this.app, async (values) => {
@@ -14516,7 +14630,7 @@ var ResearchProjectsSection = class {
         }, project);
       });
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u9879\u76EE" } });
-      (0, import_obsidian73.setIcon)(remove, "trash-2");
+      (0, import_obsidian74.setIcon)(remove, "trash-2");
       remove.addEventListener("click", (event) => {
         event.stopPropagation();
         new DeleteResearchProjectModal(this.app, this.store, project, this.onDataChanged).open();
@@ -14534,7 +14648,7 @@ var ResearchProjectsSection = class {
 };
 
 // src/components/research/ResearchTimelineSection.ts
-var import_obsidian74 = require("obsidian");
+var import_obsidian75 = require("obsidian");
 var ResearchTimelineSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -14550,13 +14664,13 @@ var ResearchTimelineSection = class {
       item.createSpan({ text: ddl.type });
       const actions = item.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91 DDL" } });
-      (0, import_obsidian74.setIcon)(edit, "pencil");
+      (0, import_obsidian75.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openDeadlineModal(this.app, async (values) => {
         await this.store.updateResearchDeadline(ddl.id, values);
         this.onDataChanged();
       }, ddl));
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664 DDL" } });
-      (0, import_obsidian74.setIcon)(remove, "trash-2");
+      (0, import_obsidian75.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteResearchDeadline(ddl.id);
         this.onDataChanged();
@@ -14582,7 +14696,7 @@ var DashboardSection = class {
     });
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
     const title = header.createDiv({ cls: "cow-section-title" });
-    (0, import_obsidian75.setIcon)(title.createSpan(), this.getIcon());
+    (0, import_obsidian76.setIcon)(title.createSpan(), this.getIcon());
     title.createEl("h3", { text: this.section.title });
     const actions = header.createDiv({ cls: "cow-section-actions" });
     if (getSectionCapabilities(this.section.type).canAdd) {
@@ -14590,7 +14704,7 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": `\u6DFB\u52A0${this.section.title}\u5185\u5BB9` }
       });
-      (0, import_obsidian75.setIcon)(addButton.createSpan(), "plus");
+      (0, import_obsidian76.setIcon)(addButton.createSpan(), "plus");
       addButton.createSpan({ text: "\u6DFB\u52A0" });
       addButton.addEventListener("click", () => {
         openAddContentModal(this.app, this.store, this.section, this.onDataChanged);
@@ -14601,7 +14715,7 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": `${this.section.title}\u7EDF\u8BA1` }
       });
-      (0, import_obsidian75.setIcon)(statsButton.createSpan(), "bar-chart-3");
+      (0, import_obsidian76.setIcon)(statsButton.createSpan(), "bar-chart-3");
       statsButton.createSpan({ text: "\u7EDF\u8BA1" });
       statsButton.addEventListener("click", () => this.openStats());
     }
@@ -14614,7 +14728,7 @@ var DashboardSection = class {
       cls: "cow-icon-button",
       attr: { type: "button", "aria-label": `${this.section.title}\u64CD\u4F5C\u83DC\u5355` }
     });
-    (0, import_obsidian75.setIcon)(menuButton, "more-horizontal");
+    (0, import_obsidian76.setIcon)(menuButton, "more-horizontal");
     menuButton.addEventListener("click", (event) => {
       new SectionActionMenu(this.app, this.store, this.section, this.onRemove, this.onDataChanged).show(event);
     });
@@ -14627,7 +14741,7 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": label }
       });
-      (0, import_obsidian75.setIcon)(button.createSpan(), icon);
+      (0, import_obsidian76.setIcon)(button.createSpan(), icon);
       button.createSpan({ text: label });
       button.addEventListener("click", onClick);
     };
@@ -14654,7 +14768,7 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": label }
       });
-      (0, import_obsidian75.setIcon)(button.createSpan(), icon);
+      (0, import_obsidian76.setIcon)(button.createSpan(), icon);
       button.createSpan({ text: label });
       button.addEventListener("click", onClick);
     };
@@ -14673,7 +14787,7 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": label }
       });
-      (0, import_obsidian75.setIcon)(button.createSpan(), icon);
+      (0, import_obsidian76.setIcon)(button.createSpan(), icon);
       button.createSpan({ text: label });
       button.addEventListener("click", onClick);
     };
@@ -14690,7 +14804,7 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": label }
       });
-      (0, import_obsidian75.setIcon)(button.createSpan(), icon);
+      (0, import_obsidian76.setIcon)(button.createSpan(), icon);
       button.createSpan({ text: label });
       button.addEventListener("click", onClick);
     };
@@ -14724,7 +14838,7 @@ var DashboardSection = class {
         cls: "cow-section-add-button",
         attr: { type: "button", "aria-label": label }
       });
-      (0, import_obsidian75.setIcon)(button.createSpan(), icon);
+      (0, import_obsidian76.setIcon)(button.createSpan(), icon);
       button.createSpan({ text: label });
       button.addEventListener("click", onClick);
     };
@@ -15134,8 +15248,8 @@ var DashboardSection = class {
 };
 
 // src/components/AddSectionButton.ts
-var import_obsidian76 = require("obsidian");
-var AddSectionModal = class extends import_obsidian76.Modal {
+var import_obsidian77 = require("obsidian");
+var AddSectionModal = class extends import_obsidian77.Modal {
   constructor(app, page, modules, onSelect) {
     super(app);
     this.page = page;
@@ -15154,7 +15268,7 @@ var AddSectionModal = class extends import_obsidian76.Modal {
         attr: { type: "button" }
       });
       const icon = button.createSpan({ cls: "cow-add-module-icon" });
-      (0, import_obsidian76.setIcon)(icon, module2.icon);
+      (0, import_obsidian77.setIcon)(icon, module2.icon);
       button.createEl("strong", { cls: "cow-add-module-title", text: module2.title });
       button.createEl("span", { cls: "cow-add-module-description", text: module2.description });
       button.addEventListener("click", async () => {
@@ -15179,7 +15293,7 @@ var AddSectionButton = class {
       cls: "cow-add-section-button",
       attr: { type: "button" }
     });
-    (0, import_obsidian76.setIcon)(button.createSpan(), "plus");
+    (0, import_obsidian77.setIcon)(button.createSpan(), "plus");
     button.createSpan({ text: "\u6DFB\u52A0\u529F\u80FD\u5206\u533A" });
     button.addEventListener("click", () => {
       new AddSectionModal(this.app, this.page, this.modules, this.onAdd).open();
@@ -15254,8 +15368,8 @@ var GoalsPage = class extends BaseDashboardPage {
 };
 
 // src/pages/ModulesPage.ts
-var import_obsidian77 = require("obsidian");
-var ResetDefaultsModal = class extends import_obsidian77.Modal {
+var import_obsidian78 = require("obsidian");
+var ResetDefaultsModal = class extends import_obsidian78.Modal {
   constructor(app, onConfirm) {
     super(app);
     this.onConfirm = onConfirm;
@@ -15295,7 +15409,7 @@ var ModulesPage = class {
     const importInput = actions.createEl("input", { type: "file", attr: { accept: "application/json" } });
     importInput.addClass("cow-hidden-input");
     const importButton = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian77.setIcon)(importButton.createSpan(), "upload");
+    (0, import_obsidian78.setIcon)(importButton.createSpan(), "upload");
     importButton.createSpan({ text: "\u5BFC\u5165\u914D\u7F6E" });
     importButton.addEventListener("click", () => importInput.click());
     importInput.addEventListener("change", () => {
@@ -15304,18 +15418,18 @@ var ModulesPage = class {
       if (!file) return;
       readJsonFile(file, async (data) => {
         await this.store.importData(data);
-        new import_obsidian77.Notice("\u914D\u7F6E\u5DF2\u5BFC\u5165\u3002");
+        new import_obsidian78.Notice("\u914D\u7F6E\u5DF2\u5BFC\u5165\u3002");
         this.onDataChanged();
       });
     });
     const exportButton = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian77.setIcon)(exportButton.createSpan(), "download");
+    (0, import_obsidian78.setIcon)(exportButton.createSpan(), "download");
     exportButton.createSpan({ text: "\u5BFC\u51FA\u914D\u7F6E" });
     exportButton.addEventListener("click", () => {
       downloadJson("cute-obsidian-workbench-config.json", this.store.exportData());
     });
     const resetButton = actions.createEl("button", { cls: "mod-warning", attr: { type: "button" } });
-    (0, import_obsidian77.setIcon)(resetButton.createSpan(), "rotate-ccw");
+    (0, import_obsidian78.setIcon)(resetButton.createSpan(), "rotate-ccw");
     resetButton.createSpan({ text: "\u6062\u590D\u9ED8\u8BA4" });
     resetButton.addEventListener("click", () => {
       new ResetDefaultsModal(this.app, async () => {
@@ -15327,8 +15441,8 @@ var ModulesPage = class {
 };
 
 // src/components/QuickCreateModal.ts
-var import_obsidian78 = require("obsidian");
-var QuickCreateModal = class extends import_obsidian78.Modal {
+var import_obsidian79 = require("obsidian");
+var QuickCreateModal = class extends import_obsidian79.Modal {
   constructor(app, store, getCurrentPage, onDataChanged) {
     super(app);
     this.store = store;
@@ -15351,12 +15465,12 @@ var QuickCreateModal = class extends import_obsidian78.Modal {
     this.renderAction(grid, "\u6DFB\u52A0\u4EFB\u52A1", "list-plus", async () => {
       await this.store.addTodayFocusTask("\u65B0\u7684\u5F85\u529E\u4EFB\u52A1");
       this.onDataChanged();
-      new import_obsidian78.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
+      new import_obsidian79.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
     });
     this.renderAction(grid, "\u6DFB\u52A0\u6253\u5361\u9879\u76EE", "badge-plus", async () => {
       await this.store.addCustomHabit("\u65B0\u7684\u6253\u5361");
       this.onDataChanged();
-      new import_obsidian78.Notice("\u5DF2\u6DFB\u52A0\u6253\u5361\u9879\u76EE\uFF0C\u53EF\u5728\u6A21\u5757\u7BA1\u7406\u4E2D\u7F16\u8F91\u3002");
+      new import_obsidian79.Notice("\u5DF2\u6DFB\u52A0\u6253\u5361\u9879\u76EE\uFF0C\u53EF\u5728\u6A21\u5757\u7BA1\u7406\u4E2D\u7F16\u8F91\u3002");
     });
     this.renderAction(grid, "\u6DFB\u52A0\u529F\u80FD\u5206\u533A", "layout-grid", async () => {
       this.close();
@@ -15365,7 +15479,7 @@ var QuickCreateModal = class extends import_obsidian78.Modal {
   }
   renderAction(container, label, icon, action, closeAfter = true) {
     const button = container.createEl("button", { cls: "cow-quick-create-card", attr: { type: "button" } });
-    (0, import_obsidian78.setIcon)(button.createSpan(), icon);
+    (0, import_obsidian79.setIcon)(button.createSpan(), icon);
     button.createSpan({ text: label });
     button.addEventListener("click", async () => {
       await action();
@@ -15382,8 +15496,8 @@ var QuickCreateModal = class extends import_obsidian78.Modal {
 };
 
 // src/components/WorkbenchCustomizeModal.ts
-var import_obsidian79 = require("obsidian");
-var WorkbenchCustomizeModal = class extends import_obsidian79.Modal {
+var import_obsidian80 = require("obsidian");
+var WorkbenchCustomizeModal = class extends import_obsidian80.Modal {
   constructor(app, store, getCurrentPage, onDataChanged) {
     var _a;
     super(app);
@@ -15410,7 +15524,7 @@ var WorkbenchCustomizeModal = class extends import_obsidian79.Modal {
         cls: this.store.getData().banner.background === background.id ? "is-active" : "",
         attr: { type: "button" }
       });
-      (0, import_obsidian79.setIcon)(button.createSpan(), "image");
+      (0, import_obsidian80.setIcon)(button.createSpan(), "image");
       button.createSpan({ text: background.label });
       button.addEventListener("click", async () => {
         await this.store.updateBanner({ background: background.id, imageDataUrl: void 0 });
@@ -15434,30 +15548,30 @@ var WorkbenchCustomizeModal = class extends import_obsidian79.Modal {
       };
       reader.readAsDataURL(file);
     });
-    new import_obsidian79.Setting(this.contentEl).setName("\u672C\u5730\u56FE\u7247").setDesc("\u4FDD\u5B58\u4E3A data URL\uFF0CBRAT \u5B89\u88C5\u540E\u4E0D\u4F9D\u8D56\u989D\u5916\u8D44\u6E90\u8DEF\u5F84\u3002").addButton((button) => button.setButtonText("\u9009\u62E9\u56FE\u7247").onClick(() => fileInput.click()));
-    new import_obsidian79.Setting(this.contentEl).setName("\u5DE6\u4FA7\u5934\u50CF").setDesc("\u9009\u62E9\u9884\u8BBE\u56FE\u6807\u6216\u4E0A\u4F20\u56FE\u7247\uFF0C\u5237\u65B0\u540E\u4ECD\u4FDD\u7559\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF").onClick(() => {
+    new import_obsidian80.Setting(this.contentEl).setName("\u672C\u5730\u56FE\u7247").setDesc("\u4FDD\u5B58\u4E3A data URL\uFF0CBRAT \u5B89\u88C5\u540E\u4E0D\u4F9D\u8D56\u989D\u5916\u8D44\u6E90\u8DEF\u5F84\u3002").addButton((button) => button.setButtonText("\u9009\u62E9\u56FE\u7247").onClick(() => fileInput.click()));
+    new import_obsidian80.Setting(this.contentEl).setName("\u5DE6\u4FA7\u5934\u50CF").setDesc("\u9009\u62E9\u9884\u8BBE\u56FE\u6807\u6216\u4E0A\u4F20\u56FE\u7247\uFF0C\u5237\u65B0\u540E\u4ECD\u4FDD\u7559\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF").onClick(() => {
       const current = this.store.getData().banner.sidebarAvatar;
       new AvatarPickerModal(this.app, "\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF", current, async (avatar) => {
         await this.store.updateSidebarAvatar(avatar);
         this.onDataChanged();
       }).open();
     }));
-    new import_obsidian79.Setting(this.contentEl).setName("Banner \u56FE\u6807").setDesc("\u9009\u62E9 Banner \u5DE6\u4FA7\u663E\u793A\u7684\u53EF\u7231\u56FE\u6807\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539 Banner \u56FE\u6807").onClick(() => {
+    new import_obsidian80.Setting(this.contentEl).setName("Banner \u56FE\u6807").setDesc("\u9009\u62E9 Banner \u5DE6\u4FA7\u663E\u793A\u7684\u53EF\u7231\u56FE\u6807\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539 Banner \u56FE\u6807").onClick(() => {
       const current = this.store.getData().banner.bannerAvatar;
       new AvatarPickerModal(this.app, "\u4FEE\u6539 Banner \u56FE\u6807", current, async (avatar) => {
         await this.store.updateBannerAvatar(avatar);
         this.onDataChanged();
       }).open();
     }));
-    new import_obsidian79.Setting(this.contentEl).setName("Banner \u4E3B\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
+    new import_obsidian80.Setting(this.contentEl).setName("Banner \u4E3B\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
       this.titleValue = value;
     }));
-    new import_obsidian79.Setting(this.contentEl).setName("Banner \u526F\u6807\u9898").addText((text) => text.setValue(this.subtitleValue).onChange((value) => {
+    new import_obsidian80.Setting(this.contentEl).setName("Banner \u526F\u6807\u9898").addText((text) => text.setValue(this.subtitleValue).onChange((value) => {
       this.subtitleValue = value;
     }));
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     const addSection = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian79.setIcon)(addSection.createSpan(), "plus");
+    (0, import_obsidian80.setIcon)(addSection.createSpan(), "plus");
     addSection.createSpan({ text: "\u6DFB\u52A0\u5F53\u524D\u9875\u9762\u529F\u80FD\u5206\u533A" });
     addSection.addEventListener("click", () => {
       this.close();
@@ -15470,7 +15584,7 @@ var WorkbenchCustomizeModal = class extends import_obsidian79.Modal {
         subtitle: this.subtitleValue.trim() || "\u628A\u60F3\u6CD5\u53D8\u6210\u884C\u52A8\uFF0C\u8BA9\u6BCF\u4E00\u5929\u90FD\u66F4\u9760\u8FD1\u7406\u60F3\u7684\u81EA\u5DF1\u3002"
       });
       this.onDataChanged();
-      new import_obsidian79.Notice("Banner \u6587\u6848\u5DF2\u4FDD\u5B58\u3002");
+      new import_obsidian80.Notice("Banner \u6587\u6848\u5DF2\u4FDD\u5B58\u3002");
       this.close();
     });
   }
@@ -15484,8 +15598,8 @@ var WorkbenchCustomizeModal = class extends import_obsidian79.Modal {
 };
 
 // src/components/DayDetailModal.ts
-var import_obsidian80 = require("obsidian");
-var DayDetailModal = class extends import_obsidian80.Modal {
+var import_obsidian81 = require("obsidian");
+var DayDetailModal = class extends import_obsidian81.Modal {
   constructor(app, store, date) {
     super(app);
     this.store = store;
@@ -15519,7 +15633,7 @@ var DayDetailModal = class extends import_obsidian80.Modal {
     const noteRow = this.contentEl.createDiv({ cls: "cow-day-note-row" });
     noteRow.createSpan({ text: dailyNote ? dailyNote.path : "\u8FD8\u6CA1\u6709\u6BCF\u65E5\u7B14\u8BB0\u3002" });
     const button = noteRow.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian80.setIcon)(button.createSpan(), dailyNote ? "file-text" : "file-plus");
+    (0, import_obsidian81.setIcon)(button.createSpan(), dailyNote ? "file-text" : "file-plus");
     button.createSpan({ text: dailyNote ? "\u6253\u5F00\u6BCF\u65E5\u7B14\u8BB0" : "\u521B\u5EFA\u6BCF\u65E5\u7B14\u8BB0" });
     button.addEventListener("click", async () => {
       await this.notes.openOrCreateDailyNote(this.date);
@@ -15529,8 +15643,8 @@ var DayDetailModal = class extends import_obsidian80.Modal {
 };
 
 // src/components/NotesManagerModal.ts
-var import_obsidian81 = require("obsidian");
-var NotesManagerModal = class extends import_obsidian81.Modal {
+var import_obsidian82 = require("obsidian");
+var NotesManagerModal = class extends import_obsidian82.Modal {
   constructor(app) {
     super(app);
     this.searchValue = "";
@@ -15582,7 +15696,7 @@ var NotesManagerModal = class extends import_obsidian81.Modal {
 
 // src/views/WorkbenchView.ts
 var WORKBENCH_VIEW_TYPE = "cute-obsidian-workbench-view";
-var WorkbenchView = class extends import_obsidian82.ItemView {
+var WorkbenchView = class extends import_obsidian83.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -15671,7 +15785,7 @@ var WorkbenchView = class extends import_obsidian82.ItemView {
     var _a;
     const didRun = (_a = this.app.commands) == null ? void 0 : _a.executeCommandById("file-explorer:open");
     if (!didRun) {
-      new import_obsidian82.Notice("\u672A\u80FD\u6FC0\u6D3B Obsidian \u6587\u4EF6\u7BA1\u7406\u5668\u3002");
+      new import_obsidian83.Notice("\u672A\u80FD\u6FC0\u6D3B Obsidian \u6587\u4EF6\u7BA1\u7406\u5668\u3002");
     }
   }
   openAvatarPicker(target) {
@@ -15693,7 +15807,7 @@ var WorkbenchView = class extends import_obsidian82.ItemView {
 };
 
 // src/main.ts
-var CuteObsidianWorkbenchPlugin = class extends import_obsidian83.Plugin {
+var CuteObsidianWorkbenchPlugin = class extends import_obsidian84.Plugin {
   async onload() {
     this.store = new DashboardStore(
       () => this.loadData(),
