@@ -28,9 +28,12 @@ import type {
   InvestmentSnapshot,
   InvestmentWatchItem,
   KeyResult,
+  LiteratureNote,
   Milestone,
   Objective,
   QuickActionConfig,
+  PaperStatusDefinition,
+  PaperTagDefinition,
   PriorityMatrixItem,
   ReadingQuote,
   ReadingPlan,
@@ -42,6 +45,7 @@ import type {
   SavingGoal,
   TodayFocusTask,
   Transaction,
+  VenueDefinition,
   Workout,
   ThemeSettings,
   WorkbenchData
@@ -75,6 +79,7 @@ export const AVAILABLE_MODULES: AvailableModuleDefinition[] = [
   { type: "notes", title: "Notes", description: "笔记入口集合。", page: "overview", icon: "notebook-tabs", defaultWidth: "md" },
   { type: "research-projects", title: "研究项目总览", description: "科研项目与阶段状态。", page: "research", icon: "layers", defaultWidth: "md" },
   { type: "reading-queue", title: "论文阅读队列", description: "论文阅读状态和优先级。", page: "research", icon: "book-marked", defaultWidth: "md" },
+  { type: "paper-field-manager", title: "论文字段管理", description: "管理论文阅读状态、会议期刊和标签。", page: "research", icon: "sliders-horizontal", defaultWidth: "md" },
   { type: "research-checkin", title: "本周科研打卡", description: "论文、实验、写作和组会准备。", page: "research", icon: "calendar-check", defaultWidth: "md" },
   { type: "experiment-plan", title: "实验计划", description: "计划中的实验任务。", page: "research", icon: "clipboard-check", defaultWidth: "md" },
   { type: "experiment-records", title: "实验记录", description: "最近实验记录与笔记入口。", page: "research", icon: "file-clock", defaultWidth: "md" },
@@ -166,7 +171,7 @@ function todayKey(): string {
 }
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.3.9",
+  dataVersion: "0.4.0",
   currentPage: "overview",
   sections: [
     {
@@ -295,6 +300,16 @@ const DEFAULT_DATA: WorkbenchData = {
       type: "reading-queue",
       title: "论文阅读队列",
       order: 20,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "research-paper-field-manager",
+      page: "research",
+      type: "paper-field-manager",
+      title: "论文字段管理",
+      order: 25,
       enabled: true,
       width: "md",
       height: "md"
@@ -570,9 +585,31 @@ const DEFAULT_DATA: WorkbenchData = {
     }
   ],
   researchPapers: [
-    { id: "paper-survey-llm", title: "A Survey on Multimodal LLMs", venue: "CVPR", year: 2024, status: "进行中", readingProgress: 62 },
-    { id: "paper-single-cell", title: "Single-cell foundation models", venue: "Nature", year: 2024, status: "未开始", readingProgress: 0 },
-    { id: "paper-gnn-drug", title: "Graph Neural Networks for Drug Discovery", venue: "ICLR", year: 2024, status: "进行中", readingProgress: 45 }
+    { id: "paper-survey-llm", title: "A Survey on Multimodal LLMs", venue: "CVPR", venueId: "venue-cvpr", year: 2024, status: "进行中", statusId: "paper-status-reading", readingProgress: 62, tagIds: ["paper-tag-multimodal"], createdAt: 1789344000000, updatedAt: 1789344000000 },
+    { id: "paper-single-cell", title: "Single-cell foundation models", venue: "Nature", venueId: "venue-nature", year: 2024, status: "未读", statusId: "paper-status-unread", readingProgress: 0, tagIds: ["paper-tag-biology"], createdAt: 1789344000000, updatedAt: 1789344000000 },
+    { id: "paper-gnn-drug", title: "Graph Neural Networks for Drug Discovery", venue: "ICLR", venueId: "venue-iclr", year: 2024, status: "进行中", statusId: "paper-status-reading", readingProgress: 45, tagIds: ["paper-tag-gnn"], createdAt: 1789344000000, updatedAt: 1789344000000 }
+  ],
+  literatureNotes: [
+    { id: "lit-note-survey-llm", title: "A Survey on Multimodal LLMs 阅读笔记", notePath: "", paperReadingId: "paper-survey-llm", createdAt: 1789344000000, updatedAt: 1789344000000 }
+  ],
+  paperStatuses: [
+    { id: "paper-status-unread", name: "未读", color: "#f8a8c4", order: 10 },
+    { id: "paper-status-planned", name: "计划阅读", color: "#ffd166", order: 20 },
+    { id: "paper-status-reading", name: "阅读中", color: "#76c7f2", order: 30 },
+    { id: "paper-status-finished", name: "已读", color: "#7bd88f", order: 40 },
+    { id: "paper-status-paused", name: "暂停", color: "#c9b6ff", order: 50 }
+  ],
+  paperVenues: [
+    { id: "venue-cvpr", name: "CVPR", type: "conference", color: "#76c7f2" },
+    { id: "venue-iclr", name: "ICLR", type: "conference", color: "#c9b6ff" },
+    { id: "venue-nature", name: "Nature", type: "journal", color: "#7bd88f" },
+    { id: "venue-chi", name: "CHI", type: "conference", color: "#f8a8c4" }
+  ],
+  paperTags: [
+    { id: "paper-tag-multimodal", name: "Multimodal", color: "#f8a8c4" },
+    { id: "paper-tag-biology", name: "Biology", color: "#7bd88f" },
+    { id: "paper-tag-gnn", name: "GNN", color: "#c9b6ff" },
+    { id: "paper-tag-wearable", name: "Wearable", color: "#ffd166" }
   ],
   experimentPlans: [
     { id: "exp-cell-drug", title: "细胞系传代与药物处理", date: "2026-09-14", status: "进行中" },
@@ -580,8 +617,8 @@ const DEFAULT_DATA: WorkbenchData = {
     { id: "exp-flow", title: "流式细胞术 FACS", date: "2026-09-18", status: "计划中" }
   ],
   experimentRecords: [
-    { id: "record-drug", title: "细胞药物处理记录", date: "2026-09-13", status: "已完成" },
-    { id: "record-wb", title: "WB 条带结果", date: "2026-09-12", status: "已完成" },
+    { id: "record-drug", title: "细胞药物处理记录", date: "2026-09-13", status: "已完成", experimentPlanId: "exp-cell-drug" },
+    { id: "record-wb", title: "WB 条带结果", date: "2026-09-12", status: "已完成", experimentPlanId: "exp-western" },
     { id: "record-flow", title: "流式数据分析", date: "2026-09-10", status: "进行中" }
   ],
   researchDeadlines: [
@@ -988,6 +1025,14 @@ export class DashboardStore {
     await this.save();
   }
 
+  async updateUserSettings(settings: Partial<WorkbenchData["userSettings"]>): Promise<void> {
+    this.data.userSettings = {
+      ...this.data.userSettings,
+      ...settings
+    };
+    await this.save();
+  }
+
   async updateBanner(updates: Partial<WorkbenchData["banner"]>): Promise<void> {
     this.data.banner = { ...this.data.banner, ...updates };
     await this.save();
@@ -1363,6 +1408,12 @@ export class DashboardStore {
 
   async deleteResearchProject(projectId: string): Promise<void> {
     this.data.researchProjects = this.data.researchProjects.filter((item) => item.id !== projectId);
+    this.data.researchPapers.forEach((paper) => {
+      if (paper.researchProjectId === projectId) paper.researchProjectId = undefined;
+    });
+    this.data.experimentPlans.forEach((plan) => {
+      if (plan.researchProjectId === projectId) plan.researchProjectId = undefined;
+    });
     await this.save();
   }
 
@@ -1371,7 +1422,7 @@ export class DashboardStore {
   }
 
   async addResearchPaper(paper: ResearchPaper): Promise<void> {
-    this.data.researchPapers.push(paper);
+    this.data.researchPapers.push(this.normalizeResearchPaper(paper));
     await this.save();
   }
 
@@ -1379,11 +1430,188 @@ export class DashboardStore {
     const paper = this.data.researchPapers.find((item) => item.id === paperId);
     if (!paper) return;
     Object.assign(paper, updates);
+    Object.assign(paper, this.normalizeResearchPaper(paper));
     await this.save();
   }
 
   async deleteResearchPaper(paperId: string): Promise<void> {
     this.data.researchPapers = this.data.researchPapers.filter((item) => item.id !== paperId);
+    this.data.literatureNotes.forEach((note) => {
+      if (note.paperReadingId === paperId) note.paperReadingId = undefined;
+    });
+    await this.save();
+  }
+
+  getLiteratureNotes(): LiteratureNote[] {
+    return this.data.literatureNotes.filter((note) => note.notePath);
+  }
+
+  getLiteratureNotesForPaper(paperId: string): LiteratureNote[] {
+    return this.getLiteratureNotes().filter((note) => note.paperReadingId === paperId);
+  }
+
+  async addLiteratureNote(note: LiteratureNote): Promise<void> {
+    this.data.literatureNotes.push(this.normalizeLiteratureNote(note));
+    await this.save();
+  }
+
+  async upsertLiteratureNote(note: LiteratureNote): Promise<void> {
+    const existing = this.data.literatureNotes.find((item) => item.id === note.id)
+      ?? this.data.literatureNotes.find((item) => item.paperReadingId === note.paperReadingId && item.notePath === note.notePath);
+    if (existing) {
+      Object.assign(existing, this.normalizeLiteratureNote({ ...existing, ...note, id: existing.id }));
+    } else {
+      this.data.literatureNotes.push(this.normalizeLiteratureNote(note));
+    }
+    await this.save();
+  }
+
+  async updateLiteratureNote(noteId: string, updates: Partial<LiteratureNote>): Promise<void> {
+    const note = this.data.literatureNotes.find((item) => item.id === noteId);
+    if (!note) return;
+    Object.assign(note, updates, { updatedAt: Date.now() });
+    Object.assign(note, this.normalizeLiteratureNote(note));
+    await this.save();
+  }
+
+  async deleteLiteratureNote(noteId: string): Promise<void> {
+    this.data.literatureNotes = this.data.literatureNotes.filter((item) => item.id !== noteId);
+    await this.save();
+  }
+
+  async importZoteroPapers(items: ZoteroPaperImportInput[]): Promise<{ created: number; updated: number; skipped: number }> {
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    for (const item of items) {
+      if (!item.title.trim()) {
+        skipped += 1;
+        continue;
+      }
+      const venueId = item.venue ? await this.ensurePaperVenue(item.venue) : undefined;
+      const zoteroTagIds = await this.ensurePaperTags(item.tags);
+      const existing = this.findExistingZoteroPaper(item);
+      if (existing) {
+        const mergedTags = Array.from(new Set([...(existing.tagIds ?? []), ...zoteroTagIds]));
+        Object.assign(existing, this.normalizeResearchPaper({
+          ...existing,
+          title: item.title,
+          venue: item.venue ?? existing.venue,
+          venueId: venueId ?? existing.venueId,
+          year: item.year ?? existing.year,
+          paperUrl: item.paperUrl ?? existing.paperUrl,
+          doi: item.doi ?? existing.doi,
+          citekey: item.citekey ?? existing.citekey,
+          zoteroItemKey: item.zoteroItemKey ?? existing.zoteroItemKey,
+          tagIds: mergedTags,
+          updatedAt: Date.now()
+        }));
+        updated += 1;
+      } else {
+        this.data.researchPapers.push(this.normalizeResearchPaper({
+          id: `paper-${Date.now()}-${created}`,
+          title: item.title,
+          venue: item.venue ?? "",
+          venueId,
+          year: item.year ?? new Date().getFullYear(),
+          statusId: this.data.paperStatuses[0]?.id ?? "paper-status-unread",
+          readingProgress: 0,
+          paperUrl: item.paperUrl,
+          doi: item.doi,
+          readingStartDate: undefined,
+          readingEndDate: undefined,
+          tagIds: zoteroTagIds,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          zoteroItemKey: item.zoteroItemKey,
+          citekey: item.citekey
+        }));
+        created += 1;
+      }
+    }
+    await this.save();
+    return { created, updated, skipped };
+  }
+
+  getPaperStatuses(): PaperStatusDefinition[] {
+    return [...this.data.paperStatuses].sort((a, b) => a.order - b.order);
+  }
+
+  getPaperVenues(): VenueDefinition[] {
+    return this.data.paperVenues;
+  }
+
+  getPaperTags(): PaperTagDefinition[] {
+    return this.data.paperTags;
+  }
+
+  async addPaperStatus(status: PaperStatusDefinition): Promise<void> {
+    this.data.paperStatuses.push(status);
+    await this.save();
+  }
+
+  async updatePaperStatus(statusId: string, updates: Partial<PaperStatusDefinition>): Promise<void> {
+    const status = this.data.paperStatuses.find((item) => item.id === statusId);
+    if (!status) return;
+    Object.assign(status, updates);
+    await this.save();
+  }
+
+  async deletePaperStatus(statusId: string, migrateToStatusId?: string): Promise<boolean> {
+    const inUse = this.data.researchPapers.some((paper) => paper.statusId === statusId);
+    if (inUse && !migrateToStatusId) return false;
+    if (inUse) {
+      this.data.researchPapers.forEach((paper) => {
+        if (paper.statusId === statusId) paper.statusId = migrateToStatusId;
+      });
+    }
+    this.data.paperStatuses = this.data.paperStatuses.filter((item) => item.id !== statusId);
+    await this.save();
+    return true;
+  }
+
+  async addPaperVenue(venue: VenueDefinition): Promise<void> {
+    this.data.paperVenues.push(venue);
+    await this.save();
+  }
+
+  async updatePaperVenue(venueId: string, updates: Partial<VenueDefinition>): Promise<void> {
+    const venue = this.data.paperVenues.find((item) => item.id === venueId);
+    if (!venue) return;
+    Object.assign(venue, updates);
+    await this.save();
+  }
+
+  async deletePaperVenue(venueId: string, migrateToVenueId?: string): Promise<boolean> {
+    const inUse = this.data.researchPapers.some((paper) => paper.venueId === venueId);
+    if (inUse && !migrateToVenueId) return false;
+    if (inUse) {
+      this.data.researchPapers.forEach((paper) => {
+        if (paper.venueId === venueId) paper.venueId = migrateToVenueId;
+      });
+    }
+    this.data.paperVenues = this.data.paperVenues.filter((item) => item.id !== venueId);
+    await this.save();
+    return true;
+  }
+
+  async addPaperTag(tag: PaperTagDefinition): Promise<void> {
+    this.data.paperTags.push(tag);
+    await this.save();
+  }
+
+  async updatePaperTag(tagId: string, updates: Partial<PaperTagDefinition>): Promise<void> {
+    const tag = this.data.paperTags.find((item) => item.id === tagId);
+    if (!tag) return;
+    Object.assign(tag, updates);
+    await this.save();
+  }
+
+  async deletePaperTag(tagId: string): Promise<void> {
+    this.data.paperTags = this.data.paperTags.filter((item) => item.id !== tagId);
+    this.data.researchPapers.forEach((paper) => {
+      paper.tagIds = (paper.tagIds ?? []).filter((id) => id !== tagId);
+    });
     await this.save();
   }
 
@@ -1412,9 +1640,19 @@ export class DashboardStore {
   async deleteExperiment(mode: "plan" | "records", experimentId: string): Promise<void> {
     if (mode === "plan") {
       this.data.experimentPlans = this.data.experimentPlans.filter((item) => item.id !== experimentId);
+      this.data.experimentRecords.forEach((record) => {
+        if (record.experimentPlanId === experimentId) record.experimentPlanId = undefined;
+      });
     } else {
       this.data.experimentRecords = this.data.experimentRecords.filter((item) => item.id !== experimentId);
     }
+    await this.save();
+  }
+
+  async migrateExperimentRecordsToPlan(fromPlanId: string, toPlanId: string | undefined): Promise<void> {
+    this.data.experimentRecords.forEach((record) => {
+      if (record.experimentPlanId === fromPlanId) record.experimentPlanId = toPlanId;
+    });
     await this.save();
   }
 
@@ -2569,10 +2807,10 @@ export class DashboardStore {
       ? this.migrateSections(partial.sections)
       : structuredClone(DEFAULT_DATA.sections);
 
-    return {
+    const merged: WorkbenchData = {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.3.9",
+      dataVersion: "0.4.0",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2590,13 +2828,19 @@ export class DashboardStore {
         ? partial.researchProjects
         : structuredClone(DEFAULT_DATA.researchProjects),
       researchPapers: Array.isArray(partial.researchPapers)
-        ? partial.researchPapers
-        : structuredClone(DEFAULT_DATA.researchPapers),
+        ? partial.researchPapers.map((paper) => this.normalizeResearchPaper(paper))
+        : structuredClone(DEFAULT_DATA.researchPapers).map((paper) => this.normalizeResearchPaper(paper)),
+      literatureNotes: Array.isArray(partial.literatureNotes)
+        ? partial.literatureNotes.map((note) => this.normalizeLiteratureNote(note)).filter((note) => note.notePath)
+        : this.createInitialLiteratureNotes(partial),
+      paperStatuses: this.mergePaperStatuses(partial),
+      paperVenues: this.mergePaperVenues(partial),
+      paperTags: this.mergePaperTags(partial),
       experimentPlans: Array.isArray(partial.experimentPlans)
-        ? partial.experimentPlans
+        ? partial.experimentPlans.map((item) => this.normalizeExperiment(item, "plan"))
         : structuredClone(DEFAULT_DATA.experimentPlans),
       experimentRecords: Array.isArray(partial.experimentRecords)
-        ? partial.experimentRecords
+        ? partial.experimentRecords.map((item) => this.normalizeExperiment(item, "records"))
         : structuredClone(DEFAULT_DATA.experimentRecords),
       researchDeadlines: Array.isArray(partial.researchDeadlines)
         ? partial.researchDeadlines
@@ -2709,6 +2953,7 @@ export class DashboardStore {
         ...partial.theme
       }
     };
+    return this.repairResearchRelations(merged);
   }
 
   private normalizeBodyMeasurement(measurement: BodyMeasurement): BodyMeasurement {
@@ -2846,6 +3091,201 @@ export class DashboardStore {
       normalized.finishDate = normalized.finishDate || formatDateKey(new Date());
     }
     return normalized;
+  }
+
+  private normalizeResearchPaper(paper: ResearchPaper): ResearchPaper {
+    const now = Date.now();
+    const statusName = typeof paper.status === "string" ? paper.status : "未读";
+    const venueName = typeof paper.venue === "string" ? paper.venue : "";
+    const tagNames = Array.isArray(paper.tags) ? paper.tags : [];
+    const statusId = paper.statusId || this.paperStatusIdFromName(statusName);
+    const venueId = paper.venueId || (venueName ? this.definitionId("venue", venueName) : undefined);
+    const tagIds = Array.from(new Set([
+      ...(Array.isArray(paper.tagIds) ? paper.tagIds : []),
+      ...tagNames.map((tag) => this.definitionId("paper-tag", tag))
+    ]));
+    const statusDefinition = this.data?.paperStatuses?.find((item) => item.id === statusId)
+      ?? DEFAULT_DATA.paperStatuses.find((item) => item.id === statusId);
+    return {
+      ...paper,
+      id: paper.id ?? `paper-${now}`,
+      title: paper.title || "未命名论文",
+      venue: venueName || this.data?.paperVenues?.find((item) => item.id === venueId)?.name || "",
+      venueId,
+      year: Number(paper.year) || new Date().getFullYear(),
+      status: statusDefinition?.name ?? statusName,
+      statusId,
+      readingProgress: Math.max(0, Math.min(100, Number(paper.readingProgress) || 0)),
+      paperUrl: paper.paperUrl,
+      doi: paper.doi,
+      readingStartDate: paper.readingStartDate,
+      readingEndDate: paper.readingEndDate,
+      researchProjectId: paper.researchProjectId,
+      tags: tagNames,
+      tagIds,
+      notePath: paper.notePath,
+      createdAt: paper.createdAt ?? now,
+      updatedAt: paper.updatedAt ?? now,
+      zoteroItemKey: paper.zoteroItemKey,
+      citekey: paper.citekey
+    };
+  }
+
+  private normalizeLiteratureNote(note: LiteratureNote): LiteratureNote {
+    const now = Date.now();
+    return {
+      id: note.id ?? `literature-note-${now}`,
+      title: note.title || "文献笔记",
+      notePath: typeof note.notePath === "string" ? note.notePath : "",
+      paperReadingId: note.paperReadingId,
+      createdAt: note.createdAt ?? now,
+      updatedAt: note.updatedAt ?? note.createdAt ?? now
+    };
+  }
+
+  private normalizeExperiment(experiment: ExperimentPlan, mode: "plan" | "records"): ExperimentPlan {
+    return {
+      ...experiment,
+      id: experiment.id ?? `experiment-${Date.now()}`,
+      title: experiment.title || "未命名实验",
+      date: experiment.date || todayKey(),
+      status: experiment.status || "计划中",
+      notePath: typeof experiment.notePath === "string" && experiment.notePath.length > 0 ? experiment.notePath : undefined,
+      researchProjectId: mode === "plan" ? experiment.researchProjectId : undefined,
+      experimentPlanId: mode === "records" ? experiment.experimentPlanId : undefined
+    };
+  }
+
+  private repairResearchRelations(data: WorkbenchData): WorkbenchData {
+    const projectIds = new Set(data.researchProjects.map((project) => project.id));
+    const paperIds = new Set(data.researchPapers.map((paper) => paper.id));
+    const planIds = new Set(data.experimentPlans.map((plan) => plan.id));
+    data.researchPapers.forEach((paper) => {
+      if (paper.researchProjectId && !projectIds.has(paper.researchProjectId)) paper.researchProjectId = undefined;
+    });
+    data.experimentPlans.forEach((plan) => {
+      if (plan.researchProjectId && !projectIds.has(plan.researchProjectId)) plan.researchProjectId = undefined;
+    });
+    data.literatureNotes.forEach((note) => {
+      if (note.paperReadingId && !paperIds.has(note.paperReadingId)) note.paperReadingId = undefined;
+    });
+    data.experimentRecords.forEach((record) => {
+      if (record.experimentPlanId && !planIds.has(record.experimentPlanId)) record.experimentPlanId = undefined;
+    });
+    return data;
+  }
+
+  private createInitialLiteratureNotes(partial: Partial<WorkbenchData>): LiteratureNote[] {
+    if (!Array.isArray(partial.researchPapers)) {
+      return structuredClone(DEFAULT_DATA.literatureNotes).map((note) => this.normalizeLiteratureNote(note)).filter((note) => note.notePath);
+    }
+    return partial.researchPapers
+      .filter((paper) => typeof paper.notePath === "string" && paper.notePath.length > 0)
+      .map((paper) => this.normalizeLiteratureNote({
+        id: `literature-note-${paper.id}`,
+        title: `${paper.title || "文献"} 笔记`,
+        notePath: paper.notePath ?? "",
+        paperReadingId: paper.id,
+        createdAt: paper.createdAt ?? Date.now(),
+        updatedAt: paper.updatedAt ?? Date.now()
+      }));
+  }
+
+  private mergePaperStatuses(partial: Partial<WorkbenchData>): PaperStatusDefinition[] {
+    const map = new Map<string, PaperStatusDefinition>();
+    structuredClone(DEFAULT_DATA.paperStatuses).forEach((item) => map.set(item.id, item));
+    if (Array.isArray(partial.paperStatuses)) {
+      partial.paperStatuses.forEach((item) => map.set(item.id, item));
+    }
+    if (Array.isArray(partial.researchPapers)) {
+      partial.researchPapers.forEach((paper) => {
+        if (paper.status && !map.has(this.paperStatusIdFromName(paper.status))) {
+          const id = this.paperStatusIdFromName(paper.status);
+          map.set(id, { id, name: paper.status, color: "#f8a8c4", order: map.size * 10 + 10 });
+        }
+      });
+    }
+    return [...map.values()].sort((a, b) => a.order - b.order);
+  }
+
+  private mergePaperVenues(partial: Partial<WorkbenchData>): VenueDefinition[] {
+    const map = new Map<string, VenueDefinition>();
+    structuredClone(DEFAULT_DATA.paperVenues).forEach((item) => map.set(item.id, item));
+    if (Array.isArray(partial.paperVenues)) {
+      partial.paperVenues.forEach((item) => map.set(item.id, item));
+    }
+    if (Array.isArray(partial.researchPapers)) {
+      partial.researchPapers.forEach((paper) => {
+        if (!paper.venue) return;
+        const id = paper.venueId || this.definitionId("venue", paper.venue);
+        if (!map.has(id)) map.set(id, { id, name: paper.venue, type: "other", color: "#76c7f2" });
+      });
+    }
+    return [...map.values()];
+  }
+
+  private mergePaperTags(partial: Partial<WorkbenchData>): PaperTagDefinition[] {
+    const map = new Map<string, PaperTagDefinition>();
+    structuredClone(DEFAULT_DATA.paperTags).forEach((item) => map.set(item.id, item));
+    if (Array.isArray(partial.paperTags)) {
+      partial.paperTags.forEach((item) => map.set(item.id, item));
+    }
+    if (Array.isArray(partial.researchPapers)) {
+      partial.researchPapers.forEach((paper) => {
+        (paper.tags ?? []).forEach((tag) => {
+          const id = this.definitionId("paper-tag", tag);
+          if (!map.has(id)) map.set(id, { id, name: tag, color: "#ffd166" });
+        });
+      });
+    }
+    return [...map.values()];
+  }
+
+  private paperStatusIdFromName(name: string): string {
+    if (name === "未开始" || name === "未读") return "paper-status-unread";
+    if (name === "计划阅读") return "paper-status-planned";
+    if (name === "进行中" || name === "阅读中") return "paper-status-reading";
+    if (name === "已完成" || name === "已读") return "paper-status-finished";
+    if (name === "暂停") return "paper-status-paused";
+    return this.definitionId("paper-status", name);
+  }
+
+  private definitionId(prefix: string, name: string): string {
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (slug) return `${prefix}-${slug}`;
+    let hash = 0;
+    for (let index = 0; index < name.length; index += 1) {
+      hash = ((hash << 5) - hash + name.charCodeAt(index)) | 0;
+    }
+    return `${prefix}-${Math.abs(hash)}`;
+  }
+
+  private findExistingZoteroPaper(item: ZoteroPaperImportInput): ResearchPaper | undefined {
+    return this.data.researchPapers.find((paper) => {
+      if (item.zoteroItemKey && paper.zoteroItemKey === item.zoteroItemKey) return true;
+      if (item.citekey && paper.citekey === item.citekey) return true;
+      if (item.doi && paper.doi?.toLowerCase() === item.doi.toLowerCase()) return true;
+      if (item.paperUrl && paper.paperUrl === item.paperUrl) return true;
+      return false;
+    });
+  }
+
+  private async ensurePaperVenue(name: string): Promise<string> {
+    const existing = this.data.paperVenues.find((venue) => venue.name.toLowerCase() === name.toLowerCase());
+    if (existing) return existing.id;
+    const id = this.definitionId("venue", name);
+    this.data.paperVenues.push({ id, name, type: "other", color: "#76c7f2" });
+    return id;
+  }
+
+  private async ensurePaperTags(tags: string[]): Promise<string[]> {
+    return tags.filter(Boolean).map((name) => {
+      const existing = this.data.paperTags.find((tag) => tag.name.toLowerCase() === name.toLowerCase());
+      if (existing) return existing.id;
+      const id = this.definitionId("paper-tag", name);
+      this.data.paperTags.push({ id, name, color: "#ffd166" });
+      return id;
+    });
   }
 
   private readingStatusFromLegacy(status: BookItem["status"] | undefined): NonNullable<BookItem["readingStatus"]> {
@@ -3184,6 +3624,12 @@ export class DashboardStore {
         migrated.push(structuredClone(ledger));
       }
     }
+    if (!migrated.some((section) => section.page === "research" && section.type === "paper-field-manager")) {
+      const paperFields = DEFAULT_DATA.sections.find((section) => section.type === "paper-field-manager");
+      if (paperFields) {
+        migrated.push(structuredClone(paperFields));
+      }
+    }
 
     return migrated;
   }
@@ -3220,6 +3666,17 @@ export const FITNESS_HABITS = [
   { id: "fitness-stretch", label: "拉伸" },
   { id: "fitness-recovery", label: "恢复" }
 ];
+
+export interface ZoteroPaperImportInput {
+  zoteroItemKey?: string;
+  citekey?: string;
+  title: string;
+  venue?: string;
+  year?: number;
+  doi?: string;
+  paperUrl?: string;
+  tags: string[];
+}
 
 export const FINANCE_HABITS = [
   { id: "finance-record", label: "记账" },

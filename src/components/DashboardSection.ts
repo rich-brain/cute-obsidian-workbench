@@ -115,6 +115,8 @@ import { ReadingStatsSection } from "./reading/ReadingStatsSection";
 import { DataAnalysisTasksSection } from "./research/DataAnalysisTasksSection";
 import { ExperimentSection } from "./research/ExperimentSection";
 import { LiteratureNotesSection } from "./research/LiteratureNotesSection";
+import { PaperFieldManagerSection } from "./research/PaperFieldManagerSection";
+import { PaperFieldManagerModal, PaperQueueManagerModal } from "./research/PaperQueueModals";
 import { PaperQueueSection } from "./research/PaperQueueSection";
 import { ResearchCheckinSection } from "./research/ResearchCheckinSection";
 import { ResearchMemoSection } from "./research/ResearchMemoSection";
@@ -200,6 +202,7 @@ export class DashboardSection {
     this.renderFinanceHeaderActions(actions);
     this.renderGoalHeaderActions(actions);
     this.renderReadingHeaderActions(actions);
+    this.renderResearchHeaderActions(actions);
 
     const menuButton = actions.createEl("button", {
       cls: "cow-icon-button",
@@ -261,6 +264,25 @@ export class DashboardSection {
     if (this.section.type === "reading-plan") {
       addAction("新增计划", "plus", () => openReadingPlanModal(this.app, this.store, this.onDataChanged));
       addAction("统计", "bar-chart-3", () => new ReadingPlanStatisticsModal(this.app, this.store).open());
+    }
+  }
+
+  private renderResearchHeaderActions(actions: HTMLElement): void {
+    const addAction = (label: string, icon: string, onClick: () => void): void => {
+      const button = actions.createEl("button", {
+        cls: "cow-section-add-button",
+        attr: { type: "button", "aria-label": label }
+      });
+      setIcon(button.createSpan(), icon);
+      button.createSpan({ text: label });
+      button.addEventListener("click", onClick);
+    };
+
+    if (this.section.type === "reading-queue") {
+      addAction("编辑", "pencil", () => new PaperQueueManagerModal(this.app, this.store, this.onDataChanged).open());
+    }
+    if (this.section.type === "paper-field-manager") {
+      addAction("编辑", "pencil", () => new PaperFieldManagerModal(this.app, this.store, this.onDataChanged).open());
     }
   }
 
@@ -390,6 +412,9 @@ export class DashboardSection {
         break;
       case "reading-queue":
         new PaperQueueSection(this.app, this.store, this.onDataChanged).render(container);
+        break;
+      case "paper-field-manager":
+        new PaperFieldManagerSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "research-checkin":
         new ResearchCheckinSection(this.store, this.onDataChanged).render(container);

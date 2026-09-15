@@ -21,5 +21,17 @@ export class WorkbenchSettingTab extends PluginSettingTab {
             await this.plugin.store.updateBannerMessage(value.trim() || "要成功，先发疯，不顾一切向前冲。");
           });
       });
+
+    new Setting(containerEl)
+      .setName("Zotero / Better BibTeX JSON 路径")
+      .setDesc("填写 Vault 内 JSON 文件路径，例如 Zotero/library.json。用于论文队列导入，不依赖 Zotero Integration 私有 API。")
+      .addText((text) => {
+        text
+          .setPlaceholder("Zotero/library.json")
+          .setValue(this.plugin.store.getData().userSettings.zoteroJsonPath ?? "")
+          .onChange(async (value) => {
+            await this.plugin.store.updateUserSettings({ zoteroJsonPath: value.trim() });
+          });
+      });
   }
 }

@@ -2,7 +2,6 @@ import type { SectionCapabilities } from "../types/dashboard";
 
 const ADDABLE_SECTION_TYPES = new Set([
   "research-projects",
-  "reading-queue",
   "experiment-plan",
   "experiment-records",
   "data-analysis-tasks",

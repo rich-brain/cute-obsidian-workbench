@@ -1,6 +1,7 @@
-import { App, Notice, setIcon } from "obsidian";
+import { App, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
-import { openResearchPaperModal } from "../SectionContentActions";
+import type { LiteratureNote } from "../../types/dashboard";
+import { MissingLiteratureNoteModal, openLiteratureNoteFile, openLiteratureNoteModal, paperLabel } from "./LiteratureNoteModals";
 
 export class LiteratureNotesSection {
   constructor(
@@ -11,38 +12,34 @@ export class LiteratureNotesSection {
 
   render(container: HTMLElement): void {
     const list = container.createDiv({ cls: "cow-data-list" });
-    this.store.getResearchPapers().forEach((paper) => {
-      const button = list.createEl("button", { cls: "cow-data-card cow-click-card", attr: { type: "button" } });
-      const head = button.createDiv({ cls: "cow-list-item-head" });
-      head.createEl("strong", { text: paper.title });
-      const actions = head.createDiv({ cls: "cow-list-item-actions" });
-      const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑文献笔记" } });
-      setIcon(edit, "pencil");
-      edit.addEventListener("click", (event) => {
-        event.stopPropagation();
-        openResearchPaperModal(this.app, async (values) => {
-          await this.store.updateResearchPaper(paper.id, values);
-          this.onDataChanged();
-        }, paper);
-      });
-      const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "删除文献笔记" } });
-      setIcon(remove, "trash-2");
-      remove.addEventListener("click", async (event) => {
-        event.stopPropagation();
-        await this.store.deleteResearchPaper(paper.id);
-        this.onDataChanged();
-      });
-      button.createDiv({ cls: "cow-meta-line" }).createSpan({ text: paper.notePath ?? "未绑定笔记" });
-      button.addEventListener("click", () => void this.openNote(paper.notePath));
-    });
-  }
-
-  private async openNote(notePath?: string): Promise<void> {
-    if (!notePath) {
-      new Notice("还没有绑定文献笔记。");
+    const notes = this.store.getLiteratureNotes();
+    if (notes.length === 0) {
+      list.createDiv({ cls: "cow-empty-state", text: "暂无文献笔记。可以从右上角添加，或在论文详情中关联已有笔记。" });
       return;
     }
-    const file = this.app.vault.getFileByPath(notePath);
-    if (file) await this.app.workspace.getLeaf(false).openFile(file);
+    notes.forEach((note) => this.renderNote(list, note));
+  }
+
+  private renderNote(container: HTMLElement, note: LiteratureNote): void {
+    const button = container.createEl("button", { cls: "cow-data-card cow-click-card", attr: { type: "button" } });
+    const head = button.createDiv({ cls: "cow-list-item-head" });
+    head.createEl("strong", { text: note.title });
+    const actions = head.createDiv({ cls: "cow-list-item-actions" });
+    const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑文献笔记" } });
+    setIcon(edit, "pencil");
+    edit.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openLiteratureNoteModal(this.app, this.store, this.onDataChanged, note);
+    });
+    const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "清理文献笔记关联" } });
+    setIcon(remove, "unlink");
+    remove.addEventListener("click", (event) => {
+      event.stopPropagation();
+      new MissingLiteratureNoteModal(this.app, this.store, note, this.onDataChanged).open();
+    });
+    const paper = this.store.getResearchPapers().find((item) => item.id === note.paperReadingId);
+    button.createDiv({ cls: "cow-meta-line", text: paperLabel(paper) });
+    button.createDiv({ cls: "cow-meta-line", text: note.notePath });
+    button.addEventListener("click", () => void openLiteratureNoteFile(this.app, this.store, note, this.onDataChanged));
   }
 }

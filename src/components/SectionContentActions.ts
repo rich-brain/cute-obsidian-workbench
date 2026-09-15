@@ -17,6 +17,8 @@ import type {
   Workout
 } from "../types/dashboard";
 import { AddBookModal } from "./reading/AddBookModal";
+import { openLiteratureNoteModal } from "./research/LiteratureNoteModals";
+import { openExperimentEditModal } from "./research/ExperimentModals";
 import { AddTransactionModal } from "./finance/AddTransactionModal";
 import { GoalEditorModal, KeyResultModal, MilestoneModal, RiskModal } from "./goals/GoalModals";
 import { formatDateKey } from "../core/DashboardStore";
@@ -43,17 +45,11 @@ export function openAddContentModal(app: App, store: DashboardStore, section: Da
       break;
     case "reading-queue":
     case "literature-notes":
-      openResearchPaperModal(app, async (values) => {
-        await store.addResearchPaper({ ...values, id: `paper-${Date.now()}` });
-        refresh();
-      });
+      openLiteratureNoteModal(app, store, refresh);
       break;
     case "experiment-plan":
     case "experiment-records":
-      openExperimentModal(app, async (values) => {
-        await store.addExperiment(section.type === "experiment-plan" ? "plan" : "records", { ...values, id: `experiment-${Date.now()}` });
-        refresh();
-      });
+      openExperimentEditModal(app, store, section.type === "experiment-plan" ? "plan" : "records", refresh);
       break;
     case "data-analysis-tasks":
       openDataAnalysisTaskModal(app, async (values) => {
@@ -270,7 +266,15 @@ export function openResearchPaperModal(app: App, onSubmit: (values: Omit<Researc
     { key: "status", name: "状态", type: "select", options: statusOptions(["未开始", "进行中", "已完成"]) },
     { key: "readingProgress", name: "阅读进度", type: "number" },
     { key: "notePath", name: "笔记路径" }
-  ], onSubmit).open();
+  ], async (values) => {
+    const now = Date.now();
+    await onSubmit({
+      ...values,
+      tagIds: paper?.tagIds ?? [],
+      createdAt: paper?.createdAt ?? now,
+      updatedAt: now
+    });
+  }).open();
 }
 
 export function openExperimentModal(app: App, onSubmit: (values: Omit<ExperimentPlan, "id">) => Promise<void>, item?: ExperimentPlan): void {

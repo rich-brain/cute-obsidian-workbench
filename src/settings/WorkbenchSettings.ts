@@ -4,5 +4,6 @@ export const DEFAULT_WORKBENCH_SETTINGS: WorkbenchSettings = {
   showLeftSidebar: true,
   weekStartsOn: "monday",
   dateFormat: "YYYY-MM-DD",
-  overviewLayout: "default"
+  overviewLayout: "default",
+  zoteroJsonPath: ""
 };

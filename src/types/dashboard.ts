@@ -35,6 +35,7 @@ export interface WorkbenchSettings {
   weekStartsOn: "sunday" | "monday";
   dateFormat: string;
   overviewLayout: "default" | "compact" | "minimal";
+  zoteroJsonPath?: string;
 }
 
 export interface TodayFocusTask {
@@ -58,11 +59,53 @@ export interface ResearchProject {
 export interface ResearchPaper {
   id: string;
   title: string;
-  venue: string;
-  year: number;
-  status: "未开始" | "进行中" | "已完成";
+  venue?: string;
+  venueId?: string;
+  year?: number;
+  status?: "未开始" | "进行中" | "已完成" | string;
+  statusId?: string;
   readingProgress: number;
+  paperUrl?: string;
+  doi?: string;
+  readingStartDate?: string;
+  readingEndDate?: string;
+  researchProjectId?: string;
+  tags?: string[];
+  tagIds: string[];
   notePath?: string;
+  createdAt: number;
+  updatedAt: number;
+  zoteroItemKey?: string;
+  citekey?: string;
+}
+
+export interface LiteratureNote {
+  id: string;
+  title: string;
+  notePath: string;
+  paperReadingId?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PaperStatusDefinition {
+  id: string;
+  name: string;
+  color: string;
+  order: number;
+}
+
+export interface VenueDefinition {
+  id: string;
+  name: string;
+  type: "conference" | "journal" | "other";
+  color: string;
+}
+
+export interface PaperTagDefinition {
+  id: string;
+  name: string;
+  color: string;
 }
 
 export interface ExperimentPlan {
@@ -71,6 +114,8 @@ export interface ExperimentPlan {
   date: string;
   status: "未开始" | "计划中" | "进行中" | "已完成";
   notePath?: string;
+  researchProjectId?: string;
+  experimentPlanId?: string;
 }
 
 export interface ResearchDeadline {
@@ -530,6 +575,10 @@ export interface WorkbenchData {
   todayFocusTasks: TodayFocusTask[];
   researchProjects: ResearchProject[];
   researchPapers: ResearchPaper[];
+  literatureNotes: LiteratureNote[];
+  paperStatuses: PaperStatusDefinition[];
+  paperVenues: VenueDefinition[];
+  paperTags: PaperTagDefinition[];
   experimentPlans: ExperimentPlan[];
   experimentRecords: ExperimentPlan[];
   researchDeadlines: ResearchDeadline[];
