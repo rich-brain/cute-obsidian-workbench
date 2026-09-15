@@ -15,6 +15,40 @@ const FOCUS_BACKGROUNDS = [
 
 type FocusRecordFilter = "today" | "week" | "month" | "all" | "date";
 
+interface FocusModalFrameOptions {
+  className: string;
+  width: string;
+  height: string;
+  maxWidth: string;
+  maxHeight: string;
+  minWidth?: string;
+  minHeight?: string;
+}
+
+function applyFocusModalFrame(modal: Modal, options: FocusModalFrameOptions): void {
+  modal.modalEl.addClass("cute-focus-resizable-modal", options.className);
+  modal.modalEl.style.width = options.width;
+  modal.modalEl.style.height = options.height;
+  modal.modalEl.style.maxWidth = options.maxWidth;
+  modal.modalEl.style.maxHeight = options.maxHeight;
+  if (options.minWidth) {
+    modal.modalEl.style.minWidth = options.minWidth;
+  }
+  if (options.minHeight) {
+    modal.modalEl.style.minHeight = options.minHeight;
+  }
+}
+
+function logFocusModalSize(label: string, modalEl: HTMLElement): void {
+  window.requestAnimationFrame(() => {
+    const rect = modalEl.getBoundingClientRect();
+    console.debug(`${label} modal size`, {
+      width: Math.round(rect.width),
+      height: Math.round(rect.height)
+    });
+  });
+}
+
 export class FocusStatSection {
   constructor(
     private readonly app: App,
@@ -82,12 +116,22 @@ class FocusSetupModal extends Modal {
   }
 
   onOpen(): void {
+    applyFocusModalFrame(this, {
+      className: "cute-focus-setup-modal",
+      width: "min(900px, 90vw)",
+      height: "min(506px, 82vh)",
+      maxWidth: "95vw",
+      maxHeight: "90vh",
+      minWidth: "min(620px, 90vw)",
+      minHeight: "min(360px, 82vh)"
+    });
     this.render();
+    logFocusModalSize("FocusSetup", this.modalEl);
   }
 
   private render(): void {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cute-focus-resizable-modal", "cow-focus-setup-modal");
+    this.contentEl.addClass("cow-modal", "cow-focus-setup-modal");
 
     const header = this.contentEl.createDiv({ cls: "cute-focus-modal-header" });
     header.createEl("h2", { text: "开始专注" });
@@ -217,7 +261,9 @@ class FocusSessionWindow extends Modal {
   }
 
   onOpen(): void {
+    this.applyModalFrame();
     this.render();
+    logFocusModalSize("FocusSession", this.modalEl);
     this.timer = window.setInterval(() => void this.tick(), 1000);
   }
 
@@ -229,11 +275,9 @@ class FocusSessionWindow extends Modal {
   }
 
   private render(): void {
+    this.applyModalFrame();
     this.contentEl.empty();
-    this.contentEl.addClass("cute-focus-resizable-modal", "cow-focus-session-window", `cow-focus-bg-${this.store.getFocusState().background ?? "pink"}`);
-    if (this.maximized) {
-      this.contentEl.addClass("is-maximized");
-    }
+    this.contentEl.addClass("cow-focus-session-window", `cow-focus-bg-${this.store.getFocusState().background ?? "pink"}`);
 
     const state = this.store.getFocusState();
     if (state.backgroundDataUrl) {
@@ -298,6 +342,24 @@ class FocusSessionWindow extends Modal {
         }
         this.close();
       });
+  }
+
+  private applyModalFrame(): void {
+    applyFocusModalFrame(this, {
+      className: "cute-focus-session-modal",
+      width: this.maximized ? "96vw" : "min(1100px, 94vw)",
+      height: this.maximized ? "92vh" : "min(720px, 90vh)",
+      maxWidth: "96vw",
+      maxHeight: "94vh",
+      minWidth: "min(640px, 94vw)",
+      minHeight: "min(400px, 90vh)"
+    });
+    this.modalEl.style.resize = this.maximized ? "none" : "both";
+    if (this.maximized) {
+      this.modalEl.addClass("is-maximized");
+    } else {
+      this.modalEl.removeClass("is-maximized");
+    }
   }
 
   private renderCompleted(): void {
@@ -413,14 +475,24 @@ class FocusRecordsModal extends Modal {
   }
 
   onOpen(): void {
+    applyFocusModalFrame(this, {
+      className: "cute-focus-records-modal",
+      width: "min(1050px, 92vw)",
+      height: "min(700px, 85vh)",
+      maxWidth: "96vw",
+      maxHeight: "92vh",
+      minWidth: "min(680px, 92vw)",
+      minHeight: "min(420px, 85vh)"
+    });
     this.render();
+    logFocusModalSize("FocusRecords", this.modalEl);
   }
 
   private render(): void {
     const stats = new StatisticsService(this.store).getFocusStats();
     const records = this.getFilteredRecords();
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cute-focus-resizable-modal", "cow-focus-records-modal");
+    this.contentEl.addClass("cow-modal", "cow-focus-records-modal");
 
     const header = this.contentEl.createDiv({ cls: "cute-focus-modal-header" });
     header.createEl("h2", { text: "专注记录" });
@@ -521,8 +593,17 @@ class EditFocusRecordModal extends Modal {
   }
 
   onOpen(): void {
+    applyFocusModalFrame(this, {
+      className: "cute-edit-focus-record-modal",
+      width: "min(640px, 88vw)",
+      height: "min(420px, 72vh)",
+      maxWidth: "92vw",
+      maxHeight: "82vh",
+      minWidth: "min(420px, 88vw)",
+      minHeight: "min(300px, 72vh)"
+    });
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cute-focus-resizable-modal", "cow-edit-focus-record-modal");
+    this.contentEl.addClass("cow-modal", "cow-edit-focus-record-modal");
     const header = this.contentEl.createDiv({ cls: "cute-focus-modal-header" });
     header.createEl("h2", { text: "编辑专注记录" });
     const content = this.contentEl.createDiv({ cls: "cute-focus-modal-content" });

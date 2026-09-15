@@ -4622,6 +4622,28 @@ var FOCUS_BACKGROUNDS = [
   { id: "desk", label: "\u4E66\u684C" },
   { id: "minimal-dark", label: "\u6781\u7B80\u6DF1\u8272" }
 ];
+function applyFocusModalFrame(modal, options) {
+  modal.modalEl.addClass("cute-focus-resizable-modal", options.className);
+  modal.modalEl.style.width = options.width;
+  modal.modalEl.style.height = options.height;
+  modal.modalEl.style.maxWidth = options.maxWidth;
+  modal.modalEl.style.maxHeight = options.maxHeight;
+  if (options.minWidth) {
+    modal.modalEl.style.minWidth = options.minWidth;
+  }
+  if (options.minHeight) {
+    modal.modalEl.style.minHeight = options.minHeight;
+  }
+}
+function logFocusModalSize(label, modalEl) {
+  window.requestAnimationFrame(() => {
+    const rect = modalEl.getBoundingClientRect();
+    console.debug(`${label} modal size`, {
+      width: Math.round(rect.width),
+      height: Math.round(rect.height)
+    });
+  });
+}
 var FocusStatSection = class {
   constructor(app, store, onDataChanged) {
     this.app = app;
@@ -4678,11 +4700,21 @@ var FocusSetupModal = class extends import_obsidian21.Modal {
     this.background = (_a = store.getFocusSettings().defaultBackground) != null ? _a : "pink";
   }
   onOpen() {
+    applyFocusModalFrame(this, {
+      className: "cute-focus-setup-modal",
+      width: "min(900px, 90vw)",
+      height: "min(506px, 82vh)",
+      maxWidth: "95vw",
+      maxHeight: "90vh",
+      minWidth: "min(620px, 90vw)",
+      minHeight: "min(360px, 82vh)"
+    });
     this.render();
+    logFocusModalSize("FocusSetup", this.modalEl);
   }
   render() {
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cute-focus-resizable-modal", "cow-focus-setup-modal");
+    this.contentEl.addClass("cow-modal", "cow-focus-setup-modal");
     const header = this.contentEl.createDiv({ cls: "cute-focus-modal-header" });
     header.createEl("h2", { text: "\u5F00\u59CB\u4E13\u6CE8" });
     header.createEl("p", { text: "\u9009\u62E9\u65F6\u95F4\u3001\u5199\u4E0B\u4E13\u6CE8\u5185\u5BB9\uFF0C\u518D\u8FDB\u5165\u6C89\u6D78\u5F0F\u7A97\u53E3\u3002" });
@@ -4789,7 +4821,9 @@ var FocusSessionWindow = class extends import_obsidian21.Modal {
     this.completionDuration = 0;
   }
   onOpen() {
+    this.applyModalFrame();
     this.render();
+    logFocusModalSize("FocusSession", this.modalEl);
     this.timer = window.setInterval(() => void this.tick(), 1e3);
   }
   onClose() {
@@ -4800,11 +4834,9 @@ var FocusSessionWindow = class extends import_obsidian21.Modal {
   }
   render() {
     var _a;
+    this.applyModalFrame();
     this.contentEl.empty();
-    this.contentEl.addClass("cute-focus-resizable-modal", "cow-focus-session-window", `cow-focus-bg-${(_a = this.store.getFocusState().background) != null ? _a : "pink"}`);
-    if (this.maximized) {
-      this.contentEl.addClass("is-maximized");
-    }
+    this.contentEl.addClass("cow-focus-session-window", `cow-focus-bg-${(_a = this.store.getFocusState().background) != null ? _a : "pink"}`);
     const state = this.store.getFocusState();
     if (state.backgroundDataUrl) {
       this.contentEl.style.backgroundImage = `linear-gradient(rgba(255, 248, 253, 0.62), rgba(255, 248, 253, 0.62)), url("${state.backgroundDataUrl}")`;
@@ -4860,6 +4892,23 @@ var FocusSessionWindow = class extends import_obsidian21.Modal {
       }
       this.close();
     });
+  }
+  applyModalFrame() {
+    applyFocusModalFrame(this, {
+      className: "cute-focus-session-modal",
+      width: this.maximized ? "96vw" : "min(1100px, 94vw)",
+      height: this.maximized ? "92vh" : "min(720px, 90vh)",
+      maxWidth: "96vw",
+      maxHeight: "94vh",
+      minWidth: "min(640px, 94vw)",
+      minHeight: "min(400px, 90vh)"
+    });
+    this.modalEl.style.resize = this.maximized ? "none" : "both";
+    if (this.maximized) {
+      this.modalEl.addClass("is-maximized");
+    } else {
+      this.modalEl.removeClass("is-maximized");
+    }
   }
   renderCompleted() {
     const stats = new StatisticsService(this.store).getFocusStats();
@@ -4960,13 +5009,23 @@ var FocusRecordsModal = class extends import_obsidian21.Modal {
     this.dateValue = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
   }
   onOpen() {
+    applyFocusModalFrame(this, {
+      className: "cute-focus-records-modal",
+      width: "min(1050px, 92vw)",
+      height: "min(700px, 85vh)",
+      maxWidth: "96vw",
+      maxHeight: "92vh",
+      minWidth: "min(680px, 92vw)",
+      minHeight: "min(420px, 85vh)"
+    });
     this.render();
+    logFocusModalSize("FocusRecords", this.modalEl);
   }
   render() {
     const stats = new StatisticsService(this.store).getFocusStats();
     const records = this.getFilteredRecords();
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cute-focus-resizable-modal", "cow-focus-records-modal");
+    this.contentEl.addClass("cow-modal", "cow-focus-records-modal");
     const header = this.contentEl.createDiv({ cls: "cute-focus-modal-header" });
     header.createEl("h2", { text: "\u4E13\u6CE8\u8BB0\u5F55" });
     const content = this.contentEl.createDiv({ cls: "cute-focus-modal-content" });
@@ -5054,8 +5113,17 @@ var EditFocusRecordModal = class extends import_obsidian21.Modal {
     this.duration = (_a = record.actualDurationMinutes) != null ? _a : record.duration;
   }
   onOpen() {
+    applyFocusModalFrame(this, {
+      className: "cute-edit-focus-record-modal",
+      width: "min(640px, 88vw)",
+      height: "min(420px, 72vh)",
+      maxWidth: "92vw",
+      maxHeight: "82vh",
+      minWidth: "min(420px, 88vw)",
+      minHeight: "min(300px, 72vh)"
+    });
     this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cute-focus-resizable-modal", "cow-edit-focus-record-modal");
+    this.contentEl.addClass("cow-modal", "cow-edit-focus-record-modal");
     const header = this.contentEl.createDiv({ cls: "cute-focus-modal-header" });
     header.createEl("h2", { text: "\u7F16\u8F91\u4E13\u6CE8\u8BB0\u5F55" });
     const content = this.contentEl.createDiv({ cls: "cute-focus-modal-content" });

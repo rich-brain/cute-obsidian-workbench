@@ -2101,12 +2101,63 @@
   gap: 6px;
 }
 
-.cute-focus-resizable-modal {
+.modal.cute-focus-resizable-modal {
   box-sizing: border-box;
-  resize: both;
+  resize: both !important;
+  overflow: hidden !important;
+  max-width: 96vw !important;
+  max-height: 94vh !important;
+}
+
+.modal.cute-focus-resizable-modal .modal-content {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
-  max-width: 96vw;
-  max-height: 94vh;
+}
+
+.modal.cute-focus-setup-modal {
+  width: min(900px, 90vw) !important;
+  height: min(506px, 82vh) !important;
+  min-width: min(620px, 90vw);
+  min-height: min(360px, 82vh);
+  max-width: 95vw !important;
+  max-height: 90vh !important;
+}
+
+.modal.cute-focus-records-modal {
+  width: min(1050px, 92vw) !important;
+  height: min(700px, 85vh) !important;
+  min-width: min(680px, 92vw);
+  min-height: min(420px, 85vh);
+  max-width: 96vw !important;
+  max-height: 92vh !important;
+}
+
+.modal.cute-focus-session-modal {
+  width: min(1100px, 94vw) !important;
+  height: min(720px, 90vh) !important;
+  min-width: min(640px, 94vw);
+  min-height: min(400px, 90vh);
+  max-width: 96vw !important;
+  max-height: 94vh !important;
+}
+
+.modal.cute-focus-session-modal.is-maximized {
+  width: 96vw !important;
+  height: 92vh !important;
+  resize: none !important;
+}
+
+.modal.cute-edit-focus-record-modal {
+  width: min(640px, 88vw) !important;
+  height: min(420px, 72vh) !important;
+  min-width: min(420px, 88vw);
+  min-height: min(300px, 72vh);
+  max-width: 92vw !important;
+  max-height: 82vh !important;
 }
 
 .cute-focus-modal-header {
@@ -2138,30 +2189,30 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 14px;
-  width: min(900px, 88vw);
-  height: min(506px, 78vh);
-  min-width: min(620px, 88vw);
-  min-height: min(350px, 78vh);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .cow-focus-records-modal {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 14px;
-  width: min(1000px, 90vw);
-  height: min(700px, 82vh);
-  min-width: min(680px, 90vw);
-  min-height: min(420px, 82vh);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .cow-edit-focus-record-modal {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 14px;
-  width: min(640px, 88vw);
-  height: min(420px, 72vh);
-  min-width: min(420px, 88vw);
-  min-height: min(300px, 72vh);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .cow-focus-selected-duration {
@@ -2247,12 +2298,10 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: min(1100px, 92vw);
-  height: min(720px, 88vh);
-  min-width: min(640px, 92vw);
-  min-height: min(400px, 88vh);
-  max-width: 96vw;
-  max-height: 94vh;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   padding: 24px !important;
   border-radius: 26px;
   background-size: cover;
@@ -2273,13 +2322,6 @@
 .cow-focus-session-window > * {
   position: relative;
   z-index: 1;
-}
-
-.cow-focus-session-window.is-maximized {
-  width: 96vw;
-  height: 92vh;
-  max-height: 92vh;
-  resize: none;
 }
 
 .cow-focus-window-controls {
@@ -2469,20 +2511,23 @@
 }
 
 @media (max-width: 760px) {
-  .cow-focus-setup-modal,
-  .cow-focus-records-modal,
-  .cow-edit-focus-record-modal {
+  .modal.cute-focus-setup-modal,
+  .modal.cute-focus-records-modal,
+  .modal.cute-edit-focus-record-modal {
     width: min(94vw, 420px);
     height: min(82vh, 680px);
     min-width: min(320px, 94vw);
     min-height: min(360px, 82vh);
   }
 
-  .cow-focus-session-window {
+  .modal.cute-focus-session-modal {
     width: min(94vw, 520px);
     height: min(82vh, 680px);
     min-width: min(320px, 94vw);
     min-height: min(360px, 82vh);
+  }
+
+  .cow-focus-session-window {
     padding: 18px !important;
   }
 
