@@ -1831,9 +1831,26 @@
   padding: 3px 9px;
 }
 
-.cow-paper-filter-tags button.is-active,
-.cow-paper-tag-options button.is-active {
+.cow-paper-filter-tags button.is-active {
   background: color-mix(in srgb, var(--paper-color, var(--cow-pink-strong)) 34%, white);
+}
+
+.cow-paper-tag-options button {
+  border-color: rgba(185, 126, 149, 0.28);
+  background: rgba(255, 250, 244, 0.78);
+  color: var(--cow-muted);
+}
+
+.cow-paper-tag-options button.is-active {
+  border-color: color-mix(in srgb, var(--paper-color, var(--cow-pink-strong)) 70%, var(--cow-pink-strong));
+  background: color-mix(in srgb, var(--paper-color, var(--cow-pink-strong)) 42%, white);
+  color: var(--cow-pink-strong);
+  box-shadow: 0 0 0 2px rgba(242, 59, 141, 0.12);
+}
+
+.cow-paper-tag-options button:hover {
+  border-color: var(--cow-pink-strong);
+  box-shadow: 0 3px 10px rgba(242, 59, 141, 0.12);
 }
 
 .cow-paper-filter-panel {
@@ -1980,6 +1997,32 @@
   display: grid;
   gap: 10px;
   min-width: 0;
+}
+
+.cow-selected-note-file {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px dashed rgba(242, 59, 141, 0.24);
+  border-radius: 14px;
+  background: rgba(255, 246, 250, 0.58);
+}
+
+.cow-note-picker-list .cow-data-card {
+  padding: 9px 10px;
+  border-radius: 12px;
+}
+
+.cow-note-picker-list .cow-data-card:hover {
+  border-color: rgba(242, 59, 141, 0.32);
+  box-shadow: 0 5px 14px rgba(242, 59, 141, 0.1);
+}
+
+.cow-selected-note-title {
+  color: var(--cow-ink);
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .cow-research-relations {
@@ -2223,6 +2266,12 @@
   border: 1px solid rgba(230, 170, 52, 0.3);
   background: rgba(255, 238, 176, 0.82);
   color: #8b5a12;
+}
+
+.cow-zotero-url-hint {
+  color: var(--cow-pink-strong);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .cow-zotero-help {

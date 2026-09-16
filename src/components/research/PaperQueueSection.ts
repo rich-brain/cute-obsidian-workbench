@@ -142,6 +142,10 @@ export class PaperQueueSection {
       new Notice("这篇论文还没有填写链接。");
       return;
     }
+    if (!/^https?:\/\//i.test(paper.paperUrl.trim())) {
+      new Notice("论文链接格式无效。");
+      return;
+    }
     window.open(paper.paperUrl);
   }
 }

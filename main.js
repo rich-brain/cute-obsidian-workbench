@@ -4435,6 +4435,7 @@ var LiteratureNoteModal = class extends import_obsidian9.Modal {
     this.onDone = onDone;
     this.note = note;
     this.query = "";
+    this.markdownFiles = [];
     this.title = (_b = (_a = note == null ? void 0 : note.title) != null ? _a : preset == null ? void 0 : preset.title) != null ? _b : "";
     this.notePath = (_d = (_c = note == null ? void 0 : note.notePath) != null ? _c : preset == null ? void 0 : preset.notePath) != null ? _d : "";
     this.paperReadingId = (_f = (_e = note == null ? void 0 : note.paperReadingId) != null ? _e : preset == null ? void 0 : preset.paperReadingId) != null ? _f : "";
@@ -4448,6 +4449,7 @@ var LiteratureNoteModal = class extends import_obsidian9.Modal {
       minWidth: "min(520px, 90vw)",
       minHeight: "min(420px, 82vh)"
     });
+    this.markdownFiles = this.app.vault.getMarkdownFiles();
     this.render();
   }
   render() {
@@ -4457,11 +4459,13 @@ var LiteratureNoteModal = class extends import_obsidian9.Modal {
     const form = this.contentEl.createDiv({ cls: "cow-paper-form" });
     this.titleInput = this.inputField(form, "\u6807\u9898", this.title, (value) => this.title = value);
     this.paperSelect(form);
-    this.searchInput = this.inputField(form, "\u641C\u7D22 Markdown", this.query, (value) => {
+    this.searchInput = this.inputField(form, "\u5173\u8054 Markdown", this.query, (value) => {
       this.query = value;
       this.renderNotePickerResults();
     });
-    this.notePathInput = this.inputField(form, "\u7B14\u8BB0\u8DEF\u5F84", this.notePath, (value) => this.notePath = value);
+    this.searchInput.placeholder = "\u641C\u7D22 Vault \u4E2D\u7684 Markdown \u6587\u4EF6\u2026\u2026";
+    this.selectedFileEl = this.contentEl.createDiv({ cls: "cow-selected-note-file" });
+    this.renderSelectedFile();
     this.notePickerEl = this.contentEl.createDiv({ cls: "cow-note-picker-list" });
     this.renderNotePickerResults();
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
@@ -4482,11 +4486,11 @@ var LiteratureNoteModal = class extends import_obsidian9.Modal {
     if (!list) return;
     list.empty();
     const query = this.query.trim().toLowerCase();
-    if (!query) {
-      list.createDiv({ cls: "cow-empty-state", text: "\u8F93\u5165\u5173\u952E\u8BCD\u641C\u7D22 Vault \u4E2D\u7684 Markdown \u7B14\u8BB0\uFF0C\u9009\u62E9\u540E\u4F1A\u5173\u8054 notePath\u3002" });
+    const files = (query ? this.markdownFiles.filter((file) => `${file.basename} ${file.name} ${file.path}`.toLowerCase().includes(query)) : [...this.markdownFiles].sort((a, b) => b.stat.mtime - a.stat.mtime)).slice(0, 50);
+    if (files.length === 0) {
+      list.createDiv({ cls: "cow-empty-state", text: query ? "\u6CA1\u6709\u627E\u5230\u5339\u914D\u7684 Markdown \u6587\u4EF6\u3002" : "Vault \u4E2D\u6682\u65E0 Markdown \u6587\u4EF6\u3002" });
       return;
     }
-    const files = this.app.vault.getMarkdownFiles().filter((file) => `${file.basename} ${file.path}`.toLowerCase().includes(query)).slice(0, 20);
     files.forEach((file) => {
       const button = list.createEl("button", { cls: "cow-data-card cow-click-card", attr: { type: "button" } });
       button.createEl("strong", { text: file.basename });
@@ -4496,10 +4500,32 @@ var LiteratureNoteModal = class extends import_obsidian9.Modal {
         this.notePath = file.path;
         this.query = "";
         if (this.titleInput) this.titleInput.value = this.title;
-        if (this.notePathInput) this.notePathInput.value = this.notePath;
         if (this.searchInput) this.searchInput.value = "";
+        this.renderSelectedFile();
         this.renderNotePickerResults();
       });
+    });
+  }
+  renderSelectedFile() {
+    const container = this.selectedFileEl;
+    if (!container) return;
+    container.empty();
+    container.createEl("strong", { text: "\u5DF2\u9009\u62E9" });
+    if (!this.notePath) {
+      container.createDiv({ cls: "cow-meta-line", text: "\u5C1A\u672A\u9009\u62E9 Markdown \u6587\u4EF6\u3002" });
+      return;
+    }
+    const file = this.app.vault.getAbstractFileByPath(this.notePath);
+    container.createDiv({ cls: "cow-selected-note-title", text: `\u{1F4C4} ${file instanceof import_obsidian9.TFile ? file.name : fileName(this.notePath)}` });
+    container.createDiv({ cls: "cow-meta-line", text: this.notePath });
+    const actions = container.createDiv({ cls: "cow-list-item-actions" });
+    actions.createEl("button", { text: "\u66F4\u6362", attr: { type: "button" } }).addEventListener("click", () => {
+      var _a;
+      return (_a = this.searchInput) == null ? void 0 : _a.focus();
+    });
+    actions.createEl("button", { text: "\u6E05\u9664", attr: { type: "button" } }).addEventListener("click", () => {
+      this.notePath = "";
+      this.renderSelectedFile();
     });
   }
   inputField(container, label, value, onInput) {
@@ -4627,8 +4653,9 @@ var DeleteLiteratureNoteModal = class extends import_obsidian9.Modal {
   }
 };
 async function openLiteratureNoteFile(app, store, note, onDone) {
-  const file = app.vault.getFileByPath(note.notePath);
+  const file = app.vault.getAbstractFileByPath(note.notePath);
   if (!(file instanceof import_obsidian9.TFile)) {
+    new import_obsidian9.Notice("\u672A\u627E\u5230\u5BF9\u5E94 Markdown \u6587\u4EF6\u3002");
     new MissingLiteratureNoteModal(app, store, note, onDone).open();
     return;
   }
@@ -4637,6 +4664,9 @@ async function openLiteratureNoteFile(app, store, note, onDone) {
 function paperLabel(paper) {
   var _a;
   return (_a = paper == null ? void 0 : paper.title) != null ? _a : "\u672A\u5173\u8054\u8BBA\u6587";
+}
+function fileName(path) {
+  return path.split(/[\\/]/).pop() || path;
 }
 
 // src/components/research/ExperimentModals.ts
@@ -5581,12 +5611,14 @@ var ResearchProjectEditModal = class extends import_obsidian14.Modal {
     const list = row.createDiv({ cls: "cow-paper-tag-options" });
     const selected = new Set(this.tagIds);
     this.store.getPaperTags().forEach((tag) => {
-      const button = list.createEl("button", { text: tag.name, cls: selected.has(tag.id) ? "is-active" : "", attr: { type: "button", style: `--paper-color: ${tag.color}` } });
+      const button = list.createEl("button", { cls: selected.has(tag.id) ? "is-active" : "", attr: { type: "button", style: `--paper-color: ${tag.color}` } });
+      button.setText(`${selected.has(tag.id) ? "\u2713 " : ""}${tag.name}`);
       button.addEventListener("click", () => {
         if (selected.has(tag.id)) selected.delete(tag.id);
         else selected.add(tag.id);
         this.tagIds = [...selected];
         button.toggleClass("is-active", selected.has(tag.id));
+        button.setText(`${selected.has(tag.id) ? "\u2713 " : ""}${tag.name}`);
       });
     });
   }
@@ -13758,7 +13790,7 @@ var PaperEditModal = class extends import_obsidian68.Modal {
     const select = row.createEl("select");
     select.createEl("option", { value: "", text: "\u4E0D\u5173\u8054" });
     this.store.getLiteratureNotes().forEach((note) => {
-      select.createEl("option", { value: note.id, text: note.title || fileName(note.notePath) });
+      select.createEl("option", { value: note.id, text: note.title || fileName2(note.notePath) });
     });
     select.value = this.selectedLiteratureNoteId;
     select.addEventListener("change", () => this.selectedLiteratureNoteId = select.value);
@@ -14037,6 +14069,7 @@ var ZoteroPaperImportModal = class extends import_obsidian68.Modal {
     const body = row.createDiv({ cls: "cow-paper-body" });
     body.createEl("strong", { text: item.title });
     body.createSpan({ text: [item.venue, item.year].filter(Boolean).join(" \xB7 ") || "\u65E0 Venue / Year \u4FE1\u606F" });
+    if (item.paperUrl) body.createSpan({ cls: "cow-zotero-url-hint", text: "\u2197 \u6709\u94FE\u63A5" });
     const badge = row.createDiv({ cls: `cow-zotero-status-badge is-${status}` });
     badge.createSpan({ text: statusLabel2(status) });
   }
@@ -14336,7 +14369,7 @@ function openPaperUrl(value) {
   }
   window.open(url);
 }
-function fileName(path) {
+function fileName2(path) {
   var _a;
   return ((_a = path.split(/[\\/]/).pop()) == null ? void 0 : _a.replace(/\.md$/i, "")) || path;
 }
@@ -14383,12 +14416,14 @@ function tagField(container, tags, selected, onChange) {
   const list = row.createDiv({ cls: "cow-paper-tag-options" });
   const selectedSet = new Set(selected);
   tags.forEach((tag) => {
-    const button = list.createEl("button", { text: tag.name, cls: selectedSet.has(tag.id) ? "is-active" : "", attr: { type: "button", style: `--paper-color: ${tag.color}` } });
+    const button = list.createEl("button", { cls: selectedSet.has(tag.id) ? "is-active" : "", attr: { type: "button", style: `--paper-color: ${tag.color}` } });
+    button.setText(`${selectedSet.has(tag.id) ? "\u2713 " : ""}${tag.name}`);
     button.addEventListener("click", () => {
       if (selectedSet.has(tag.id)) selectedSet.delete(tag.id);
       else selectedSet.add(tag.id);
       onChange([...selectedSet]);
       button.toggleClass("is-active", selectedSet.has(tag.id));
+      button.setText(`${selectedSet.has(tag.id) ? "\u2713 " : ""}${tag.name}`);
     });
   });
 }
@@ -14615,6 +14650,10 @@ var PaperQueueSection = class {
   async openPaperUrl(paper) {
     if (!paper.paperUrl) {
       new import_obsidian70.Notice("\u8FD9\u7BC7\u8BBA\u6587\u8FD8\u6CA1\u6709\u586B\u5199\u94FE\u63A5\u3002");
+      return;
+    }
+    if (!/^https?:\/\//i.test(paper.paperUrl.trim())) {
+      new import_obsidian70.Notice("\u8BBA\u6587\u94FE\u63A5\u683C\u5F0F\u65E0\u6548\u3002");
       return;
     }
     window.open(paper.paperUrl);

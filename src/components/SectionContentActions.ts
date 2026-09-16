@@ -322,12 +322,14 @@ class ResearchProjectEditModal extends Modal {
     const list = row.createDiv({ cls: "cow-paper-tag-options" });
     const selected = new Set(this.tagIds);
     this.store.getPaperTags().forEach((tag) => {
-      const button = list.createEl("button", { text: tag.name, cls: selected.has(tag.id) ? "is-active" : "", attr: { type: "button", style: `--paper-color: ${tag.color}` } });
+      const button = list.createEl("button", { cls: selected.has(tag.id) ? "is-active" : "", attr: { type: "button", style: `--paper-color: ${tag.color}` } });
+      button.setText(`${selected.has(tag.id) ? "✓ " : ""}${tag.name}`);
       button.addEventListener("click", () => {
         if (selected.has(tag.id)) selected.delete(tag.id);
         else selected.add(tag.id);
         this.tagIds = [...selected];
         button.toggleClass("is-active", selected.has(tag.id));
+        button.setText(`${selected.has(tag.id) ? "✓ " : ""}${tag.name}`);
       });
     });
   }

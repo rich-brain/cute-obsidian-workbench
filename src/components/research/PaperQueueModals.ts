@@ -772,6 +772,7 @@ class ZoteroPaperImportModal extends Modal {
     const body = row.createDiv({ cls: "cow-paper-body" });
     body.createEl("strong", { text: item.title });
     body.createSpan({ text: [item.venue, item.year].filter(Boolean).join(" · ") || "无 Venue / Year 信息" });
+    if (item.paperUrl) body.createSpan({ cls: "cow-zotero-url-hint", text: "↗ 有链接" });
     const badge = row.createDiv({ cls: `cow-zotero-status-badge is-${status}` });
     badge.createSpan({ text: statusLabel(status) });
   }
@@ -1150,12 +1151,14 @@ function tagField(container: HTMLElement, tags: PaperTagDefinition[], selected: 
   const list = row.createDiv({ cls: "cow-paper-tag-options" });
   const selectedSet = new Set(selected);
   tags.forEach((tag) => {
-    const button = list.createEl("button", { text: tag.name, cls: selectedSet.has(tag.id) ? "is-active" : "", attr: { type: "button", style: `--paper-color: ${tag.color}` } });
+    const button = list.createEl("button", { cls: selectedSet.has(tag.id) ? "is-active" : "", attr: { type: "button", style: `--paper-color: ${tag.color}` } });
+    button.setText(`${selectedSet.has(tag.id) ? "✓ " : ""}${tag.name}`);
     button.addEventListener("click", () => {
       if (selectedSet.has(tag.id)) selectedSet.delete(tag.id);
       else selectedSet.add(tag.id);
       onChange([...selectedSet]);
       button.toggleClass("is-active", selectedSet.has(tag.id));
+      button.setText(`${selectedSet.has(tag.id) ? "✓ " : ""}${tag.name}`);
     });
   });
 }
