@@ -1507,21 +1507,19 @@ export class DashboardStore {
         continue;
       }
       const venueId = item.venue ? await this.ensurePaperVenue(item.venue) : undefined;
-      const zoteroTagIds = await this.ensurePaperTags(item.tags);
       const existing = this.findExistingZoteroPaper(item);
       if (existing) {
-        const mergedTags = Array.from(new Set([...(existing.tagIds ?? []), ...zoteroTagIds]));
         Object.assign(existing, this.normalizeResearchPaper({
           ...existing,
           title: item.title,
           venue: item.venue ?? existing.venue,
           venueId: venueId ?? existing.venueId,
           year: item.year ?? existing.year,
-          paperUrl: item.paperUrl ?? existing.paperUrl,
+          paperUrl: existing.paperUrl || item.paperUrl,
           doi: item.doi ?? existing.doi,
           citekey: item.citekey ?? existing.citekey,
           zoteroItemKey: item.zoteroItemKey ?? existing.zoteroItemKey,
-          tagIds: mergedTags,
+          tagIds: existing.tagIds ?? [],
           updatedAt: Date.now()
         }));
         updated += 1;
@@ -1538,7 +1536,7 @@ export class DashboardStore {
           doi: item.doi,
           readingStartDate: undefined,
           readingEndDate: undefined,
-          tagIds: zoteroTagIds,
+          tagIds: [],
           createdAt: Date.now(),
           updatedAt: Date.now(),
           zoteroItemKey: item.zoteroItemKey,
@@ -2843,8 +2841,8 @@ export class DashboardStore {
         ? partial.todayFocusTasks
         : structuredClone(DEFAULT_DATA.todayFocusTasks),
       researchProjects: Array.isArray(partial.researchProjects)
-        ? partial.researchProjects
-        : structuredClone(DEFAULT_DATA.researchProjects),
+        ? partial.researchProjects.map((project) => this.normalizeResearchProject(project))
+        : structuredClone(DEFAULT_DATA.researchProjects).map((project) => this.normalizeResearchProject(project)),
       researchPapers: Array.isArray(partial.researchPapers)
         ? partial.researchPapers.map((paper) => this.normalizeResearchPaper(paper))
         : structuredClone(DEFAULT_DATA.researchPapers).map((paper) => this.normalizeResearchPaper(paper)),
@@ -3146,6 +3144,23 @@ export class DashboardStore {
       updatedAt: paper.updatedAt ?? now,
       zoteroItemKey: paper.zoteroItemKey,
       citekey: paper.citekey
+    };
+  }
+
+  private normalizeResearchProject(project: ResearchProject): ResearchProject {
+    const tagIds = Array.from(new Set([
+      ...(Array.isArray(project.tagIds) ? project.tagIds : []),
+      ...(Array.isArray(project.tags) ? project.tags : [])
+        .map((tag) => this.data?.paperTags?.find((definition) => definition.name.toLowerCase() === tag.toLowerCase())?.id)
+        .filter(Boolean) as string[]
+    ]));
+    return {
+      ...project,
+      title: project.title || "未命名项目",
+      description: project.description ?? "",
+      progress: Math.max(0, Math.min(100, Number(project.progress) || 0)),
+      tags: Array.isArray(project.tags) ? project.tags : [],
+      tagIds
     };
   }
 

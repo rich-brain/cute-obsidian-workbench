@@ -49,11 +49,13 @@ export interface TodayFocusTask {
 export interface ResearchProject {
   id: string;
   title: string;
+  description?: string;
   status: "进行中" | "撰写中" | "已完成" | "未开始";
   progress: number;
   startDate: string;
   deadline: string;
   tags: string[];
+  tagIds?: string[];
 }
 
 export interface ResearchPaper {

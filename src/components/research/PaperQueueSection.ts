@@ -1,4 +1,4 @@
-import { App, Notice, setIcon } from "obsidian";
+import { App, Notice, setIcon, setTooltip } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import type { ResearchPaper } from "../../types/dashboard";
 import { DeletePaperReadingModal, PaperDetailModal, PaperEditModal, tagNames, venueName, statusName } from "./PaperQueueModals";
@@ -81,10 +81,18 @@ export class PaperQueueSection {
   }
 
   private renderPaperCard(container: HTMLElement, paper: ResearchPaper): void {
-    const card = container.createDiv({ cls: "cow-paper-card" });
-    const body = card.createDiv({ cls: "cow-paper-body" });
-    const title = body.createEl("button", { cls: "cow-paper-title-button", text: paper.title, attr: { type: "button" } });
+    const card = container.createDiv({ cls: "cow-paper-card cow-paper-reading-card" });
+    const header = card.createDiv({ cls: "cow-paper-card-header" });
+    const titleContainer = header.createDiv({ cls: "cow-paper-title-container" });
+    const title = titleContainer.createEl("button", { cls: "cow-paper-title-button is-ellipsis", text: paper.title, attr: { type: "button", title: paper.title } });
+    setTooltip(title, paper.title);
     title.addEventListener("click", () => new PaperDetailModal(this.app, this.store, paper, this.onDataChanged).open());
+    const actions = header.createDiv({ cls: "cow-list-item-actions cow-paper-actions" });
+    iconButton(actions, "pencil", "编辑论文", () => new PaperEditModal(this.app, this.store, this.onDataChanged, paper).open());
+    iconButton(actions, "trash-2", "删除论文", () => new DeletePaperReadingModal(this.app, this.store, paper, this.onDataChanged).open());
+    iconButton(actions, "external-link", "打开论文链接", () => void this.openPaperUrl(paper));
+    iconButton(actions, "notebook-tabs", "打开笔记", () => void this.openNote(paper.notePath));
+    const body = card.createDiv({ cls: "cow-paper-body" });
     const meta = body.createDiv({ cls: "cow-paper-meta-row" });
     meta.createSpan({ cls: "cow-status is-blue", text: statusName(this.store, paper) });
     const project = this.store.getResearchProjects().find((item) => item.id === paper.researchProjectId);
@@ -95,11 +103,6 @@ export class PaperQueueSection {
     const tags = body.createDiv({ cls: "cow-paper-tags" });
     tagNames(this.store, paper).forEach((tag) => tags.createSpan({ text: tag }));
     body.createDiv({ cls: "cow-meta-line", text: `${paper.readingStartDate ?? "-"} → ${paper.readingEndDate ?? "-"}` });
-    const actions = card.createDiv({ cls: "cow-list-item-actions" });
-    iconButton(actions, "pencil", "编辑论文", () => new PaperEditModal(this.app, this.store, this.onDataChanged, paper).open());
-    iconButton(actions, "trash-2", "删除论文", () => new DeletePaperReadingModal(this.app, this.store, paper, this.onDataChanged).open());
-    iconButton(actions, "external-link", "打开论文链接", () => void this.openPaperUrl(paper));
-    iconButton(actions, "notebook-tabs", "打开笔记", () => void this.openNote(paper.notePath));
   }
 
   private filterPapers(papers: ResearchPaper[]): ResearchPaper[] {

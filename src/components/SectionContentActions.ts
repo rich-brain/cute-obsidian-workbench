@@ -1,4 +1,4 @@
-import { App, Notice } from "obsidian";
+import { App, Modal, Notice } from "obsidian";
 import { CrudItemModal, type CrudField } from "./CrudItemModal";
 import type { DashboardStore } from "../core/DashboardStore";
 import type {
@@ -33,13 +33,14 @@ import {
   openTransactionModal
 } from "./DashboardEditModals";
 import { TodayFocusTaskModal, TodoStatisticsModal } from "./overview/TodoStatisticsModal";
+import { applyResizableModal } from "./ResizableModal";
 
 export function openAddContentModal(app: App, store: DashboardStore, section: DashboardSectionConfig, onDataChanged: () => void): void {
   const refresh = () => onDataChanged();
   switch (section.type) {
     case "research-projects":
-      openResearchProjectModal(app, async (values) => {
-        await store.addResearchProject({ ...values, id: `project-${Date.now()}`, tags: splitTags(values.tagsText) });
+      openResearchProjectModal(app, store, async (values) => {
+        await store.addResearchProject({ ...values, id: `project-${Date.now()}` });
         refresh();
       });
       break;
@@ -233,22 +234,131 @@ function openBudgetLimitModal(app: App, initialValue: number, onSubmit: (value: 
   }).open();
 }
 
-export function openResearchProjectModal(app: App, onSubmit: (values: Omit<ResearchProject, "id" | "tags"> & { tagsText: string }) => Promise<void>, project?: ResearchProject): void {
-  new CrudItemModal(app, project ? "编辑研究项目" : "新增研究项目", {
-    title: project?.title ?? "",
-    status: project?.status ?? "进行中",
-    progress: project?.progress ?? 0,
-    startDate: project?.startDate ?? formatDateKey(new Date()),
-    deadline: project?.deadline ?? formatDateKey(new Date()),
-    tagsText: project?.tags.join(", ") ?? ""
-  }, [
-    { key: "title", name: "标题" },
-    { key: "status", name: "状态", type: "select", options: statusOptions(["未开始", "进行中", "撰写中", "已完成"]) },
-    { key: "progress", name: "进度", type: "number" },
-    { key: "startDate", name: "开始日期" },
-    { key: "deadline", name: "截止日期" },
-    { key: "tagsText", name: "标签" }
-  ], onSubmit).open();
+export function openResearchProjectModal(app: App, store: DashboardStore, onSubmit: (values: Omit<ResearchProject, "id">) => Promise<void>, project?: ResearchProject): void {
+  new ResearchProjectEditModal(app, store, onSubmit, project).open();
+}
+
+class ResearchProjectEditModal extends Modal {
+  private title: string;
+  private description: string;
+  private status: ResearchProject["status"];
+  private progress: number;
+  private startDate: string;
+  private deadline: string;
+  private tagIds: string[];
+
+  constructor(
+    app: App,
+    private readonly store: DashboardStore,
+    private readonly onSubmit: (values: Omit<ResearchProject, "id">) => Promise<void>,
+    project?: ResearchProject
+  ) {
+    super(app);
+    this.title = project?.title ?? "";
+    this.description = project?.description ?? "";
+    this.status = project?.status ?? "进行中";
+    this.progress = project?.progress ?? 0;
+    this.startDate = project?.startDate ?? formatDateKey(new Date());
+    this.deadline = project?.deadline ?? formatDateKey(new Date());
+    this.tagIds = [...(project?.tagIds ?? this.legacyTagIds(project))];
+  }
+
+  onOpen(): void {
+    applyResizableModal(this, {
+      className: "cute-research-project-edit-modal",
+      width: "min(760px, 90vw)",
+      maxWidth: "96vw",
+      maxHeight: "92vh",
+      minWidth: "min(520px, 90vw)",
+      minHeight: "min(420px, 82vh)"
+    });
+    this.render();
+  }
+
+  private render(): void {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-paper-modal", "cow-research-project-edit-modal");
+    this.contentEl.createEl("h2", { text: this.title ? "编辑研究项目" : "新增研究项目" });
+    const form = this.contentEl.createDiv({ cls: "cow-paper-form" });
+    this.inputField(form, "标题", this.title, (value) => this.title = value);
+    this.selectField(form, "状态", this.status, statusOptions(["未开始", "进行中", "撰写中", "已完成"]), (value) => this.status = value as ResearchProject["status"]);
+    this.inputField(form, "进度", String(this.progress), (value) => this.progress = Number(value) || 0, "number");
+    this.inputField(form, "开始日期", this.startDate, (value) => this.startDate = value, "date");
+    this.inputField(form, "截止日期", this.deadline, (value) => this.deadline = value, "date");
+    this.descriptionField(form);
+    this.tagField(form);
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "保存", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.save());
+  }
+
+  private inputField(container: HTMLElement, label: string, value: string, onInput: (value: string) => void, type = "text"): void {
+    const row = container.createDiv({ cls: "cow-book-form-row" });
+    row.createEl("label", { text: label });
+    const input = row.createEl("input", { attr: { type, value } });
+    input.addEventListener("input", () => onInput(input.value));
+  }
+
+  private selectField(container: HTMLElement, label: string, value: string, options: Array<{ value: string; label: string }>, onChange: (value: string) => void): void {
+    const row = container.createDiv({ cls: "cow-book-form-row" });
+    row.createEl("label", { text: label });
+    const select = row.createEl("select");
+    options.forEach((option) => select.createEl("option", { value: option.value, text: option.label }));
+    select.value = value;
+    select.addEventListener("change", () => onChange(select.value));
+  }
+
+  private descriptionField(container: HTMLElement): void {
+    const row = container.createDiv({ cls: "cow-book-form-row cow-project-description-field" });
+    row.createEl("label", { text: "项目描述" });
+    const textarea = row.createEl("textarea", { attr: { rows: "5", placeholder: "简单描述研究目标、研究内容或当前方向……" } });
+    textarea.value = this.description;
+    textarea.addEventListener("input", () => this.description = textarea.value);
+  }
+
+  private tagField(container: HTMLElement): void {
+    const row = container.createDiv({ cls: "cow-book-form-row cow-paper-tag-picker" });
+    row.createEl("label", { text: "标签" });
+    const list = row.createDiv({ cls: "cow-paper-tag-options" });
+    const selected = new Set(this.tagIds);
+    this.store.getPaperTags().forEach((tag) => {
+      const button = list.createEl("button", { text: tag.name, cls: selected.has(tag.id) ? "is-active" : "", attr: { type: "button", style: `--paper-color: ${tag.color}` } });
+      button.addEventListener("click", () => {
+        if (selected.has(tag.id)) selected.delete(tag.id);
+        else selected.add(tag.id);
+        this.tagIds = [...selected];
+        button.toggleClass("is-active", selected.has(tag.id));
+      });
+    });
+  }
+
+  private legacyTagIds(project: ResearchProject | undefined): string[] {
+    if (!project?.tags) return [];
+    return project.tags
+      .map((tag) => this.store.getPaperTags().find((definition) => definition.name.toLowerCase() === tag.toLowerCase())?.id)
+      .filter(Boolean) as string[];
+  }
+
+  private async save(): Promise<void> {
+    if (!this.title.trim()) {
+      new Notice("请输入研究项目标题。");
+      return;
+    }
+    const tags = this.tagIds
+      .map((id) => this.store.getPaperTags().find((tag) => tag.id === id)?.name)
+      .filter(Boolean) as string[];
+    await this.onSubmit({
+      title: this.title.trim(),
+      description: this.description.trim(),
+      status: this.status,
+      progress: Math.max(0, Math.min(100, this.progress)),
+      startDate: this.startDate,
+      deadline: this.deadline,
+      tags,
+      tagIds: [...this.tagIds]
+    });
+    this.close();
+  }
 }
 
 export function openResearchPaperModal(app: App, onSubmit: (values: Omit<ResearchPaper, "id">) => Promise<void>, paper?: ResearchPaper): void {

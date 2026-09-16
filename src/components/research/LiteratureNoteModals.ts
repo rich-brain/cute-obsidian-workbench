@@ -12,6 +12,10 @@ class LiteratureNoteModal extends Modal {
   private notePath: string;
   private paperReadingId: string;
   private query = "";
+  private titleInput?: HTMLInputElement;
+  private notePathInput?: HTMLInputElement;
+  private searchInput?: HTMLInputElement;
+  private notePickerEl?: HTMLElement;
 
   constructor(
     app: App,
@@ -43,14 +47,15 @@ class LiteratureNoteModal extends Modal {
     this.contentEl.addClass("cow-modal", "cow-literature-note-modal");
     this.contentEl.createEl("h2", { text: this.note ? "编辑文献笔记" : "新增文献笔记" });
     const form = this.contentEl.createDiv({ cls: "cow-paper-form" });
-    this.inputField(form, "标题", this.title, (value) => this.title = value);
+    this.titleInput = this.inputField(form, "标题", this.title, (value) => this.title = value);
     this.paperSelect(form);
-    this.inputField(form, "搜索 Markdown", this.query, (value) => {
+    this.searchInput = this.inputField(form, "搜索 Markdown", this.query, (value) => {
       this.query = value;
-      this.render();
+      this.renderNotePickerResults();
     });
-    this.inputField(form, "笔记路径", this.notePath, (value) => this.notePath = value);
-    this.renderNotePicker();
+    this.notePathInput = this.inputField(form, "笔记路径", this.notePath, (value) => this.notePath = value);
+    this.notePickerEl = this.contentEl.createDiv({ cls: "cow-note-picker-list" });
+    this.renderNotePickerResults();
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
     actions.createEl("button", { text: "保存", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.save());
@@ -66,8 +71,10 @@ class LiteratureNoteModal extends Modal {
     select.addEventListener("change", () => this.paperReadingId = select.value);
   }
 
-  private renderNotePicker(): void {
-    const list = this.contentEl.createDiv({ cls: "cow-note-picker-list" });
+  private renderNotePickerResults(): void {
+    const list = this.notePickerEl;
+    if (!list) return;
+    list.empty();
     const query = this.query.trim().toLowerCase();
     if (!query) {
       list.createDiv({ cls: "cow-empty-state", text: "输入关键词搜索 Vault 中的 Markdown 笔记，选择后会关联 notePath。" });
@@ -84,7 +91,10 @@ class LiteratureNoteModal extends Modal {
         this.title = this.title || file.basename;
         this.notePath = file.path;
         this.query = "";
-        this.render();
+        if (this.titleInput) this.titleInput.value = this.title;
+        if (this.notePathInput) this.notePathInput.value = this.notePath;
+        if (this.searchInput) this.searchInput.value = "";
+        this.renderNotePickerResults();
       });
     });
   }

@@ -1376,7 +1376,7 @@ var DashboardStore = class {
     return removed;
   }
   async importZoteroPapers(items) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
     let created = 0;
     let updated = 0;
     let skipped = 0;
@@ -1386,21 +1386,19 @@ var DashboardStore = class {
         continue;
       }
       const venueId = item.venue ? await this.ensurePaperVenue(item.venue) : void 0;
-      const zoteroTagIds = await this.ensurePaperTags(item.tags);
       const existing = this.findExistingZoteroPaper(item);
       if (existing) {
-        const mergedTags = Array.from(/* @__PURE__ */ new Set([...(_a = existing.tagIds) != null ? _a : [], ...zoteroTagIds]));
         Object.assign(existing, this.normalizeResearchPaper({
           ...existing,
           title: item.title,
-          venue: (_b = item.venue) != null ? _b : existing.venue,
+          venue: (_a = item.venue) != null ? _a : existing.venue,
           venueId: venueId != null ? venueId : existing.venueId,
-          year: (_c = item.year) != null ? _c : existing.year,
-          paperUrl: (_d = item.paperUrl) != null ? _d : existing.paperUrl,
-          doi: (_e = item.doi) != null ? _e : existing.doi,
-          citekey: (_f = item.citekey) != null ? _f : existing.citekey,
-          zoteroItemKey: (_g = item.zoteroItemKey) != null ? _g : existing.zoteroItemKey,
-          tagIds: mergedTags,
+          year: (_b = item.year) != null ? _b : existing.year,
+          paperUrl: existing.paperUrl || item.paperUrl,
+          doi: (_c = item.doi) != null ? _c : existing.doi,
+          citekey: (_d = item.citekey) != null ? _d : existing.citekey,
+          zoteroItemKey: (_e = item.zoteroItemKey) != null ? _e : existing.zoteroItemKey,
+          tagIds: (_f = existing.tagIds) != null ? _f : [],
           updatedAt: Date.now()
         }));
         updated += 1;
@@ -1408,16 +1406,16 @@ var DashboardStore = class {
         this.data.researchPapers.push(this.normalizeResearchPaper({
           id: `paper-${Date.now()}-${created}`,
           title: item.title,
-          venue: (_h = item.venue) != null ? _h : "",
+          venue: (_g = item.venue) != null ? _g : "",
           venueId,
-          year: (_i = item.year) != null ? _i : (/* @__PURE__ */ new Date()).getFullYear(),
-          statusId: (_k = (_j = this.data.paperStatuses[0]) == null ? void 0 : _j.id) != null ? _k : "paper-status-unread",
+          year: (_h = item.year) != null ? _h : (/* @__PURE__ */ new Date()).getFullYear(),
+          statusId: (_j = (_i = this.data.paperStatuses[0]) == null ? void 0 : _i.id) != null ? _j : "paper-status-unread",
           readingProgress: 0,
           paperUrl: item.paperUrl,
           doi: item.doi,
           readingStartDate: void 0,
           readingEndDate: void 0,
-          tagIds: zoteroTagIds,
+          tagIds: [],
           createdAt: Date.now(),
           updatedAt: Date.now(),
           zoteroItemKey: item.zoteroItemKey,
@@ -2556,7 +2554,7 @@ var DashboardStore = class {
       sections,
       habits: (_a = partial.habits) != null ? _a : {},
       todayFocusTasks: Array.isArray(partial.todayFocusTasks) ? partial.todayFocusTasks : structuredClone(DEFAULT_DATA.todayFocusTasks),
-      researchProjects: Array.isArray(partial.researchProjects) ? partial.researchProjects : structuredClone(DEFAULT_DATA.researchProjects),
+      researchProjects: Array.isArray(partial.researchProjects) ? partial.researchProjects.map((project) => this.normalizeResearchProject(project)) : structuredClone(DEFAULT_DATA.researchProjects).map((project) => this.normalizeResearchProject(project)),
       researchPapers: Array.isArray(partial.researchPapers) ? partial.researchPapers.map((paper) => this.normalizeResearchPaper(paper)) : structuredClone(DEFAULT_DATA.researchPapers).map((paper) => this.normalizeResearchPaper(paper)),
       literatureNotes: Array.isArray(partial.literatureNotes) ? partial.literatureNotes.map((note) => this.normalizeLiteratureNote(note)).filter((note) => note.notePath) : this.createInitialLiteratureNotes(partial),
       paperStatuses: this.mergePaperStatuses(partial),
@@ -2792,6 +2790,24 @@ var DashboardStore = class {
       updatedAt: (_j = paper.updatedAt) != null ? _j : now,
       zoteroItemKey: paper.zoteroItemKey,
       citekey: paper.citekey
+    };
+  }
+  normalizeResearchProject(project) {
+    var _a;
+    const tagIds = Array.from(/* @__PURE__ */ new Set([
+      ...Array.isArray(project.tagIds) ? project.tagIds : [],
+      ...(Array.isArray(project.tags) ? project.tags : []).map((tag) => {
+        var _a2, _b, _c;
+        return (_c = (_b = (_a2 = this.data) == null ? void 0 : _a2.paperTags) == null ? void 0 : _b.find((definition) => definition.name.toLowerCase() === tag.toLowerCase())) == null ? void 0 : _c.id;
+      }).filter(Boolean)
+    ]));
+    return {
+      ...project,
+      title: project.title || "\u672A\u547D\u540D\u9879\u76EE",
+      description: (_a = project.description) != null ? _a : "",
+      progress: Math.max(0, Math.min(100, Number(project.progress) || 0)),
+      tags: Array.isArray(project.tags) ? project.tags : [],
+      tagIds
     };
   }
   normalizeLiteratureNote(note) {
@@ -4439,14 +4455,15 @@ var LiteratureNoteModal = class extends import_obsidian9.Modal {
     this.contentEl.addClass("cow-modal", "cow-literature-note-modal");
     this.contentEl.createEl("h2", { text: this.note ? "\u7F16\u8F91\u6587\u732E\u7B14\u8BB0" : "\u65B0\u589E\u6587\u732E\u7B14\u8BB0" });
     const form = this.contentEl.createDiv({ cls: "cow-paper-form" });
-    this.inputField(form, "\u6807\u9898", this.title, (value) => this.title = value);
+    this.titleInput = this.inputField(form, "\u6807\u9898", this.title, (value) => this.title = value);
     this.paperSelect(form);
-    this.inputField(form, "\u641C\u7D22 Markdown", this.query, (value) => {
+    this.searchInput = this.inputField(form, "\u641C\u7D22 Markdown", this.query, (value) => {
       this.query = value;
-      this.render();
+      this.renderNotePickerResults();
     });
-    this.inputField(form, "\u7B14\u8BB0\u8DEF\u5F84", this.notePath, (value) => this.notePath = value);
-    this.renderNotePicker();
+    this.notePathInput = this.inputField(form, "\u7B14\u8BB0\u8DEF\u5F84", this.notePath, (value) => this.notePath = value);
+    this.notePickerEl = this.contentEl.createDiv({ cls: "cow-note-picker-list" });
+    this.renderNotePickerResults();
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
     actions.createEl("button", { text: "\u4FDD\u5B58", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.save());
@@ -4460,8 +4477,10 @@ var LiteratureNoteModal = class extends import_obsidian9.Modal {
     select.value = this.paperReadingId;
     select.addEventListener("change", () => this.paperReadingId = select.value);
   }
-  renderNotePicker() {
-    const list = this.contentEl.createDiv({ cls: "cow-note-picker-list" });
+  renderNotePickerResults() {
+    const list = this.notePickerEl;
+    if (!list) return;
+    list.empty();
     const query = this.query.trim().toLowerCase();
     if (!query) {
       list.createDiv({ cls: "cow-empty-state", text: "\u8F93\u5165\u5173\u952E\u8BCD\u641C\u7D22 Vault \u4E2D\u7684 Markdown \u7B14\u8BB0\uFF0C\u9009\u62E9\u540E\u4F1A\u5173\u8054 notePath\u3002" });
@@ -4476,7 +4495,10 @@ var LiteratureNoteModal = class extends import_obsidian9.Modal {
         this.title = this.title || file.basename;
         this.notePath = file.path;
         this.query = "";
-        this.render();
+        if (this.titleInput) this.titleInput.value = this.title;
+        if (this.notePathInput) this.notePathInput.value = this.notePath;
+        if (this.searchInput) this.searchInput.value = "";
+        this.renderNotePickerResults();
       });
     });
   }
@@ -5296,8 +5318,8 @@ function openAddContentModal(app, store, section, onDataChanged) {
   const refresh = () => onDataChanged();
   switch (section.type) {
     case "research-projects":
-      openResearchProjectModal(app, async (values) => {
-        await store.addResearchProject({ ...values, id: `project-${Date.now()}`, tags: splitTags(values.tagsText) });
+      openResearchProjectModal(app, store, async (values) => {
+        await store.addResearchProject({ ...values, id: `project-${Date.now()}` });
         refresh();
       });
       break;
@@ -5488,24 +5510,115 @@ function openBudgetLimitModal(app, initialValue, onSubmit) {
     await onSubmit(Number(values.amount) || 0);
   }).open();
 }
-function openResearchProjectModal(app, onSubmit, project) {
-  var _a, _b, _c, _d, _e, _f;
-  new CrudItemModal(app, project ? "\u7F16\u8F91\u7814\u7A76\u9879\u76EE" : "\u65B0\u589E\u7814\u7A76\u9879\u76EE", {
-    title: (_a = project == null ? void 0 : project.title) != null ? _a : "",
-    status: (_b = project == null ? void 0 : project.status) != null ? _b : "\u8FDB\u884C\u4E2D",
-    progress: (_c = project == null ? void 0 : project.progress) != null ? _c : 0,
-    startDate: (_d = project == null ? void 0 : project.startDate) != null ? _d : formatDateKey(/* @__PURE__ */ new Date()),
-    deadline: (_e = project == null ? void 0 : project.deadline) != null ? _e : formatDateKey(/* @__PURE__ */ new Date()),
-    tagsText: (_f = project == null ? void 0 : project.tags.join(", ")) != null ? _f : ""
-  }, [
-    { key: "title", name: "\u6807\u9898" },
-    { key: "status", name: "\u72B6\u6001", type: "select", options: statusOptions(["\u672A\u5F00\u59CB", "\u8FDB\u884C\u4E2D", "\u64B0\u5199\u4E2D", "\u5DF2\u5B8C\u6210"]) },
-    { key: "progress", name: "\u8FDB\u5EA6", type: "number" },
-    { key: "startDate", name: "\u5F00\u59CB\u65E5\u671F" },
-    { key: "deadline", name: "\u622A\u6B62\u65E5\u671F" },
-    { key: "tagsText", name: "\u6807\u7B7E" }
-  ], onSubmit).open();
+function openResearchProjectModal(app, store, onSubmit, project) {
+  new ResearchProjectEditModal(app, store, onSubmit, project).open();
 }
+var ResearchProjectEditModal = class extends import_obsidian14.Modal {
+  constructor(app, store, onSubmit, project) {
+    var _a, _b, _c, _d, _e, _f, _g;
+    super(app);
+    this.store = store;
+    this.onSubmit = onSubmit;
+    this.title = (_a = project == null ? void 0 : project.title) != null ? _a : "";
+    this.description = (_b = project == null ? void 0 : project.description) != null ? _b : "";
+    this.status = (_c = project == null ? void 0 : project.status) != null ? _c : "\u8FDB\u884C\u4E2D";
+    this.progress = (_d = project == null ? void 0 : project.progress) != null ? _d : 0;
+    this.startDate = (_e = project == null ? void 0 : project.startDate) != null ? _e : formatDateKey(/* @__PURE__ */ new Date());
+    this.deadline = (_f = project == null ? void 0 : project.deadline) != null ? _f : formatDateKey(/* @__PURE__ */ new Date());
+    this.tagIds = [...(_g = project == null ? void 0 : project.tagIds) != null ? _g : this.legacyTagIds(project)];
+  }
+  onOpen() {
+    applyResizableModal(this, {
+      className: "cute-research-project-edit-modal",
+      width: "min(760px, 90vw)",
+      maxWidth: "96vw",
+      maxHeight: "92vh",
+      minWidth: "min(520px, 90vw)",
+      minHeight: "min(420px, 82vh)"
+    });
+    this.render();
+  }
+  render() {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-paper-modal", "cow-research-project-edit-modal");
+    this.contentEl.createEl("h2", { text: this.title ? "\u7F16\u8F91\u7814\u7A76\u9879\u76EE" : "\u65B0\u589E\u7814\u7A76\u9879\u76EE" });
+    const form = this.contentEl.createDiv({ cls: "cow-paper-form" });
+    this.inputField(form, "\u6807\u9898", this.title, (value) => this.title = value);
+    this.selectField(form, "\u72B6\u6001", this.status, statusOptions(["\u672A\u5F00\u59CB", "\u8FDB\u884C\u4E2D", "\u64B0\u5199\u4E2D", "\u5DF2\u5B8C\u6210"]), (value) => this.status = value);
+    this.inputField(form, "\u8FDB\u5EA6", String(this.progress), (value) => this.progress = Number(value) || 0, "number");
+    this.inputField(form, "\u5F00\u59CB\u65E5\u671F", this.startDate, (value) => this.startDate = value, "date");
+    this.inputField(form, "\u622A\u6B62\u65E5\u671F", this.deadline, (value) => this.deadline = value, "date");
+    this.descriptionField(form);
+    this.tagField(form);
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "\u4FDD\u5B58", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.save());
+  }
+  inputField(container, label, value, onInput, type = "text") {
+    const row = container.createDiv({ cls: "cow-book-form-row" });
+    row.createEl("label", { text: label });
+    const input = row.createEl("input", { attr: { type, value } });
+    input.addEventListener("input", () => onInput(input.value));
+  }
+  selectField(container, label, value, options, onChange) {
+    const row = container.createDiv({ cls: "cow-book-form-row" });
+    row.createEl("label", { text: label });
+    const select = row.createEl("select");
+    options.forEach((option) => select.createEl("option", { value: option.value, text: option.label }));
+    select.value = value;
+    select.addEventListener("change", () => onChange(select.value));
+  }
+  descriptionField(container) {
+    const row = container.createDiv({ cls: "cow-book-form-row cow-project-description-field" });
+    row.createEl("label", { text: "\u9879\u76EE\u63CF\u8FF0" });
+    const textarea = row.createEl("textarea", { attr: { rows: "5", placeholder: "\u7B80\u5355\u63CF\u8FF0\u7814\u7A76\u76EE\u6807\u3001\u7814\u7A76\u5185\u5BB9\u6216\u5F53\u524D\u65B9\u5411\u2026\u2026" } });
+    textarea.value = this.description;
+    textarea.addEventListener("input", () => this.description = textarea.value);
+  }
+  tagField(container) {
+    const row = container.createDiv({ cls: "cow-book-form-row cow-paper-tag-picker" });
+    row.createEl("label", { text: "\u6807\u7B7E" });
+    const list = row.createDiv({ cls: "cow-paper-tag-options" });
+    const selected = new Set(this.tagIds);
+    this.store.getPaperTags().forEach((tag) => {
+      const button = list.createEl("button", { text: tag.name, cls: selected.has(tag.id) ? "is-active" : "", attr: { type: "button", style: `--paper-color: ${tag.color}` } });
+      button.addEventListener("click", () => {
+        if (selected.has(tag.id)) selected.delete(tag.id);
+        else selected.add(tag.id);
+        this.tagIds = [...selected];
+        button.toggleClass("is-active", selected.has(tag.id));
+      });
+    });
+  }
+  legacyTagIds(project) {
+    if (!(project == null ? void 0 : project.tags)) return [];
+    return project.tags.map((tag) => {
+      var _a;
+      return (_a = this.store.getPaperTags().find((definition) => definition.name.toLowerCase() === tag.toLowerCase())) == null ? void 0 : _a.id;
+    }).filter(Boolean);
+  }
+  async save() {
+    if (!this.title.trim()) {
+      new import_obsidian14.Notice("\u8BF7\u8F93\u5165\u7814\u7A76\u9879\u76EE\u6807\u9898\u3002");
+      return;
+    }
+    const tags = this.tagIds.map((id) => {
+      var _a;
+      return (_a = this.store.getPaperTags().find((tag) => tag.id === id)) == null ? void 0 : _a.name;
+    }).filter(Boolean);
+    await this.onSubmit({
+      title: this.title.trim(),
+      description: this.description.trim(),
+      status: this.status,
+      progress: Math.max(0, Math.min(100, this.progress)),
+      startDate: this.startDate,
+      deadline: this.deadline,
+      tags,
+      tagIds: [...this.tagIds]
+    });
+    this.close();
+  }
+};
 function openDataAnalysisTaskModal(app, onSubmit, task) {
   var _a, _b, _c;
   new CrudItemModal(app, task ? "\u7F16\u8F91\u6570\u636E\u5206\u6790\u4EFB\u52A1" : "\u65B0\u589E\u6570\u636E\u5206\u6790\u4EFB\u52A1", {
@@ -5599,9 +5712,6 @@ function openObjectiveModal(app, onSubmit, objective) {
     { key: "quarter", name: "\u5B63\u5EA6" },
     { key: "progress", name: "\u8FDB\u5EA6", type: "number" }
   ], onSubmit).open();
-}
-function splitTags(value) {
-  return value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean);
 }
 function statusOptions(values) {
   return values.map((value) => ({ value, label: value }));
@@ -13051,7 +13161,8 @@ var ZoteroLocalApiService = class {
         itemKey: (_a = item.key) != null ? _a : "",
         title: (_d = (_c = (_b = item.data) == null ? void 0 : _b.title) == null ? void 0 : _c.trim()) != null ? _d : "",
         venue: firstText((_e = item.data) == null ? void 0 : _e.conferenceName, (_f = item.data) == null ? void 0 : _f.publicationTitle, (_g = item.data) == null ? void 0 : _g.proceedingsTitle),
-        year: extractYear((_h = item.data) == null ? void 0 : _h.date)
+        year: extractYear((_h = item.data) == null ? void 0 : _h.date),
+        paperUrl: paperUrl(item.data)
       };
     }).filter((item) => item.itemKey && item.title);
   }
@@ -13096,6 +13207,13 @@ function firstText(...values) {
 function extractYear(value) {
   const match = value == null ? void 0 : value.match(/\b(19|20)\d{2}\b/);
   return match ? Number(match[0]) : void 0;
+}
+function paperUrl(data) {
+  var _a, _b;
+  const url = (_a = data == null ? void 0 : data.url) == null ? void 0 : _a.trim();
+  if (url && /^https?:\/\//i.test(url)) return url;
+  const doi = (_b = data == null ? void 0 : data.DOI) == null ? void 0 : _b.trim();
+  return doi ? `https://doi.org/${doi.replace(/^https?:\/\/(dx\.)?doi\.org\//i, "")}` : void 0;
 }
 function isOk(status) {
   return status >= 200 && status < 300;
@@ -13171,6 +13289,7 @@ var PaperZoteroSyncService = class {
     if (((_c = existing.venueId) != null ? _c : void 0) !== (venueId != null ? venueId : void 0)) {
       updates.venueId = venueId;
     }
+    if (!existing.paperUrl && incoming.paperUrl) updates.paperUrl = incoming.paperUrl;
     if (Object.keys(updates).length === 0) return void 0;
     updates.updatedAt = Date.now();
     return updates;
@@ -13190,6 +13309,7 @@ var PaperZoteroSyncService = class {
       readingEndDate: void 0,
       researchProjectId: void 0,
       tagIds: [],
+      paperUrl: item.paperUrl,
       createdAt: now,
       updatedAt: now,
       zoteroItemKey: item.itemKey
@@ -13424,7 +13544,7 @@ var PaperDetailModal = class extends import_obsidian68.Modal {
     this.render();
   }
   render() {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f;
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-paper-modal");
     const paper = (_a = this.store.getResearchPapers().find((item) => item.id === this.paper.id)) != null ? _a : this.paper;
@@ -13466,8 +13586,7 @@ var PaperDetailModal = class extends import_obsidian68.Modal {
       ["\u72B6\u6001", statusName(this.store, paper)],
       ["\u9605\u8BFB\u8FDB\u5EA6", `${paper.readingProgress}%`],
       ["\u7814\u7A76\u9879\u76EE", (_d = (_c = this.store.getResearchProjects().find((project) => project.id === paper.researchProjectId)) == null ? void 0 : _c.title) != null ? _d : "\u672A\u5173\u8054"],
-      ["\u8BBA\u6587\u94FE\u63A5", (_e = paper.paperUrl) != null ? _e : "\u672A\u586B\u5199"],
-      ["\u9605\u8BFB\u65E5\u671F", `${(_f = paper.readingStartDate) != null ? _f : "-"} \u2192 ${(_g = paper.readingEndDate) != null ? _g : "-"}`],
+      ["\u9605\u8BFB\u65E5\u671F", `${(_e = paper.readingStartDate) != null ? _e : "-"} \u2192 ${(_f = paper.readingEndDate) != null ? _f : "-"}`],
       ["\u6807\u7B7E", tagNames(this.store, paper).join(" \xB7 ") || "\u65E0\u6807\u7B7E"],
       ["Zotero", paper.zoteroItemKey || paper.citekey ? [paper.zoteroItemKey, paper.citekey].filter(Boolean).join(" \xB7 ") : "\u9884\u7559\uFF0C\u6682\u672A\u5BFC\u5165"]
     ].forEach(([label, value]) => {
@@ -13475,6 +13594,17 @@ var PaperDetailModal = class extends import_obsidian68.Modal {
       item.createEl("strong", { text: label });
       item.createSpan({ text: value });
     });
+    const linkCard = details.createDiv({ cls: "cow-data-card" });
+    linkCard.createEl("strong", { text: "\u8BBA\u6587\u94FE\u63A5" });
+    if (paper.paperUrl) {
+      const linkButton = linkCard.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
+      (0, import_obsidian68.setIcon)(linkButton.createSpan(), "external-link");
+      linkButton.createSpan({ text: "\u6253\u5F00\u8BBA\u6587" });
+      linkButton.addEventListener("click", () => openPaperUrl(paper.paperUrl));
+      linkCard.createDiv({ cls: "cow-meta-line", text: paper.paperUrl });
+    } else {
+      linkCard.createSpan({ text: "\u672A\u586B\u5199" });
+    }
     this.renderLiteratureNotes(paper);
   }
   async updateFromZotero(paper) {
@@ -13554,10 +13684,11 @@ var PaperDetailModal = class extends import_obsidian68.Modal {
 };
 var PaperEditModal = class extends import_obsidian68.Modal {
   constructor(app, store, onDone, paper) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p;
     super(app);
     this.store = store;
     this.onDone = onDone;
+    this.selectedLiteratureNoteId = "";
     const now = Date.now();
     this.draft = {
       id: (_a = paper == null ? void 0 : paper.id) != null ? _a : `paper-${now}`,
@@ -13580,6 +13711,7 @@ var PaperEditModal = class extends import_obsidian68.Modal {
       zoteroItemKey: paper == null ? void 0 : paper.zoteroItemKey,
       citekey: paper == null ? void 0 : paper.citekey
     };
+    this.selectedLiteratureNoteId = (_p = (_o = this.store.getLiteratureNotesForPaper(this.draft.id)[0]) == null ? void 0 : _o.id) != null ? _p : "";
   }
   onOpen() {
     applyResizableModal(this, {
@@ -13593,28 +13725,45 @@ var PaperEditModal = class extends import_obsidian68.Modal {
     this.render();
   }
   render() {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+    var _a, _b, _c, _d, _e, _f, _g;
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-paper-modal");
     this.contentEl.createEl("h2", { text: this.store.getResearchPapers().some((paper) => paper.id === this.draft.id) ? "\u7F16\u8F91\u8BBA\u6587" : "\u624B\u52A8\u6DFB\u52A0\u8BBA\u6587" });
-    const form = this.contentEl.createDiv({ cls: "cow-paper-form" });
-    inputField2(form, "\u8BBA\u6587\u540D\u79F0", this.draft.title, (value) => this.draft.title = value);
-    selectField2(form, "\u4F1A\u8BAE / \u671F\u520A", (_a = this.draft.venueId) != null ? _a : "", this.store.getPaperVenues().map((venue) => ({ value: venue.id, label: venue.name })), (value) => this.draft.venueId = value);
-    inputField2(form, "\u5E74\u4EFD", String((_b = this.draft.year) != null ? _b : (/* @__PURE__ */ new Date()).getFullYear()), (value) => this.draft.year = Number(value) || (/* @__PURE__ */ new Date()).getFullYear(), "number");
-    selectField2(form, "\u9605\u8BFB\u72B6\u6001", (_c = this.draft.statusId) != null ? _c : "", this.store.getPaperStatuses().map((status) => ({ value: status.id, label: status.name })), (value) => this.draft.statusId = value);
-    selectField2(form, "\u7814\u7A76\u9879\u76EE", (_d = this.draft.researchProjectId) != null ? _d : "", [
-      { value: "", label: "\u672A\u5173\u8054" },
-      ...this.store.getResearchProjects().map((project) => ({ value: project.id, label: project.title }))
-    ], (value) => this.draft.researchProjectId = value || void 0);
-    progressField(form, this.draft.readingProgress, (value) => this.draft.readingProgress = value);
-    inputField2(form, "\u8BBA\u6587\u94FE\u63A5", (_e = this.draft.paperUrl) != null ? _e : "", (value) => this.draft.paperUrl = value);
-    dateField2(form, "\u9605\u8BFB\u5F00\u59CB\u65E5\u671F", (_f = this.draft.readingStartDate) != null ? _f : "", (value) => this.draft.readingStartDate = value);
-    dateField2(form, "\u9605\u8BFB\u7ED3\u675F\u65E5\u671F", (_g = this.draft.readingEndDate) != null ? _g : "", (value) => this.draft.readingEndDate = value);
-    tagField(form, this.store.getPaperTags(), (_h = this.draft.tagIds) != null ? _h : [], (value) => this.draft.tagIds = value);
-    inputField2(form, "\u7B14\u8BB0\u8DEF\u5F84", (_i = this.draft.notePath) != null ? _i : "", (value) => this.draft.notePath = value);
+    const basic = this.section("\u57FA\u7840\u4FE1\u606F");
+    inputField2(basic, "\u8BBA\u6587\u540D\u79F0", this.draft.title, (value) => this.draft.title = value);
+    selectField2(basic, "\u4F1A\u8BAE / \u671F\u520A", (_a = this.draft.venueId) != null ? _a : "", this.store.getPaperVenues().map((venue) => ({ value: venue.id, label: venue.name })), (value) => this.draft.venueId = value);
+    inputField2(basic, "\u5E74\u4EFD", String((_b = this.draft.year) != null ? _b : (/* @__PURE__ */ new Date()).getFullYear()), (value) => this.draft.year = Number(value) || (/* @__PURE__ */ new Date()).getFullYear(), "number");
+    const reading = this.section("\u9605\u8BFB\u4FE1\u606F");
+    selectField2(reading, "\u9605\u8BFB\u72B6\u6001", (_c = this.draft.statusId) != null ? _c : "", this.store.getPaperStatuses().map((status) => ({ value: status.id, label: status.name })), (value) => this.draft.statusId = value);
+    progressField(reading, this.draft.readingProgress, (value) => this.draft.readingProgress = value);
+    dateField2(reading, "\u9605\u8BFB\u5F00\u59CB\u65E5\u671F", (_d = this.draft.readingStartDate) != null ? _d : "", (value) => this.draft.readingStartDate = value);
+    dateField2(reading, "\u9605\u8BFB\u7ED3\u675F\u65E5\u671F", (_e = this.draft.readingEndDate) != null ? _e : "", (value) => this.draft.readingEndDate = value);
+    const resources = this.section("\u8D44\u6E90");
+    paperUrlField(resources, (_f = this.draft.paperUrl) != null ? _f : "", (value) => this.draft.paperUrl = value);
+    this.literatureNoteSelect(resources);
+    const category = this.section("\u5206\u7C7B");
+    tagField(category, this.store.getPaperTags(), (_g = this.draft.tagIds) != null ? _g : [], (value) => this.draft.tagIds = value);
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
     actions.createEl("button", { text: "\u4FDD\u5B58", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.save());
+  }
+  section(title) {
+    const section = this.contentEl.createDiv({ cls: "cow-paper-edit-section" });
+    section.createEl("h3", { text: title });
+    return section.createDiv({ cls: "cow-paper-form" });
+  }
+  literatureNoteSelect(container) {
+    const row = container.createDiv({ cls: "cow-book-form-row" });
+    row.createEl("label", { text: "\u5173\u8054\u6587\u732E\u7B14\u8BB0" });
+    const select = row.createEl("select");
+    select.createEl("option", { value: "", text: "\u4E0D\u5173\u8054" });
+    this.store.getLiteratureNotes().forEach((note) => {
+      select.createEl("option", { value: note.id, text: note.title || fileName(note.notePath) });
+    });
+    select.value = this.selectedLiteratureNoteId;
+    select.addEventListener("change", () => this.selectedLiteratureNoteId = select.value);
+    const selectedNote = this.store.getLiteratureNotes().find((note) => note.id === this.selectedLiteratureNoteId);
+    if (selectedNote == null ? void 0 : selectedNote.notePath) row.createDiv({ cls: "cow-meta-line", text: selectedNote.notePath });
   }
   async save() {
     if (!this.draft.title.trim()) {
@@ -13625,14 +13774,34 @@ var PaperEditModal = class extends import_obsidian68.Modal {
       new import_obsidian68.Notice("\u9605\u8BFB\u7ED3\u675F\u65E5\u671F\u4E0D\u80FD\u65E9\u4E8E\u5F00\u59CB\u65E5\u671F\u3002");
       return;
     }
+    if (!this.confirmLiteratureNoteReassignment()) return;
     this.draft.updatedAt = Date.now();
     if (this.store.getResearchPapers().some((paper) => paper.id === this.draft.id)) {
       await this.store.updateResearchPaper(this.draft.id, this.draft);
     } else {
       await this.store.addResearchPaper(this.draft);
     }
+    await this.syncLiteratureNoteLink();
     this.onDone();
     this.close();
+  }
+  confirmLiteratureNoteReassignment() {
+    var _a;
+    if (!this.selectedLiteratureNoteId) return true;
+    const note = this.store.getLiteratureNotes().find((item) => item.id === this.selectedLiteratureNoteId);
+    if (!(note == null ? void 0 : note.paperReadingId) || note.paperReadingId === this.draft.id) return true;
+    const oldPaper = this.store.getResearchPapers().find((paper) => paper.id === note.paperReadingId);
+    return confirm(`\u8BE5\u7B14\u8BB0\u5F53\u524D\u5173\u8054\u300A${(_a = oldPaper == null ? void 0 : oldPaper.title) != null ? _a : "\u5176\u5B83\u8BBA\u6587"}\u300B\uFF0C\u662F\u5426\u6539\u4E3A\u5173\u8054\u5F53\u524D\u8BBA\u6587\uFF1F`);
+  }
+  async syncLiteratureNoteLink() {
+    const linkedToCurrent = this.store.getLiteratureNotes().filter((note) => note.paperReadingId === this.draft.id);
+    for (const note of linkedToCurrent) {
+      if (note.id !== this.selectedLiteratureNoteId) {
+        await this.store.updateLiteratureNote(note.id, { paperReadingId: void 0 });
+      }
+    }
+    if (!this.selectedLiteratureNoteId) return;
+    await this.store.updateLiteratureNote(this.selectedLiteratureNoteId, { paperReadingId: this.draft.id });
   }
 };
 var DeletePaperReadingModal = class extends import_obsidian68.Modal {
@@ -13942,7 +14111,8 @@ var ZoteroPaperImportModal = class extends import_obsidian68.Modal {
     const sameTitle = normalizeCompare(paper.title) === normalizeCompare(item.title);
     const sameVenue2 = localVenue === remoteVenue;
     const sameYear = ((_a = paper.year) != null ? _a : void 0) === ((_b = item.year) != null ? _b : void 0);
-    return sameTitle && sameVenue2 && sameYear ? "imported" : "update-available";
+    const sameUrl = Boolean(paper.paperUrl) || !item.paperUrl;
+    return sameTitle && sameVenue2 && sameYear && sameUrl ? "imported" : "update-available";
   }
 };
 var PaperFieldManagerModal = class extends import_obsidian68.Modal {
@@ -14143,6 +14313,32 @@ function inputField2(container, label, value, onInput, type = "text") {
   const input = row.createEl("input", { attr: { type, value } });
   input.addEventListener("input", () => onInput(input.value));
   return input;
+}
+function paperUrlField(container, value, onInput) {
+  const row = container.createDiv({ cls: "cow-book-form-row cow-paper-url-row" });
+  row.createEl("label", { text: "\u8BBA\u6587\u94FE\u63A5" });
+  const controls = row.createDiv({ cls: "cow-paper-url-controls" });
+  const input = controls.createEl("input", { attr: { type: "url", value, placeholder: "https://..." } });
+  input.addEventListener("input", () => onInput(input.value));
+  const button = controls.createEl("button", { attr: { type: "button" } });
+  (0, import_obsidian68.setIcon)(button.createSpan(), "external-link");
+  button.createSpan({ text: "\u6253\u5F00" });
+  button.toggleAttribute("disabled", !value.trim());
+  input.addEventListener("input", () => button.toggleAttribute("disabled", !input.value.trim()));
+  button.addEventListener("click", () => openPaperUrl(input.value));
+}
+function openPaperUrl(value) {
+  const url = value == null ? void 0 : value.trim();
+  if (!url) return;
+  if (!/^https?:\/\//i.test(url)) {
+    new import_obsidian68.Notice("\u8BBA\u6587\u94FE\u63A5\u683C\u5F0F\u65E0\u6548\u3002");
+    return;
+  }
+  window.open(url);
+}
+function fileName(path) {
+  var _a;
+  return ((_a = path.split(/[\\/]/).pop()) == null ? void 0 : _a.replace(/\.md$/i, "")) || path;
 }
 function dateField2(container, label, value, onChange) {
   const row = container.createDiv({ cls: "cow-book-form-row is-picker" });
@@ -14361,10 +14557,18 @@ var PaperQueueSection = class {
   }
   renderPaperCard(container, paper) {
     var _a, _b, _c, _d;
-    const card = container.createDiv({ cls: "cow-paper-card" });
-    const body = card.createDiv({ cls: "cow-paper-body" });
-    const title = body.createEl("button", { cls: "cow-paper-title-button", text: paper.title, attr: { type: "button" } });
+    const card = container.createDiv({ cls: "cow-paper-card cow-paper-reading-card" });
+    const header = card.createDiv({ cls: "cow-paper-card-header" });
+    const titleContainer = header.createDiv({ cls: "cow-paper-title-container" });
+    const title = titleContainer.createEl("button", { cls: "cow-paper-title-button is-ellipsis", text: paper.title, attr: { type: "button", title: paper.title } });
+    (0, import_obsidian70.setTooltip)(title, paper.title);
     title.addEventListener("click", () => new PaperDetailModal(this.app, this.store, paper, this.onDataChanged).open());
+    const actions = header.createDiv({ cls: "cow-list-item-actions cow-paper-actions" });
+    iconButton2(actions, "pencil", "\u7F16\u8F91\u8BBA\u6587", () => new PaperEditModal(this.app, this.store, this.onDataChanged, paper).open());
+    iconButton2(actions, "trash-2", "\u5220\u9664\u8BBA\u6587", () => new DeletePaperReadingModal(this.app, this.store, paper, this.onDataChanged).open());
+    iconButton2(actions, "external-link", "\u6253\u5F00\u8BBA\u6587\u94FE\u63A5", () => void this.openPaperUrl(paper));
+    iconButton2(actions, "notebook-tabs", "\u6253\u5F00\u7B14\u8BB0", () => void this.openNote(paper.notePath));
+    const body = card.createDiv({ cls: "cow-paper-body" });
     const meta = body.createDiv({ cls: "cow-paper-meta-row" });
     meta.createSpan({ cls: "cow-status is-blue", text: statusName(this.store, paper) });
     const project = this.store.getResearchProjects().find((item) => item.id === paper.researchProjectId);
@@ -14375,11 +14579,6 @@ var PaperQueueSection = class {
     const tags = body.createDiv({ cls: "cow-paper-tags" });
     tagNames(this.store, paper).forEach((tag) => tags.createSpan({ text: tag }));
     body.createDiv({ cls: "cow-meta-line", text: `${(_c = paper.readingStartDate) != null ? _c : "-"} \u2192 ${(_d = paper.readingEndDate) != null ? _d : "-"}` });
-    const actions = card.createDiv({ cls: "cow-list-item-actions" });
-    iconButton2(actions, "pencil", "\u7F16\u8F91\u8BBA\u6587", () => new PaperEditModal(this.app, this.store, this.onDataChanged, paper).open());
-    iconButton2(actions, "trash-2", "\u5220\u9664\u8BBA\u6587", () => new DeletePaperReadingModal(this.app, this.store, paper, this.onDataChanged).open());
-    iconButton2(actions, "external-link", "\u6253\u5F00\u8BBA\u6587\u94FE\u63A5", () => void this.openPaperUrl(paper));
-    iconButton2(actions, "notebook-tabs", "\u6253\u5F00\u7B14\u8BB0", () => void this.openNote(paper.notePath));
   }
   filterPapers(papers) {
     return papers.filter((paper) => {
@@ -14513,7 +14712,7 @@ var ResearchProjectDetailModal = class extends import_obsidian73.Modal {
     this.render();
   }
   render() {
-    var _a;
+    var _a, _b;
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-research-detail-modal");
     const project = (_a = this.store.getResearchProjects().find((item) => item.id === this.project.id)) != null ? _a : this.project;
@@ -14522,8 +14721,8 @@ var ResearchProjectDetailModal = class extends import_obsidian73.Modal {
     const edit = header.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     (0, import_obsidian73.setIcon)(edit.createSpan(), "pencil");
     edit.createSpan({ text: "\u7F16\u8F91" });
-    edit.addEventListener("click", () => openResearchProjectModal(this.app, async (values) => {
-      await this.store.updateResearchProject(project.id, { ...values, tags: values.tagsText.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean) });
+    edit.addEventListener("click", () => openResearchProjectModal(this.app, this.store, async (values) => {
+      await this.store.updateResearchProject(project.id, values);
       this.onDone();
       this.render();
     }, project));
@@ -14532,12 +14731,15 @@ var ResearchProjectDetailModal = class extends import_obsidian73.Modal {
       ["\u72B6\u6001", project.status],
       ["\u8FDB\u5EA6", `${project.progress}%`],
       ["\u5468\u671F", `${project.startDate} \u2192 ${project.deadline}`],
-      ["\u6807\u7B7E", project.tags.join(" \xB7 ") || "\u65E0\u6807\u7B7E"]
+      ["\u6807\u7B7E", projectTagNames(this.store, project).join(" \xB7 ") || "\u65E0\u6807\u7B7E"]
     ].forEach(([label, value]) => {
       const card = summary.createDiv({ cls: "cow-data-card" });
       card.createEl("strong", { text: label });
       card.createSpan({ text: value });
     });
+    const description = this.contentEl.createDiv({ cls: "cow-paper-linked-notes cow-project-detail-description" });
+    description.createEl("h3", { text: "\u9879\u76EE\u63CF\u8FF0" });
+    description.createEl("p", { text: ((_b = project.description) == null ? void 0 : _b.trim()) || "\u6682\u65E0\u63CF\u8FF0\u3002" });
     const relations = this.contentEl.createDiv({ cls: "cow-research-relations" });
     this.renderPapers(relations, project);
     this.renderPlans(relations, project);
@@ -14573,6 +14775,14 @@ var ResearchProjectDetailModal = class extends import_obsidian73.Modal {
     });
   }
 };
+function projectTagNames(store, project) {
+  var _a;
+  const names = ((_a = project.tagIds) != null ? _a : []).map((id) => {
+    var _a2;
+    return (_a2 = store.getPaperTags().find((tag) => tag.id === id)) == null ? void 0 : _a2.name;
+  }).filter(Boolean);
+  return names.length > 0 ? names : project.tags;
+}
 var DeleteResearchProjectModal = class extends import_obsidian73.Modal {
   constructor(app, store, project, onDone) {
     super(app);
@@ -14624,8 +14834,8 @@ var ResearchProjectsSection = class {
       (0, import_obsidian74.setIcon)(edit, "pencil");
       edit.addEventListener("click", (event) => {
         event.stopPropagation();
-        openResearchProjectModal(this.app, async (values) => {
-          await this.store.updateResearchProject(project.id, { ...values, tags: values.tagsText.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean) });
+        openResearchProjectModal(this.app, this.store, async (values) => {
+          await this.store.updateResearchProject(project.id, values);
           this.onDataChanged();
         }, project);
       });
@@ -14641,11 +14851,20 @@ var ResearchProjectsSection = class {
       const track = row.createDiv({ cls: "cow-month-progress-track" });
       track.createDiv({ cls: "cow-month-progress-fill is-green", attr: { style: `width: ${project.progress}%` } });
       const tags = row.createDiv({ cls: "cow-tag-row" });
-      project.tags.forEach((tag) => tags.createSpan({ text: tag }));
+      projectTagNames2(this.store, project).forEach((tag) => tags.createSpan({ text: tag }));
+      if (project.description) row.createDiv({ cls: "cow-project-description", text: project.description });
       row.addEventListener("click", () => new ResearchProjectDetailModal(this.app, this.store, project, this.onDataChanged).open());
     });
   }
 };
+function projectTagNames2(store, project) {
+  var _a;
+  const names = ((_a = project.tagIds) != null ? _a : []).map((id) => {
+    var _a2;
+    return (_a2 = store.getPaperTags().find((tag) => tag.id === id)) == null ? void 0 : _a2.name;
+  }).filter(Boolean);
+  return names.length > 0 ? names : project.tags;
+}
 
 // src/components/research/ResearchTimelineSection.ts
 var import_obsidian75 = require("obsidian");

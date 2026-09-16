@@ -288,7 +288,6 @@ export class PaperDetailModal extends Modal {
       ["状态", statusName(this.store, paper)],
       ["阅读进度", `${paper.readingProgress}%`],
       ["研究项目", this.store.getResearchProjects().find((project) => project.id === paper.researchProjectId)?.title ?? "未关联"],
-      ["论文链接", paper.paperUrl ?? "未填写"],
       ["阅读日期", `${paper.readingStartDate ?? "-"} → ${paper.readingEndDate ?? "-"}`],
       ["标签", tagNames(this.store, paper).join(" · ") || "无标签"],
       ["Zotero", paper.zoteroItemKey || paper.citekey ? [paper.zoteroItemKey, paper.citekey].filter(Boolean).join(" · ") : "预留，暂未导入"]
@@ -297,6 +296,17 @@ export class PaperDetailModal extends Modal {
       item.createEl("strong", { text: label });
       item.createSpan({ text: value });
     });
+    const linkCard = details.createDiv({ cls: "cow-data-card" });
+    linkCard.createEl("strong", { text: "论文链接" });
+    if (paper.paperUrl) {
+      const linkButton = linkCard.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
+      setIcon(linkButton.createSpan(), "external-link");
+      linkButton.createSpan({ text: "打开论文" });
+      linkButton.addEventListener("click", () => openPaperUrl(paper.paperUrl));
+      linkCard.createDiv({ cls: "cow-meta-line", text: paper.paperUrl });
+    } else {
+      linkCard.createSpan({ text: "未填写" });
+    }
     this.renderLiteratureNotes(paper);
   }
 
@@ -380,6 +390,7 @@ export class PaperDetailModal extends Modal {
 
 export class PaperEditModal extends Modal {
   private draft: ResearchPaper;
+  private selectedLiteratureNoteId = "";
 
   constructor(
     app: App,
@@ -410,6 +421,7 @@ export class PaperEditModal extends Modal {
       zoteroItemKey: paper?.zoteroItemKey,
       citekey: paper?.citekey
     };
+    this.selectedLiteratureNoteId = this.store.getLiteratureNotesForPaper(this.draft.id)[0]?.id ?? "";
   }
 
   onOpen(): void {
@@ -428,24 +440,46 @@ export class PaperEditModal extends Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-paper-modal");
     this.contentEl.createEl("h2", { text: this.store.getResearchPapers().some((paper) => paper.id === this.draft.id) ? "编辑论文" : "手动添加论文" });
-    const form = this.contentEl.createDiv({ cls: "cow-paper-form" });
-    inputField(form, "论文名称", this.draft.title, (value) => this.draft.title = value);
-    selectField(form, "会议 / 期刊", this.draft.venueId ?? "", this.store.getPaperVenues().map((venue) => ({ value: venue.id, label: venue.name })), (value) => this.draft.venueId = value);
-    inputField(form, "年份", String(this.draft.year ?? new Date().getFullYear()), (value) => this.draft.year = Number(value) || new Date().getFullYear(), "number");
-    selectField(form, "阅读状态", this.draft.statusId ?? "", this.store.getPaperStatuses().map((status) => ({ value: status.id, label: status.name })), (value) => this.draft.statusId = value);
-    selectField(form, "研究项目", this.draft.researchProjectId ?? "", [
-      { value: "", label: "未关联" },
-      ...this.store.getResearchProjects().map((project) => ({ value: project.id, label: project.title }))
-    ], (value) => this.draft.researchProjectId = value || undefined);
-    progressField(form, this.draft.readingProgress, (value) => this.draft.readingProgress = value);
-    inputField(form, "论文链接", this.draft.paperUrl ?? "", (value) => this.draft.paperUrl = value);
-    dateField(form, "阅读开始日期", this.draft.readingStartDate ?? "", (value) => this.draft.readingStartDate = value);
-    dateField(form, "阅读结束日期", this.draft.readingEndDate ?? "", (value) => this.draft.readingEndDate = value);
-    tagField(form, this.store.getPaperTags(), this.draft.tagIds ?? [], (value) => this.draft.tagIds = value);
-    inputField(form, "笔记路径", this.draft.notePath ?? "", (value) => this.draft.notePath = value);
+    const basic = this.section("基础信息");
+    inputField(basic, "论文名称", this.draft.title, (value) => this.draft.title = value);
+    selectField(basic, "会议 / 期刊", this.draft.venueId ?? "", this.store.getPaperVenues().map((venue) => ({ value: venue.id, label: venue.name })), (value) => this.draft.venueId = value);
+    inputField(basic, "年份", String(this.draft.year ?? new Date().getFullYear()), (value) => this.draft.year = Number(value) || new Date().getFullYear(), "number");
+
+    const reading = this.section("阅读信息");
+    selectField(reading, "阅读状态", this.draft.statusId ?? "", this.store.getPaperStatuses().map((status) => ({ value: status.id, label: status.name })), (value) => this.draft.statusId = value);
+    progressField(reading, this.draft.readingProgress, (value) => this.draft.readingProgress = value);
+    dateField(reading, "阅读开始日期", this.draft.readingStartDate ?? "", (value) => this.draft.readingStartDate = value);
+    dateField(reading, "阅读结束日期", this.draft.readingEndDate ?? "", (value) => this.draft.readingEndDate = value);
+
+    const resources = this.section("资源");
+    paperUrlField(resources, this.draft.paperUrl ?? "", (value) => this.draft.paperUrl = value);
+    this.literatureNoteSelect(resources);
+
+    const category = this.section("分类");
+    tagField(category, this.store.getPaperTags(), this.draft.tagIds ?? [], (value) => this.draft.tagIds = value);
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
     actions.createEl("button", { text: "保存", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.save());
+  }
+
+  private section(title: string): HTMLElement {
+    const section = this.contentEl.createDiv({ cls: "cow-paper-edit-section" });
+    section.createEl("h3", { text: title });
+    return section.createDiv({ cls: "cow-paper-form" });
+  }
+
+  private literatureNoteSelect(container: HTMLElement): void {
+    const row = container.createDiv({ cls: "cow-book-form-row" });
+    row.createEl("label", { text: "关联文献笔记" });
+    const select = row.createEl("select");
+    select.createEl("option", { value: "", text: "不关联" });
+    this.store.getLiteratureNotes().forEach((note) => {
+      select.createEl("option", { value: note.id, text: note.title || fileName(note.notePath) });
+    });
+    select.value = this.selectedLiteratureNoteId;
+    select.addEventListener("change", () => this.selectedLiteratureNoteId = select.value);
+    const selectedNote = this.store.getLiteratureNotes().find((note) => note.id === this.selectedLiteratureNoteId);
+    if (selectedNote?.notePath) row.createDiv({ cls: "cow-meta-line", text: selectedNote.notePath });
   }
 
   private async save(): Promise<void> {
@@ -457,14 +491,35 @@ export class PaperEditModal extends Modal {
       new Notice("阅读结束日期不能早于开始日期。");
       return;
     }
+    if (!this.confirmLiteratureNoteReassignment()) return;
     this.draft.updatedAt = Date.now();
     if (this.store.getResearchPapers().some((paper) => paper.id === this.draft.id)) {
       await this.store.updateResearchPaper(this.draft.id, this.draft);
     } else {
       await this.store.addResearchPaper(this.draft);
     }
+    await this.syncLiteratureNoteLink();
     this.onDone();
     this.close();
+  }
+
+  private confirmLiteratureNoteReassignment(): boolean {
+    if (!this.selectedLiteratureNoteId) return true;
+    const note = this.store.getLiteratureNotes().find((item) => item.id === this.selectedLiteratureNoteId);
+    if (!note?.paperReadingId || note.paperReadingId === this.draft.id) return true;
+    const oldPaper = this.store.getResearchPapers().find((paper) => paper.id === note.paperReadingId);
+    return confirm(`该笔记当前关联《${oldPaper?.title ?? "其它论文"}》，是否改为关联当前论文？`);
+  }
+
+  private async syncLiteratureNoteLink(): Promise<void> {
+    const linkedToCurrent = this.store.getLiteratureNotes().filter((note) => note.paperReadingId === this.draft.id);
+    for (const note of linkedToCurrent) {
+      if (note.id !== this.selectedLiteratureNoteId) {
+        await this.store.updateLiteratureNote(note.id, { paperReadingId: undefined });
+      }
+    }
+    if (!this.selectedLiteratureNoteId) return;
+    await this.store.updateLiteratureNote(this.selectedLiteratureNoteId, { paperReadingId: this.draft.id });
   }
 }
 
@@ -799,7 +854,8 @@ class ZoteroPaperImportModal extends Modal {
     const sameTitle = normalizeCompare(paper.title) === normalizeCompare(item.title);
     const sameVenue = localVenue === remoteVenue;
     const sameYear = (paper.year ?? undefined) === (item.year ?? undefined);
-    return sameTitle && sameVenue && sameYear ? "imported" : "update-available";
+    const sameUrl = Boolean(paper.paperUrl) || !item.paperUrl;
+    return sameTitle && sameVenue && sameYear && sameUrl ? "imported" : "update-available";
   }
 }
 
@@ -1019,6 +1075,34 @@ function inputField(container: HTMLElement, label: string, value: string, onInpu
   const input = row.createEl("input", { attr: { type, value } });
   input.addEventListener("input", () => onInput(input.value));
   return input;
+}
+
+function paperUrlField(container: HTMLElement, value: string, onInput: (value: string) => void): void {
+  const row = container.createDiv({ cls: "cow-book-form-row cow-paper-url-row" });
+  row.createEl("label", { text: "论文链接" });
+  const controls = row.createDiv({ cls: "cow-paper-url-controls" });
+  const input = controls.createEl("input", { attr: { type: "url", value, placeholder: "https://..." } });
+  input.addEventListener("input", () => onInput(input.value));
+  const button = controls.createEl("button", { attr: { type: "button" } });
+  setIcon(button.createSpan(), "external-link");
+  button.createSpan({ text: "打开" });
+  button.toggleAttribute("disabled", !value.trim());
+  input.addEventListener("input", () => button.toggleAttribute("disabled", !input.value.trim()));
+  button.addEventListener("click", () => openPaperUrl(input.value));
+}
+
+function openPaperUrl(value: string | undefined): void {
+  const url = value?.trim();
+  if (!url) return;
+  if (!/^https?:\/\//i.test(url)) {
+    new Notice("论文链接格式无效。");
+    return;
+  }
+  window.open(url);
+}
+
+function fileName(path: string): string {
+  return path.split(/[\\/]/).pop()?.replace(/\.md$/i, "") || path;
 }
 
 function dateField(container: HTMLElement, label: string, value: string, onChange: (value: string) => void): void {

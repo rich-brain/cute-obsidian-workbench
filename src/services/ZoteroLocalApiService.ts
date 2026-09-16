@@ -5,6 +5,7 @@ export interface ZoteroPaperItem {
   title: string;
   venue?: string;
   year?: number;
+  paperUrl?: string;
 }
 
 interface ZoteroTopItem {
@@ -16,6 +17,8 @@ interface ZoteroTopItem {
     publicationTitle?: string;
     proceedingsTitle?: string;
     date?: string;
+    url?: string;
+    DOI?: string;
   };
 }
 
@@ -101,7 +104,8 @@ export class ZoteroLocalApiService {
         itemKey: item.key ?? "",
         title: item.data?.title?.trim() ?? "",
         venue: firstText(item.data?.conferenceName, item.data?.publicationTitle, item.data?.proceedingsTitle),
-        year: extractYear(item.data?.date)
+        year: extractYear(item.data?.date),
+        paperUrl: paperUrl(item.data)
       }))
       .filter((item) => item.itemKey && item.title);
   }
@@ -153,6 +157,13 @@ function firstText(...values: Array<string | undefined>): string | undefined {
 function extractYear(value: string | undefined): number | undefined {
   const match = value?.match(/\b(19|20)\d{2}\b/);
   return match ? Number(match[0]) : undefined;
+}
+
+function paperUrl(data: ZoteroTopItem["data"]): string | undefined {
+  const url = data?.url?.trim();
+  if (url && /^https?:\/\//i.test(url)) return url;
+  const doi = data?.DOI?.trim();
+  return doi ? `https://doi.org/${doi.replace(/^https?:\/\/(dx\.)?doi\.org\//i, "")}` : undefined;
 }
 
 function isOk(status: number): boolean {

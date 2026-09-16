@@ -21,8 +21,8 @@ export class ResearchProjectsSection {
       setIcon(edit, "pencil");
       edit.addEventListener("click", (event) => {
         event.stopPropagation();
-        openResearchProjectModal(this.app, async (values) => {
-          await this.store.updateResearchProject(project.id, { ...values, tags: values.tagsText.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean) });
+        openResearchProjectModal(this.app, this.store, async (values) => {
+          await this.store.updateResearchProject(project.id, values);
           this.onDataChanged();
         }, project);
       });
@@ -38,8 +38,16 @@ export class ResearchProjectsSection {
       const track = row.createDiv({ cls: "cow-month-progress-track" });
       track.createDiv({ cls: "cow-month-progress-fill is-green", attr: { style: `width: ${project.progress}%` } });
       const tags = row.createDiv({ cls: "cow-tag-row" });
-      project.tags.forEach((tag) => tags.createSpan({ text: tag }));
+      projectTagNames(this.store, project).forEach((tag) => tags.createSpan({ text: tag }));
+      if (project.description) row.createDiv({ cls: "cow-project-description", text: project.description });
       row.addEventListener("click", () => new ResearchProjectDetailModal(this.app, this.store, project, this.onDataChanged).open());
     });
   }
+}
+
+function projectTagNames(store: DashboardStore, project: { tags: string[]; tagIds?: string[] }): string[] {
+  const names = (project.tagIds ?? [])
+    .map((id) => store.getPaperTags().find((tag) => tag.id === id)?.name)
+    .filter(Boolean) as string[];
+  return names.length > 0 ? names : project.tags;
 }

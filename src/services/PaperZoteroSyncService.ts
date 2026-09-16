@@ -60,6 +60,7 @@ export class PaperZoteroSyncService {
     if ((existing.venueId ?? undefined) !== (venueId ?? undefined)) {
       updates.venueId = venueId;
     }
+    if (!existing.paperUrl && incoming.paperUrl) updates.paperUrl = incoming.paperUrl;
     if (Object.keys(updates).length === 0) return undefined;
     updates.updatedAt = Date.now();
     return updates;
@@ -79,6 +80,7 @@ export class PaperZoteroSyncService {
       readingEndDate: undefined,
       researchProjectId: undefined,
       tagIds: [],
+      paperUrl: item.paperUrl,
       createdAt: now,
       updatedAt: now,
       zoteroItemKey: item.itemKey

@@ -33,8 +33,8 @@ export class ResearchProjectDetailModal extends Modal {
     const edit = header.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     setIcon(edit.createSpan(), "pencil");
     edit.createSpan({ text: "编辑" });
-    edit.addEventListener("click", () => openResearchProjectModal(this.app, async (values) => {
-      await this.store.updateResearchProject(project.id, { ...values, tags: values.tagsText.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean) });
+    edit.addEventListener("click", () => openResearchProjectModal(this.app, this.store, async (values) => {
+      await this.store.updateResearchProject(project.id, values);
       this.onDone();
       this.render();
     }, project));
@@ -44,12 +44,15 @@ export class ResearchProjectDetailModal extends Modal {
       ["状态", project.status],
       ["进度", `${project.progress}%`],
       ["周期", `${project.startDate} → ${project.deadline}`],
-      ["标签", project.tags.join(" · ") || "无标签"]
+      ["标签", projectTagNames(this.store, project).join(" · ") || "无标签"]
     ].forEach(([label, value]) => {
       const card = summary.createDiv({ cls: "cow-data-card" });
       card.createEl("strong", { text: label });
       card.createSpan({ text: value });
     });
+    const description = this.contentEl.createDiv({ cls: "cow-paper-linked-notes cow-project-detail-description" });
+    description.createEl("h3", { text: "项目描述" });
+    description.createEl("p", { text: project.description?.trim() || "暂无描述。" });
 
     const relations = this.contentEl.createDiv({ cls: "cow-research-relations" });
     this.renderPapers(relations, project);
@@ -87,6 +90,13 @@ export class ResearchProjectDetailModal extends Modal {
       row.addEventListener("click", () => new ExperimentPlanDetailModal(this.app, this.store, plan, this.onDone).open());
     });
   }
+}
+
+function projectTagNames(store: DashboardStore, project: ResearchProject): string[] {
+  const names = (project.tagIds ?? [])
+    .map((id) => store.getPaperTags().find((tag) => tag.id === id)?.name)
+    .filter(Boolean) as string[];
+  return names.length > 0 ? names : project.tags;
 }
 
 export class DeleteResearchProjectModal extends Modal {
