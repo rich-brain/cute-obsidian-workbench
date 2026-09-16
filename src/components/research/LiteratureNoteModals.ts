@@ -2,6 +2,7 @@ import { App, Modal, Notice, TFile } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import type { LiteratureNote, ResearchPaper } from "../../types/dashboard";
 import { applyResizableModal } from "../ResizableModal";
+import { MarkdownFilePicker } from "./MarkdownFilePicker";
 
 export function openLiteratureNoteModal(app: App, store: DashboardStore, onDone: () => void, note?: LiteratureNote, preset?: Partial<LiteratureNote>): void {
   new LiteratureNoteModal(app, store, onDone, note, preset).open();
@@ -11,12 +12,7 @@ class LiteratureNoteModal extends Modal {
   private title: string;
   private notePath: string;
   private paperReadingId: string;
-  private query = "";
-  private markdownFiles: TFile[] = [];
   private titleInput?: HTMLInputElement;
-  private searchInput?: HTMLInputElement;
-  private selectedFileEl?: HTMLElement;
-  private notePickerEl?: HTMLElement;
 
   constructor(
     app: App,
@@ -40,7 +36,6 @@ class LiteratureNoteModal extends Modal {
       minWidth: "min(520px, 90vw)",
       minHeight: "min(420px, 82vh)"
     });
-    this.markdownFiles = this.app.vault.getMarkdownFiles();
     this.render();
   }
 
@@ -51,15 +46,19 @@ class LiteratureNoteModal extends Modal {
     const form = this.contentEl.createDiv({ cls: "cow-paper-form" });
     this.titleInput = this.inputField(form, "标题", this.title, (value) => this.title = value);
     this.paperSelect(form);
-    this.searchInput = this.inputField(form, "关联 Markdown", this.query, (value) => {
-      this.query = value;
-      this.renderNotePickerResults();
-    });
-    this.searchInput.placeholder = "搜索 Vault 中的 Markdown 文件……";
-    this.selectedFileEl = this.contentEl.createDiv({ cls: "cow-selected-note-file" });
-    this.renderSelectedFile();
-    this.notePickerEl = this.contentEl.createDiv({ cls: "cow-note-picker-list" });
-    this.renderNotePickerResults();
+    new MarkdownFilePicker(this.app, {
+      label: "关联 Markdown",
+      placeholder: "搜索 Vault 中的 Markdown 文件……",
+      value: this.notePath,
+      onChange: (path) => {
+        this.notePath = path;
+        if (path && !this.title.trim()) {
+          const file = this.app.vault.getAbstractFileByPath(path);
+          this.title = file instanceof TFile ? file.basename : fileName(path).replace(/\.md$/i, "");
+          if (this.titleInput) this.titleInput.value = this.title;
+        }
+      }
+    }).render(this.contentEl);
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
     actions.createEl("button", { text: "保存", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.save());
@@ -73,55 +72,6 @@ class LiteratureNoteModal extends Modal {
     this.store.getResearchPapers().forEach((paper) => select.createEl("option", { value: paper.id, text: paper.title }));
     select.value = this.paperReadingId;
     select.addEventListener("change", () => this.paperReadingId = select.value);
-  }
-
-  private renderNotePickerResults(): void {
-    const list = this.notePickerEl;
-    if (!list) return;
-    list.empty();
-    const query = this.query.trim().toLowerCase();
-    const files = (query
-      ? this.markdownFiles.filter((file) => `${file.basename} ${file.name} ${file.path}`.toLowerCase().includes(query))
-      : [...this.markdownFiles].sort((a, b) => b.stat.mtime - a.stat.mtime))
-      .slice(0, 50);
-    if (files.length === 0) {
-      list.createDiv({ cls: "cow-empty-state", text: query ? "没有找到匹配的 Markdown 文件。" : "Vault 中暂无 Markdown 文件。" });
-      return;
-    }
-    files.forEach((file) => {
-      const button = list.createEl("button", { cls: "cow-data-card cow-click-card", attr: { type: "button" } });
-      button.createEl("strong", { text: file.basename });
-      button.createDiv({ cls: "cow-meta-line", text: file.path });
-      button.addEventListener("click", () => {
-        this.title = this.title || file.basename;
-        this.notePath = file.path;
-        this.query = "";
-        if (this.titleInput) this.titleInput.value = this.title;
-        if (this.searchInput) this.searchInput.value = "";
-        this.renderSelectedFile();
-        this.renderNotePickerResults();
-      });
-    });
-  }
-
-  private renderSelectedFile(): void {
-    const container = this.selectedFileEl;
-    if (!container) return;
-    container.empty();
-    container.createEl("strong", { text: "已选择" });
-    if (!this.notePath) {
-      container.createDiv({ cls: "cow-meta-line", text: "尚未选择 Markdown 文件。" });
-      return;
-    }
-    const file = this.app.vault.getAbstractFileByPath(this.notePath);
-    container.createDiv({ cls: "cow-selected-note-title", text: `📄 ${file instanceof TFile ? file.name : fileName(this.notePath)}` });
-    container.createDiv({ cls: "cow-meta-line", text: this.notePath });
-    const actions = container.createDiv({ cls: "cow-list-item-actions" });
-    actions.createEl("button", { text: "更换", attr: { type: "button" } }).addEventListener("click", () => this.searchInput?.focus());
-    actions.createEl("button", { text: "清除", attr: { type: "button" } }).addEventListener("click", () => {
-      this.notePath = "";
-      this.renderSelectedFile();
-    });
   }
 
   private inputField(container: HTMLElement, label: string, value: string, onInput: (value: string) => void): HTMLInputElement {

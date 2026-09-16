@@ -1097,6 +1097,13 @@
   background: rgba(255, 246, 250, 0.58);
 }
 
+.cow-selected-note-file .cow-meta-line {
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+}
+
 .cow-note-picker-list .cow-data-card {
   padding: 9px 10px;
   border-radius: 12px;
@@ -1110,7 +1117,57 @@
 .cow-selected-note-title {
   color: var(--cow-ink);
   font-weight: 800;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+}
+
+.cow-experiment-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.cow-experiment-info-item,
+.cow-experiment-result-summary,
+.cow-inline-link-card {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(242, 59, 141, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.cow-experiment-info-item,
+.cow-experiment-result-summary {
+  display: grid;
+  gap: 5px;
+}
+
+.cow-experiment-info-item strong,
+.cow-experiment-result-summary strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-inline-link-card {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  color: var(--cow-ink);
+  text-align: left;
+}
+
+.cow-inline-link-card span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cow-research-relations {

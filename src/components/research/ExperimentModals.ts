@@ -2,6 +2,7 @@ import { App, Modal, Notice, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import type { ExperimentPlan } from "../../types/dashboard";
 import { applyResizableModal } from "../ResizableModal";
+import { MarkdownFilePicker, openVaultMarkdown } from "./MarkdownFilePicker";
 
 export function openExperimentEditModal(app: App, store: DashboardStore, mode: "plan" | "records", onDone: () => void, item?: ExperimentPlan): void {
   new ExperimentEditModal(app, store, mode, onDone, item).open();
@@ -63,7 +64,12 @@ class ExperimentEditModal extends Modal {
         ...this.store.getExperimentPlans().map((plan) => ({ value: plan.id, label: plan.title }))
       ], (value) => this.experimentPlanId = value);
     }
-    inputField(form, "Markdown 路径", this.notePath, (value) => this.notePath = value);
+    new MarkdownFilePicker(this.app, {
+      label: this.mode === "plan" ? "关联实验方案笔记" : "关联实验记录笔记",
+      placeholder: "搜索 Vault 中的 Markdown 文件……",
+      value: this.notePath,
+      onChange: (path) => this.notePath = path
+    }).render(this.contentEl);
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
     actions.createEl("button", { text: "保存", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.save());
@@ -112,7 +118,11 @@ export class ExperimentPlanDetailModal extends Modal {
     this.contentEl.addClass("cow-modal", "cow-experiment-modal");
     this.contentEl.createEl("h2", { text: this.plan.title });
     const project = this.store.getResearchProjects().find((item) => item.id === this.plan.researchProjectId);
-    this.contentEl.createDiv({ cls: "cow-meta-line", text: `${this.plan.date} · ${this.plan.status} · ${project?.title ?? "未关联项目"}` });
+    const summary = this.contentEl.createDiv({ cls: "cow-experiment-summary-grid" });
+    renderInfoItem(summary, "状态", this.plan.status);
+    renderInfoItem(summary, "日期", this.plan.date);
+    renderInfoItem(summary, "所属项目", project?.title ?? "未关联项目");
+    renderLinkedMarkdown(this.app, this.contentEl, "实验方案笔记", this.plan.notePath);
     this.contentEl.createEl("h3", { text: "实验记录" });
     const records = this.store.getExperimentRecords().filter((record) => record.experimentPlanId === this.plan.id);
     const list = this.contentEl.createDiv({ cls: "cow-data-list" });
@@ -123,7 +133,8 @@ export class ExperimentPlanDetailModal extends Modal {
     records.forEach((record) => {
       const row = list.createEl("button", { cls: "cow-data-card cow-click-card", attr: { type: "button" } });
       row.createEl("strong", { text: record.title });
-      row.createDiv({ cls: "cow-meta-line", text: `${record.date} · ${record.status}` });
+      row.createDiv({ cls: "cow-meta-line", text: record.date });
+      row.createDiv({ cls: "cow-meta-line", text: record.status });
       row.addEventListener("click", () => new ExperimentRecordDetailModal(this.app, this.store, record, this.onDone).open());
     });
   }
@@ -150,12 +161,26 @@ export class ExperimentRecordDetailModal extends Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-experiment-modal");
     this.contentEl.createEl("h2", { text: this.record.title });
-    this.contentEl.createDiv({ cls: "cow-meta-line", text: `${this.record.date} · ${this.record.status}` });
     const plan = this.store.getExperimentPlans().find((item) => item.id === this.record.experimentPlanId);
-    const link = this.contentEl.createEl("button", { cls: "cow-bottom-add", attr: { type: "button" } });
-    setIcon(link.createSpan(), "link");
-    link.createSpan({ text: plan ? `所属实验计划：${plan.title}` : "未关联实验计划" });
-    if (plan) link.addEventListener("click", () => new ExperimentPlanDetailModal(this.app, this.store, plan, this.onDone).open());
+    const project = plan ? this.store.getResearchProjects().find((item) => item.id === plan.researchProjectId) : undefined;
+    const summary = this.contentEl.createDiv({ cls: "cow-experiment-summary-grid" });
+    renderInfoItem(summary, "日期", this.record.date);
+    renderInfoItem(summary, "状态", this.record.status);
+    renderInfoItem(summary, "所属项目", project?.title ?? "未关联项目");
+    const planSection = this.contentEl.createDiv({ cls: "cow-selected-note-file cow-experiment-plan-link" });
+    planSection.createEl("strong", { text: "所属实验计划" });
+    if (plan) {
+      const link = planSection.createEl("button", { cls: "cow-inline-link-card", attr: { type: "button" } });
+      setIcon(link.createSpan(), "link");
+      link.createSpan({ text: plan.title });
+      link.addEventListener("click", () => new ExperimentPlanDetailModal(this.app, this.store, plan, this.onDone).open());
+    } else {
+      planSection.createDiv({ cls: "cow-meta-line", text: "未关联实验计划" });
+    }
+    const result = this.contentEl.createDiv({ cls: "cow-experiment-result-summary" });
+    result.createEl("strong", { text: "结果摘要" });
+    result.createDiv({ cls: "cow-meta-line", text: this.record.status === "已完成" ? "实验记录已完成，可打开关联笔记查看详细结果。" : "暂未记录结果摘要。" });
+    renderLinkedMarkdown(this.app, this.contentEl, "关联实验记录笔记", this.record.notePath);
   }
 }
 
@@ -228,6 +253,29 @@ function selectField(container: HTMLElement, label: string, value: string, optio
   options.forEach((option) => select.createEl("option", { value: option.value, text: option.label }));
   select.value = value;
   select.addEventListener("change", () => onChange(select.value));
+}
+
+function renderLinkedMarkdown(app: App, container: HTMLElement, title: string, notePath: string | undefined): void {
+  const section = container.createDiv({ cls: "cow-selected-note-file" });
+  section.createEl("strong", { text: title });
+  if (!notePath) {
+    section.createDiv({ cls: "cow-meta-line", text: "尚未关联 Markdown 文件。" });
+    return;
+  }
+  section.createDiv({ cls: "cow-selected-note-title", text: `📄 ${fileName(notePath)}` });
+  section.createDiv({ cls: "cow-meta-line", text: notePath });
+  const actions = section.createDiv({ cls: "cow-list-item-actions" });
+  actions.createEl("button", { text: "打开", attr: { type: "button" } }).addEventListener("click", () => void openVaultMarkdown(app, notePath));
+}
+
+function renderInfoItem(container: HTMLElement, label: string, value: string): void {
+  const item = container.createDiv({ cls: "cow-experiment-info-item" });
+  item.createSpan({ cls: "cow-meta-line", text: label });
+  item.createEl("strong", { text: value });
+}
+
+function fileName(path: string): string {
+  return path.split(/[\\/]/).pop() || path;
 }
 
 function todayKey(): string {
