@@ -303,6 +303,7 @@ const WIDTHS: Array<{ id: NonNullable<DashboardSectionConfig["width"]>; label: s
 export class FunctionalSectionManagerSection {
   private selectedPage: DashboardPage = "overview";
   private draggingId?: string;
+  private host?: HTMLElement;
 
   constructor(
     private readonly app: App,
@@ -314,6 +315,8 @@ export class FunctionalSectionManagerSection {
   }
 
   render(container: HTMLElement): void {
+    this.host = container;
+    container.empty();
     const root = container.createDiv({ cls: "cow-section-manager" });
     this.renderPagePicker(root);
     const columns = root.createDiv({ cls: "cow-section-manager-columns" });
@@ -374,7 +377,7 @@ export class FunctionalSectionManagerSection {
     custom.addEventListener("click", () => {
       new CustomSectionModal(this.app, this.selectedPage, async (input) => {
         await this.store.addCustomSection(input);
-        this.onDataChanged();
+        this.rerender();
       }).open();
     });
 
@@ -393,7 +396,7 @@ export class FunctionalSectionManagerSection {
       setIcon(add, "plus");
       add.addEventListener("click", async () => {
         await this.store.addSection(this.selectedPage, module.type);
-        this.onDataChanged();
+        this.rerender();
       });
     });
   }
@@ -436,7 +439,7 @@ export class FunctionalSectionManagerSection {
       row.addEventListener("drop", async () => {
         const ids = Array.from(list.querySelectorAll<HTMLElement>(".cow-section-manager-row")).map((item) => item.dataset.id ?? "");
         await this.store.reorderSections(this.selectedPage, ids);
-        this.onDataChanged();
+        this.rerender();
       });
     }
   }
@@ -447,7 +450,7 @@ export class FunctionalSectionManagerSection {
     select.value = String(section.config?.cardColor ?? "default");
     select.addEventListener("change", async () => {
       await this.store.updateSectionConfig(section.id, { cardColor: select.value });
-      this.onDataChanged();
+      this.rerender();
     });
   }
 
@@ -457,7 +460,7 @@ export class FunctionalSectionManagerSection {
     select.value = section.width ?? "md";
     select.addEventListener("change", async () => {
       await this.store.updateSection(section.id, { width: select.value as DashboardSectionConfig["width"] });
-      this.onDataChanged();
+      this.rerender();
     });
   }
 
@@ -466,8 +469,12 @@ export class FunctionalSectionManagerSection {
     setIcon(button, icon);
     button.addEventListener("click", async () => {
       await action();
-      this.onDataChanged();
+      this.rerender();
     });
+  }
+
+  private rerender(): void {
+    if (this.host) this.render(this.host);
   }
 
   private getSectionDescription(section: DashboardSectionConfig): string {

@@ -32,6 +32,7 @@ export class WorkbenchView extends ItemView {
   private readonly eventBus = new EventBus();
   private readonly router: DashboardRouter;
   private sidebar?: Sidebar;
+  private pageHost?: HTMLElement;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -97,11 +98,12 @@ export class WorkbenchView extends ItemView {
     }).render(main);
 
     const pageHost = main.createDiv({ cls: "cow-page-host" });
+    this.pageHost = pageHost;
     this.renderPage(pageHost, this.router.getCurrentPage());
   }
 
   private renderPage(container: HTMLElement, page: DashboardPage): void {
-    const refresh = () => this.render();
+    const refresh = () => this.renderPreservingScroll();
     const pageMap = {
       overview: new OverviewPage(this.app, this.plugin.store, "overview", refresh),
       research: new ResearchPage(this.app, this.plugin.store, "research", refresh),
@@ -113,6 +115,14 @@ export class WorkbenchView extends ItemView {
     };
 
     pageMap[page].render(container);
+  }
+
+  private renderPreservingScroll(): void {
+    const scrollTop = this.pageHost?.scrollTop ?? 0;
+    this.render();
+    window.requestAnimationFrame(() => {
+      if (this.pageHost) this.pageHost.scrollTop = scrollTop;
+    });
   }
 
   private applyTheme(container: HTMLElement): void {

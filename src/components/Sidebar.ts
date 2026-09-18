@@ -13,8 +13,12 @@ interface SidebarAction {
 
 export class Sidebar {
   private clockEl?: HTMLElement;
+  private dateEl?: HTMLElement;
+  private timeEl?: HTMLElement;
+  private pageLabelEl?: HTMLElement;
   private calendarEl?: HTMLElement;
   private timer?: number;
+  private currentDateKey = "";
   private readonly calendar = new CalendarService();
   private visibleMonth = new Date();
   private selectedDate = new Date();
@@ -49,6 +53,9 @@ export class Sidebar {
     profile.createEl("p", { text: "记录、思考、成长、可爱向前" });
 
     this.clockEl = sidebar.createDiv({ cls: "cow-clock" });
+    this.dateEl = this.clockEl.createEl("p");
+    this.timeEl = this.clockEl.createEl("strong");
+    this.pageLabelEl = this.clockEl.createEl("span");
     this.updateClock();
     this.timer = window.setInterval(() => this.updateClock(), 30_000);
 
@@ -144,7 +151,7 @@ export class Sidebar {
   }
 
   private updateClock(): void {
-    if (!this.clockEl) {
+    if (!this.dateEl || !this.timeEl || !this.pageLabelEl) {
       return;
     }
 
@@ -160,9 +167,13 @@ export class Sidebar {
       minute: "2-digit"
     });
 
-    this.clockEl.empty();
-    this.clockEl.createEl("p", { text: dateText });
-    this.clockEl.createEl("strong", { text: timeText });
-    this.clockEl.createEl("span", { text: PAGE_LABELS[this.currentPage] });
+    this.dateEl.setText(dateText);
+    this.timeEl.setText(timeText);
+    this.pageLabelEl.setText(PAGE_LABELS[this.currentPage]);
+    const dateKey = this.calendar.getDateKey(now);
+    if (this.currentDateKey && this.currentDateKey !== dateKey) {
+      this.renderMiniCalendarContent();
+    }
+    this.currentDateKey = dateKey;
   }
 }

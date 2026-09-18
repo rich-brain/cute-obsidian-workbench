@@ -3763,6 +3763,7 @@ var Sidebar = class {
     this.onOpenDay = onOpenDay;
     this.getData = getData;
     this.onCustomizeAvatar = onCustomizeAvatar;
+    this.currentDateKey = "";
     this.calendar = new CalendarService();
     this.visibleMonth = /* @__PURE__ */ new Date();
     this.selectedDate = /* @__PURE__ */ new Date();
@@ -3785,6 +3786,9 @@ var Sidebar = class {
     profile.createEl("h2", { text: "\u6211\u7684\u5DE5\u4F5C\u53F0" });
     profile.createEl("p", { text: "\u8BB0\u5F55\u3001\u601D\u8003\u3001\u6210\u957F\u3001\u53EF\u7231\u5411\u524D" });
     this.clockEl = sidebar.createDiv({ cls: "cow-clock" });
+    this.dateEl = this.clockEl.createEl("p");
+    this.timeEl = this.clockEl.createEl("strong");
+    this.pageLabelEl = this.clockEl.createEl("span");
     this.updateClock();
     this.timer = window.setInterval(() => this.updateClock(), 3e4);
     this.renderMiniCalendar(sidebar);
@@ -3866,7 +3870,7 @@ var Sidebar = class {
     fileHint.createSpan({ text: `\u6587\u4EF6\u5E93\uFF1A${this.app.vault.getName()}` });
   }
   updateClock() {
-    if (!this.clockEl) {
+    if (!this.dateEl || !this.timeEl || !this.pageLabelEl) {
       return;
     }
     const now = /* @__PURE__ */ new Date();
@@ -3880,10 +3884,14 @@ var Sidebar = class {
       hour: "2-digit",
       minute: "2-digit"
     });
-    this.clockEl.empty();
-    this.clockEl.createEl("p", { text: dateText });
-    this.clockEl.createEl("strong", { text: timeText });
-    this.clockEl.createEl("span", { text: PAGE_LABELS[this.currentPage] });
+    this.dateEl.setText(dateText);
+    this.timeEl.setText(timeText);
+    this.pageLabelEl.setText(PAGE_LABELS[this.currentPage]);
+    const dateKey = this.calendar.getDateKey(now);
+    if (this.currentDateKey && this.currentDateKey !== dateKey) {
+      this.renderMiniCalendarContent();
+    }
+    this.currentDateKey = dateKey;
   }
 };
 
@@ -8007,6 +8015,8 @@ var FunctionalSectionManagerSection = class {
     this.selectedPage = MANAGED_PAGES.includes(currentPage) ? currentPage : "overview";
   }
   render(container) {
+    this.host = container;
+    container.empty();
     const root = container.createDiv({ cls: "cow-section-manager" });
     this.renderPagePicker(root);
     const columns = root.createDiv({ cls: "cow-section-manager-columns" });
@@ -8063,7 +8073,7 @@ var FunctionalSectionManagerSection = class {
     custom.addEventListener("click", () => {
       new CustomSectionModal(this.app, this.selectedPage, async (input) => {
         await this.store.addCustomSection(input);
-        this.onDataChanged();
+        this.rerender();
       }).open();
     });
     const existingTypes = new Set(this.store.getAllSections().filter((section) => section.page === this.selectedPage).map((section) => section.type));
@@ -8081,7 +8091,7 @@ var FunctionalSectionManagerSection = class {
       (0, import_obsidian26.setIcon)(add, "plus");
       add.addEventListener("click", async () => {
         await this.store.addSection(this.selectedPage, module2.type);
-        this.onDataChanged();
+        this.rerender();
       });
     });
   }
@@ -8125,7 +8135,7 @@ var FunctionalSectionManagerSection = class {
           return (_a = item.dataset.id) != null ? _a : "";
         });
         await this.store.reorderSections(this.selectedPage, ids);
-        this.onDataChanged();
+        this.rerender();
       });
     }
   }
@@ -8136,7 +8146,7 @@ var FunctionalSectionManagerSection = class {
     select.value = String((_b = (_a = section.config) == null ? void 0 : _a.cardColor) != null ? _b : "default");
     select.addEventListener("change", async () => {
       await this.store.updateSectionConfig(section.id, { cardColor: select.value });
-      this.onDataChanged();
+      this.rerender();
     });
   }
   renderWidthSelect(container, section) {
@@ -8146,7 +8156,7 @@ var FunctionalSectionManagerSection = class {
     select.value = (_a = section.width) != null ? _a : "md";
     select.addEventListener("change", async () => {
       await this.store.updateSection(section.id, { width: select.value });
-      this.onDataChanged();
+      this.rerender();
     });
   }
   renderIconButton(container, icon, label, action) {
@@ -8154,8 +8164,11 @@ var FunctionalSectionManagerSection = class {
     (0, import_obsidian26.setIcon)(button, icon);
     button.addEventListener("click", async () => {
       await action();
-      this.onDataChanged();
+      this.rerender();
     });
+  }
+  rerender() {
+    if (this.host) this.render(this.host);
   }
   getSectionDescription(section) {
     var _a, _b, _c;
@@ -16377,10 +16390,11 @@ var WorkbenchView = class extends import_obsidian84.ItemView {
       this.router.navigate(page);
     }).render(main);
     const pageHost = main.createDiv({ cls: "cow-page-host" });
+    this.pageHost = pageHost;
     this.renderPage(pageHost, this.router.getCurrentPage());
   }
   renderPage(container, page) {
-    const refresh = () => this.render();
+    const refresh = () => this.renderPreservingScroll();
     const pageMap = {
       overview: new OverviewPage(this.app, this.plugin.store, "overview", refresh),
       research: new ResearchPage(this.app, this.plugin.store, "research", refresh),
@@ -16391,6 +16405,14 @@ var WorkbenchView = class extends import_obsidian84.ItemView {
       modules: new ModulesPage(this.app, this.plugin.store, "modules", refresh)
     };
     pageMap[page].render(container);
+  }
+  renderPreservingScroll() {
+    var _a, _b;
+    const scrollTop = (_b = (_a = this.pageHost) == null ? void 0 : _a.scrollTop) != null ? _b : 0;
+    this.render();
+    window.requestAnimationFrame(() => {
+      if (this.pageHost) this.pageHost.scrollTop = scrollTop;
+    });
   }
   applyTheme(container) {
     const theme = this.plugin.store.getData().theme;
