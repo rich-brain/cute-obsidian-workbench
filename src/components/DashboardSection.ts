@@ -24,7 +24,6 @@ import {
   EnabledModulesOverviewSection,
   FunctionalSectionManagerSection,
   HomeLayoutManagerSection,
-  ModuleSwitchSortSection,
   QuickActionSettingsSection,
   ThemeColorSettingsSection
 } from "./modules/ModulesControls";
@@ -171,6 +170,13 @@ export class DashboardSection {
     const sectionEl = container.createDiv({
       cls: `cow-section cow-section-${this.section.width ?? "md"} cow-section-height-${this.section.height ?? "sm"} cow-card-color-${cardColor}`
     });
+    const sectionLayout = this.store.getModuleLayout(this.section.page).sections?.[this.section.id];
+    if (sectionLayout?.colSpan) {
+      sectionEl.style.gridColumn = `span ${sectionLayout.colSpan}`;
+    }
+    if (sectionLayout?.rowSpan) {
+      sectionEl.style.gridRow = `span ${sectionLayout.rowSpan}`;
+    }
 
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
     const title = header.createDiv({ cls: "cow-section-title" });
@@ -575,9 +581,6 @@ export class DashboardSection {
       case "home-layout-manager":
         new HomeLayoutManagerSection(this.store, this.onDataChanged).render(container);
         break;
-      case "module-settings":
-        new ModuleSwitchSortSection(this.store, this.onDataChanged).render(container);
-        break;
       case "banner-background-settings":
         new BannerBackgroundSettingsSection(this.store, this.onDataChanged).render(container);
         break;
@@ -734,8 +737,6 @@ export class DashboardSection {
       "enabled-modules-overview": "panel-top",
       "section-manager": "rows-3",
       "home-layout-manager": "layout-template",
-      "module-settings": "sliders-horizontal"
-      ,
       "banner-background-settings": "image",
       "calendar-widget-settings": "calendar-days",
       "apex-habit-settings": "calendar-check",

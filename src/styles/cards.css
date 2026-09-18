@@ -13,6 +13,7 @@
   position: relative;
   box-sizing: border-box;
   height: auto;
+  align-self: stretch;
   min-height: 150px;
   min-width: 0;
   border-radius: var(--cow-radius);

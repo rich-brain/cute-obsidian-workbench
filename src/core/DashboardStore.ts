@@ -30,6 +30,8 @@ import type {
   KeyResult,
   LiteratureNote,
   Milestone,
+  ModuleLayoutConfig,
+  ModuleLayoutMode,
   Objective,
   QuickActionConfig,
   PaperStatusDefinition,
@@ -43,6 +45,7 @@ import type {
   ReviewItem,
   Risk,
   SavingGoal,
+  SectionLayoutConfig,
   TodayFocusTask,
   Transaction,
   VenueDefinition,
@@ -131,9 +134,8 @@ export const AVAILABLE_MODULES: AvailableModuleDefinition[] = [
   { type: "risks-blockers", title: "风险与阻碍", description: "识别风险并记录解决方案。", page: "goals", icon: "triangle-alert", defaultWidth: "md" },
   { type: "long-term-progress", title: "长期进展", description: "目标长期趋势和完成率。", page: "goals", icon: "trending-up", defaultWidth: "md" },
   { type: "enabled-modules-overview", title: "已启用模块概览", description: "统计当前页面和整个工作台启用模块。", page: "modules", icon: "panel-top", defaultWidth: "md" },
-  { type: "home-layout-manager", title: "首页布局管理", description: "切换默认、紧凑或极简布局。", page: "modules", icon: "layout-template", defaultWidth: "md" },
+  { type: "home-layout-manager", title: "页面布局管理", description: "为每个页面单独设置默认、紧凑或极简布局。", page: "modules", icon: "layout-template", defaultWidth: "md" },
   { type: "section-manager", title: "功能分区管理", description: "按页面管理启用、隐藏、删除、排序、颜色、宽度和自定义分区。", page: "modules", icon: "rows-3", defaultWidth: "full", defaultHeight: "lg" },
-  { type: "module-settings", title: "模块开关与排序", description: "管理模块启用状态和拖动排序。", page: "modules", icon: "sliders-horizontal", defaultWidth: "full" },
   { type: "banner-background-settings", title: "Banner 背景设置", description: "设置推荐壁纸、本地图片、纯色背景和遮罩。", page: "modules", icon: "image", defaultWidth: "md" },
   { type: "calendar-widget-settings", title: "日历组件设置", description: "控制日期标记、周起始日和高亮颜色。", page: "modules", icon: "calendar-days", defaultWidth: "md" },
   { type: "apex-habit-settings", title: "Apex 打卡模块设置", description: "管理首页打卡展示和自定义打卡项目。", page: "modules", icon: "calendar-check", defaultWidth: "md" },
@@ -170,8 +172,18 @@ function todayKey(): string {
   return formatDateKey(new Date());
 }
 
+const DEFAULT_MODULE_LAYOUTS: Record<DashboardPage, ModuleLayoutConfig> = {
+  overview: { mode: "default", columns: 12, sections: {} },
+  research: { mode: "default", columns: 12, sections: {} },
+  reading: { mode: "default", columns: 12, sections: {} },
+  fitness: { mode: "default", columns: 12, sections: {} },
+  finance: { mode: "default", columns: 12, sections: {} },
+  goals: { mode: "default", columns: 12, sections: {} },
+  modules: { mode: "default", columns: 12, sections: {} }
+};
+
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.4.0",
+  dataVersion: "0.5.0",
   currentPage: "overview",
   sections: [
     {
@@ -527,9 +539,8 @@ const DEFAULT_DATA: WorkbenchData = {
     createSection("goals", "risks-blockers", "风险与阻碍", 90),
     createSection("goals", "long-term-progress", "长期进展", 100),
     createSection("modules", "enabled-modules-overview", "已启用模块概览", 10),
-    createSection("modules", "home-layout-manager", "首页布局管理", 20),
+    createSection("modules", "home-layout-manager", "页面布局管理", 20),
     createSection("modules", "section-manager", "功能分区管理", 30, "full", "lg"),
-    createSection("modules", "module-settings", "模块开关与排序", 40, "full", "lg"),
     createSection("modules", "banner-background-settings", "Banner 背景设置", 50),
     createSection("modules", "calendar-widget-settings", "日历组件设置", 60),
     createSection("modules", "apex-habit-settings", "Apex 打卡模块设置", 70),
@@ -537,6 +548,7 @@ const DEFAULT_DATA: WorkbenchData = {
     createSection("modules", "theme-color-settings", "主题与配色", 90),
     createSection("modules", "data-source-status", "数据源", 100)
   ],
+  moduleLayouts: structuredClone(DEFAULT_MODULE_LAYOUTS),
   banner: {
     message: "要成功，先发疯，不顾一切向前冲。",
     subtitle: "把想法变成行动，让每一天都更靠近理想的自己。",
@@ -910,9 +922,14 @@ export class DashboardStore {
   }
 
   getSectionsForPage(page: DashboardPage): DashboardSectionConfig[] {
+    const layout = this.getModuleLayout(page);
     return this.data.sections
       .filter((section) => section.page === page && section.enabled)
-      .sort((left, right) => left.order - right.order);
+      .sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout));
+  }
+
+  getModuleLayout(page: DashboardPage): ModuleLayoutConfig {
+    return this.data.moduleLayouts[page] ?? DEFAULT_MODULE_LAYOUTS[page];
   }
 
   async setCurrentPage(page: DashboardPage): Promise<void> {
@@ -937,6 +954,7 @@ export class DashboardStore {
     };
 
     this.data.sections.push(section);
+    this.ensureSectionLayout(page, section.id, nextOrder);
     await this.save();
     return section;
   }
@@ -961,12 +979,17 @@ export class DashboardStore {
     };
 
     this.data.sections.push(section);
+    this.ensureSectionLayout(input.page, section.id, nextOrder);
     await this.save();
     return section;
   }
 
   async removeSection(sectionId: string): Promise<void> {
+    const section = this.data.sections.find((item) => item.id === sectionId);
     this.data.sections = this.data.sections.filter((section) => section.id !== sectionId);
+    if (section) {
+      delete this.data.moduleLayouts[section.page]?.sections?.[sectionId];
+    }
     await this.save();
   }
 
@@ -1015,6 +1038,9 @@ export class DashboardStore {
       const order = orderMap.get(section.id);
       if (section.page === page && order !== undefined) {
         section.order = order;
+        this.ensureSectionLayout(page, section.id, order);
+        const sectionLayout = this.data.moduleLayouts[page].sections?.[section.id];
+        if (sectionLayout) sectionLayout.order = order;
       }
     });
     await this.save();
@@ -1022,6 +1048,59 @@ export class DashboardStore {
 
   async setOverviewLayout(layout: WorkbenchData["userSettings"]["overviewLayout"]): Promise<void> {
     this.data.userSettings.overviewLayout = layout;
+    this.data.moduleLayouts.overview = this.normalizeModuleLayout({ ...this.data.moduleLayouts.overview, mode: layout });
+    await this.save();
+  }
+
+  async setModuleLayoutMode(page: DashboardPage, mode: ModuleLayoutMode): Promise<void> {
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({
+      ...this.getModuleLayout(page),
+      mode
+    });
+    if (page === "overview" && mode !== "custom") {
+      this.data.userSettings.overviewLayout = mode;
+    }
+    await this.save();
+  }
+
+  async updateModuleLayout(page: DashboardPage, updates: Partial<ModuleLayoutConfig>): Promise<void> {
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({
+      ...this.getModuleLayout(page),
+      ...updates
+    });
+    await this.save();
+  }
+
+  async updateSectionLayout(page: DashboardPage, sectionId: string, updates: SectionLayoutConfig): Promise<void> {
+    const section = this.data.sections.find((item) => item.id === sectionId && item.page === page);
+    if (!section) return;
+    this.ensureSectionLayout(page, sectionId, section.order);
+    const layout = this.data.moduleLayouts[page];
+    const sectionLayout = layout.sections?.[sectionId];
+    if (!sectionLayout) return;
+    Object.assign(sectionLayout, updates);
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout(layout);
+    await this.save();
+  }
+
+  async moveSectionLayout(page: DashboardPage, sectionId: string, direction: "up" | "down"): Promise<void> {
+    const layout = this.data.moduleLayouts[page];
+    const pageSections = this.data.sections
+      .filter((section) => section.page === page)
+      .sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout));
+    const currentIndex = pageSections.findIndex((section) => section.id === sectionId);
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    const target = pageSections[targetIndex];
+    const current = pageSections[currentIndex];
+    if (!current || !target) return;
+    this.ensureSectionLayout(page, current.id, current.order);
+    this.ensureSectionLayout(page, target.id, target.order);
+    const currentLayout = this.data.moduleLayouts[page].sections?.[current.id];
+    const targetLayout = this.data.moduleLayouts[page].sections?.[target.id];
+    if (!currentLayout || !targetLayout) return;
+    const currentOrder = currentLayout.order ?? current.order;
+    currentLayout.order = targetLayout.order ?? target.order;
+    targetLayout.order = currentOrder;
     await this.save();
   }
 
@@ -2826,7 +2905,7 @@ export class DashboardStore {
     const merged: WorkbenchData = {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.4.0",
+      dataVersion: "0.5.0",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2836,6 +2915,7 @@ export class DashboardStore {
         ...partial.userSettings
       },
       sections,
+      moduleLayouts: this.migrateModuleLayouts(partial),
       habits: partial.habits ?? {},
       todayFocusTasks: Array.isArray(partial.todayFocusTasks)
         ? partial.todayFocusTasks
@@ -3597,7 +3677,7 @@ export class DashboardStore {
 
   private migrateSections(sections: DashboardSectionConfig[]): DashboardSectionConfig[] {
     const pages: DashboardPage[] = ["overview", "research", "reading", "fitness", "finance", "goals", "modules"];
-    const migrated = [...sections];
+    const migrated = sections.filter((section) => section.type !== "module-settings");
 
     pages.forEach((page) => {
       if (!sections.some((section) => section.page === page)) {
@@ -3625,6 +3705,60 @@ export class DashboardStore {
     }
 
     return this.withRequiredSections(migrated);
+  }
+
+  private migrateModuleLayouts(partial: Partial<WorkbenchData>): Record<DashboardPage, ModuleLayoutConfig> {
+    const legacy = partial as Partial<WorkbenchData> & { layoutMode?: ModuleLayoutMode };
+    const fallbackMode = legacy.layoutMode ?? partial.userSettings?.overviewLayout ?? DEFAULT_DATA.userSettings.overviewLayout;
+    const layouts = structuredClone(DEFAULT_MODULE_LAYOUTS);
+    (Object.keys(layouts) as DashboardPage[]).forEach((page) => {
+      const saved = partial.moduleLayouts?.[page];
+      layouts[page] = this.normalizeModuleLayout(saved ?? { ...layouts[page], mode: fallbackMode });
+    });
+    return layouts;
+  }
+
+  private normalizeModuleLayout(layout: Partial<ModuleLayoutConfig> | undefined): ModuleLayoutConfig {
+    const mode: ModuleLayoutMode = layout?.mode === "compact" || layout?.mode === "minimal" || layout?.mode === "custom"
+      ? layout.mode
+      : "default";
+    const columns = Math.max(1, Math.min(24, Number(layout?.columns) || this.columnsForLayoutMode(mode)));
+    const sections: NonNullable<ModuleLayoutConfig["sections"]> = {};
+    Object.entries(layout?.sections ?? {}).forEach(([sectionId, sectionLayout]) => {
+      sections[sectionId] = {
+        order: sectionLayout.order,
+        colSpan: sectionLayout.colSpan === undefined ? undefined : Math.max(1, Math.min(columns, Number(sectionLayout.colSpan) || 1)),
+        rowSpan: sectionLayout.rowSpan === undefined ? undefined : Math.max(1, Math.min(12, Number(sectionLayout.rowSpan) || 1))
+      };
+    });
+    return {
+      mode,
+      columns,
+      templateId: typeof layout?.templateId === "string" ? layout.templateId : undefined,
+      sections
+    };
+  }
+
+  private ensureSectionLayout(page: DashboardPage, sectionId: string, fallbackOrder: number): void {
+    const layout = this.data.moduleLayouts[page] ?? structuredClone(DEFAULT_MODULE_LAYOUTS[page]);
+    layout.sections = layout.sections ?? {};
+    layout.sections[sectionId] = {
+      order: fallbackOrder,
+      colSpan: 1,
+      rowSpan: 1,
+      ...layout.sections[sectionId]
+    };
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout(layout);
+  }
+
+  private getSectionLayoutOrder(section: DashboardSectionConfig, layout: ModuleLayoutConfig): number {
+    return layout.sections?.[section.id]?.order ?? section.order;
+  }
+
+  private columnsForLayoutMode(mode: ModuleLayoutMode): number {
+    if (mode === "compact") return 16;
+    if (mode === "minimal") return 1;
+    return 12;
   }
 
   private normalizeFocusRecord(record: FocusRecord): FocusRecord {

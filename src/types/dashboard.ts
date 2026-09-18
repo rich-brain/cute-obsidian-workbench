@@ -30,6 +30,21 @@ export interface DashboardSectionConfig {
   config?: Record<string, unknown>;
 }
 
+export type ModuleLayoutMode = "default" | "compact" | "minimal" | "custom";
+
+export interface SectionLayoutConfig {
+  order?: number;
+  colSpan?: number;
+  rowSpan?: number;
+}
+
+export interface ModuleLayoutConfig {
+  mode: ModuleLayoutMode;
+  columns?: number;
+  templateId?: string;
+  sections?: Record<string, SectionLayoutConfig>;
+}
+
 export interface WorkbenchSettings {
   showLeftSidebar: boolean;
   weekStartsOn: "sunday" | "monday";
@@ -572,6 +587,7 @@ export interface WorkbenchData {
   dataVersion: string;
   currentPage: DashboardPage;
   sections: DashboardSectionConfig[];
+  moduleLayouts: Record<DashboardPage, ModuleLayoutConfig>;
   banner: BannerSettings;
   habits: Record<string, Record<string, boolean>>;
   todayFocusTasks: TodayFocusTask[];

@@ -73,7 +73,7 @@ export class WorkbenchView extends ItemView {
     this.applyTheme(container);
     this.sidebar?.destroy();
 
-    const shell = container.createDiv({ cls: `cow-shell cow-layout-${this.plugin.store.getData().userSettings.overviewLayout}` });
+    const shell = container.createDiv({ cls: "cow-shell" });
     this.sidebar = new Sidebar(this.app, this.router.getCurrentPage(), [
       { label: "工作台", icon: "home", onClick: () => this.router.navigate("overview") },
       { label: "每日笔记", icon: "calendar-days", onClick: () => void new NoteService(this.app).openOrCreateDailyNote(new Date()) },

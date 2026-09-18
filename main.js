@@ -105,9 +105,8 @@ var AVAILABLE_MODULES = [
   { type: "risks-blockers", title: "\u98CE\u9669\u4E0E\u963B\u788D", description: "\u8BC6\u522B\u98CE\u9669\u5E76\u8BB0\u5F55\u89E3\u51B3\u65B9\u6848\u3002", page: "goals", icon: "triangle-alert", defaultWidth: "md" },
   { type: "long-term-progress", title: "\u957F\u671F\u8FDB\u5C55", description: "\u76EE\u6807\u957F\u671F\u8D8B\u52BF\u548C\u5B8C\u6210\u7387\u3002", page: "goals", icon: "trending-up", defaultWidth: "md" },
   { type: "enabled-modules-overview", title: "\u5DF2\u542F\u7528\u6A21\u5757\u6982\u89C8", description: "\u7EDF\u8BA1\u5F53\u524D\u9875\u9762\u548C\u6574\u4E2A\u5DE5\u4F5C\u53F0\u542F\u7528\u6A21\u5757\u3002", page: "modules", icon: "panel-top", defaultWidth: "md" },
-  { type: "home-layout-manager", title: "\u9996\u9875\u5E03\u5C40\u7BA1\u7406", description: "\u5207\u6362\u9ED8\u8BA4\u3001\u7D27\u51D1\u6216\u6781\u7B80\u5E03\u5C40\u3002", page: "modules", icon: "layout-template", defaultWidth: "md" },
+  { type: "home-layout-manager", title: "\u9875\u9762\u5E03\u5C40\u7BA1\u7406", description: "\u4E3A\u6BCF\u4E2A\u9875\u9762\u5355\u72EC\u8BBE\u7F6E\u9ED8\u8BA4\u3001\u7D27\u51D1\u6216\u6781\u7B80\u5E03\u5C40\u3002", page: "modules", icon: "layout-template", defaultWidth: "md" },
   { type: "section-manager", title: "\u529F\u80FD\u5206\u533A\u7BA1\u7406", description: "\u6309\u9875\u9762\u7BA1\u7406\u542F\u7528\u3001\u9690\u85CF\u3001\u5220\u9664\u3001\u6392\u5E8F\u3001\u989C\u8272\u3001\u5BBD\u5EA6\u548C\u81EA\u5B9A\u4E49\u5206\u533A\u3002", page: "modules", icon: "rows-3", defaultWidth: "full", defaultHeight: "lg" },
-  { type: "module-settings", title: "\u6A21\u5757\u5F00\u5173\u4E0E\u6392\u5E8F", description: "\u7BA1\u7406\u6A21\u5757\u542F\u7528\u72B6\u6001\u548C\u62D6\u52A8\u6392\u5E8F\u3002", page: "modules", icon: "sliders-horizontal", defaultWidth: "full" },
   { type: "banner-background-settings", title: "Banner \u80CC\u666F\u8BBE\u7F6E", description: "\u8BBE\u7F6E\u63A8\u8350\u58C1\u7EB8\u3001\u672C\u5730\u56FE\u7247\u3001\u7EAF\u8272\u80CC\u666F\u548C\u906E\u7F69\u3002", page: "modules", icon: "image", defaultWidth: "md" },
   { type: "calendar-widget-settings", title: "\u65E5\u5386\u7EC4\u4EF6\u8BBE\u7F6E", description: "\u63A7\u5236\u65E5\u671F\u6807\u8BB0\u3001\u5468\u8D77\u59CB\u65E5\u548C\u9AD8\u4EAE\u989C\u8272\u3002", page: "modules", icon: "calendar-days", defaultWidth: "md" },
   { type: "apex-habit-settings", title: "Apex \u6253\u5361\u6A21\u5757\u8BBE\u7F6E", description: "\u7BA1\u7406\u9996\u9875\u6253\u5361\u5C55\u793A\u548C\u81EA\u5B9A\u4E49\u6253\u5361\u9879\u76EE\u3002", page: "modules", icon: "calendar-check", defaultWidth: "md" },
@@ -133,8 +132,17 @@ function nowIso() {
 function todayKey() {
   return formatDateKey(/* @__PURE__ */ new Date());
 }
+var DEFAULT_MODULE_LAYOUTS = {
+  overview: { mode: "default", columns: 12, sections: {} },
+  research: { mode: "default", columns: 12, sections: {} },
+  reading: { mode: "default", columns: 12, sections: {} },
+  fitness: { mode: "default", columns: 12, sections: {} },
+  finance: { mode: "default", columns: 12, sections: {} },
+  goals: { mode: "default", columns: 12, sections: {} },
+  modules: { mode: "default", columns: 12, sections: {} }
+};
 var DEFAULT_DATA = {
-  dataVersion: "0.4.0",
+  dataVersion: "0.5.0",
   currentPage: "overview",
   sections: [
     {
@@ -490,9 +498,8 @@ var DEFAULT_DATA = {
     createSection("goals", "risks-blockers", "\u98CE\u9669\u4E0E\u963B\u788D", 90),
     createSection("goals", "long-term-progress", "\u957F\u671F\u8FDB\u5C55", 100),
     createSection("modules", "enabled-modules-overview", "\u5DF2\u542F\u7528\u6A21\u5757\u6982\u89C8", 10),
-    createSection("modules", "home-layout-manager", "\u9996\u9875\u5E03\u5C40\u7BA1\u7406", 20),
+    createSection("modules", "home-layout-manager", "\u9875\u9762\u5E03\u5C40\u7BA1\u7406", 20),
     createSection("modules", "section-manager", "\u529F\u80FD\u5206\u533A\u7BA1\u7406", 30, "full", "lg"),
-    createSection("modules", "module-settings", "\u6A21\u5757\u5F00\u5173\u4E0E\u6392\u5E8F", 40, "full", "lg"),
     createSection("modules", "banner-background-settings", "Banner \u80CC\u666F\u8BBE\u7F6E", 50),
     createSection("modules", "calendar-widget-settings", "\u65E5\u5386\u7EC4\u4EF6\u8BBE\u7F6E", 60),
     createSection("modules", "apex-habit-settings", "Apex \u6253\u5361\u6A21\u5757\u8BBE\u7F6E", 70),
@@ -500,6 +507,7 @@ var DEFAULT_DATA = {
     createSection("modules", "theme-color-settings", "\u4E3B\u9898\u4E0E\u914D\u8272", 90),
     createSection("modules", "data-source-status", "\u6570\u636E\u6E90", 100)
   ],
+  moduleLayouts: structuredClone(DEFAULT_MODULE_LAYOUTS),
   banner: {
     message: "\u8981\u6210\u529F\uFF0C\u5148\u53D1\u75AF\uFF0C\u4E0D\u987E\u4E00\u5207\u5411\u524D\u51B2\u3002",
     subtitle: "\u628A\u60F3\u6CD5\u53D8\u6210\u884C\u52A8\uFF0C\u8BA9\u6BCF\u4E00\u5929\u90FD\u66F4\u9760\u8FD1\u7406\u60F3\u7684\u81EA\u5DF1\u3002",
@@ -864,7 +872,12 @@ var DashboardStore = class {
     });
   }
   getSectionsForPage(page) {
-    return this.data.sections.filter((section) => section.page === page && section.enabled).sort((left, right) => left.order - right.order);
+    const layout = this.getModuleLayout(page);
+    return this.data.sections.filter((section) => section.page === page && section.enabled).sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout));
+  }
+  getModuleLayout(page) {
+    var _a;
+    return (_a = this.data.moduleLayouts[page]) != null ? _a : DEFAULT_MODULE_LAYOUTS[page];
   }
   async setCurrentPage(page) {
     this.data.currentPage = page;
@@ -887,6 +900,7 @@ var DashboardStore = class {
       config: {}
     };
     this.data.sections.push(section);
+    this.ensureSectionLayout(page, section.id, nextOrder);
     await this.save();
     return section;
   }
@@ -910,11 +924,17 @@ var DashboardStore = class {
       }
     };
     this.data.sections.push(section);
+    this.ensureSectionLayout(input.page, section.id, nextOrder);
     await this.save();
     return section;
   }
   async removeSection(sectionId) {
-    this.data.sections = this.data.sections.filter((section) => section.id !== sectionId);
+    var _a, _b;
+    const section = this.data.sections.find((item) => item.id === sectionId);
+    this.data.sections = this.data.sections.filter((section2) => section2.id !== sectionId);
+    if (section) {
+      (_b = (_a = this.data.moduleLayouts[section.page]) == null ? void 0 : _a.sections) == null ? true : delete _b[sectionId];
+    }
     await this.save();
   }
   async setSectionEnabled(sectionId, enabled) {
@@ -951,15 +971,68 @@ var DashboardStore = class {
   async reorderSections(page, orderedIds) {
     const orderMap = new Map(orderedIds.map((id, index) => [id, (index + 1) * 10]));
     this.data.sections.forEach((section) => {
+      var _a;
       const order = orderMap.get(section.id);
       if (section.page === page && order !== void 0) {
         section.order = order;
+        this.ensureSectionLayout(page, section.id, order);
+        const sectionLayout = (_a = this.data.moduleLayouts[page].sections) == null ? void 0 : _a[section.id];
+        if (sectionLayout) sectionLayout.order = order;
       }
     });
     await this.save();
   }
   async setOverviewLayout(layout) {
     this.data.userSettings.overviewLayout = layout;
+    this.data.moduleLayouts.overview = this.normalizeModuleLayout({ ...this.data.moduleLayouts.overview, mode: layout });
+    await this.save();
+  }
+  async setModuleLayoutMode(page, mode) {
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({
+      ...this.getModuleLayout(page),
+      mode
+    });
+    if (page === "overview" && mode !== "custom") {
+      this.data.userSettings.overviewLayout = mode;
+    }
+    await this.save();
+  }
+  async updateModuleLayout(page, updates) {
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({
+      ...this.getModuleLayout(page),
+      ...updates
+    });
+    await this.save();
+  }
+  async updateSectionLayout(page, sectionId, updates) {
+    var _a;
+    const section = this.data.sections.find((item) => item.id === sectionId && item.page === page);
+    if (!section) return;
+    this.ensureSectionLayout(page, sectionId, section.order);
+    const layout = this.data.moduleLayouts[page];
+    const sectionLayout = (_a = layout.sections) == null ? void 0 : _a[sectionId];
+    if (!sectionLayout) return;
+    Object.assign(sectionLayout, updates);
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout(layout);
+    await this.save();
+  }
+  async moveSectionLayout(page, sectionId, direction) {
+    var _a, _b, _c, _d;
+    const layout = this.data.moduleLayouts[page];
+    const pageSections = this.data.sections.filter((section) => section.page === page).sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout));
+    const currentIndex = pageSections.findIndex((section) => section.id === sectionId);
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    const target = pageSections[targetIndex];
+    const current = pageSections[currentIndex];
+    if (!current || !target) return;
+    this.ensureSectionLayout(page, current.id, current.order);
+    this.ensureSectionLayout(page, target.id, target.order);
+    const currentLayout = (_a = this.data.moduleLayouts[page].sections) == null ? void 0 : _a[current.id];
+    const targetLayout = (_b = this.data.moduleLayouts[page].sections) == null ? void 0 : _b[target.id];
+    if (!currentLayout || !targetLayout) return;
+    const currentOrder = (_c = currentLayout.order) != null ? _c : current.order;
+    currentLayout.order = (_d = targetLayout.order) != null ? _d : target.order;
+    targetLayout.order = currentOrder;
     await this.save();
   }
   async updateUserSettings(settings) {
@@ -2542,7 +2615,7 @@ var DashboardStore = class {
     const merged = {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.4.0",
+      dataVersion: "0.5.0",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2552,6 +2625,7 @@ var DashboardStore = class {
         ...partial.userSettings
       },
       sections,
+      moduleLayouts: this.migrateModuleLayouts(partial),
       habits: (_a = partial.habits) != null ? _a : {},
       todayFocusTasks: Array.isArray(partial.todayFocusTasks) ? partial.todayFocusTasks : structuredClone(DEFAULT_DATA.todayFocusTasks),
       researchProjects: Array.isArray(partial.researchProjects) ? partial.researchProjects.map((project) => this.normalizeResearchProject(project)) : structuredClone(DEFAULT_DATA.researchProjects).map((project) => this.normalizeResearchProject(project)),
@@ -3218,7 +3292,7 @@ var DashboardStore = class {
   }
   migrateSections(sections) {
     const pages = ["overview", "research", "reading", "fitness", "finance", "goals", "modules"];
-    const migrated = [...sections];
+    const migrated = sections.filter((section) => section.type !== "module-settings");
     pages.forEach((page) => {
       if (!sections.some((section) => section.page === page)) {
         migrated.push(...structuredClone(DEFAULT_DATA.sections.filter((section) => section.page === page)));
@@ -3243,6 +3317,58 @@ var DashboardStore = class {
       ]);
     }
     return this.withRequiredSections(migrated);
+  }
+  migrateModuleLayouts(partial) {
+    var _a, _b, _c;
+    const legacy = partial;
+    const fallbackMode = (_c = (_b = legacy.layoutMode) != null ? _b : (_a = partial.userSettings) == null ? void 0 : _a.overviewLayout) != null ? _c : DEFAULT_DATA.userSettings.overviewLayout;
+    const layouts = structuredClone(DEFAULT_MODULE_LAYOUTS);
+    Object.keys(layouts).forEach((page) => {
+      var _a2;
+      const saved = (_a2 = partial.moduleLayouts) == null ? void 0 : _a2[page];
+      layouts[page] = this.normalizeModuleLayout(saved != null ? saved : { ...layouts[page], mode: fallbackMode });
+    });
+    return layouts;
+  }
+  normalizeModuleLayout(layout) {
+    var _a;
+    const mode = (layout == null ? void 0 : layout.mode) === "compact" || (layout == null ? void 0 : layout.mode) === "minimal" || (layout == null ? void 0 : layout.mode) === "custom" ? layout.mode : "default";
+    const columns = Math.max(1, Math.min(24, Number(layout == null ? void 0 : layout.columns) || this.columnsForLayoutMode(mode)));
+    const sections = {};
+    Object.entries((_a = layout == null ? void 0 : layout.sections) != null ? _a : {}).forEach(([sectionId, sectionLayout]) => {
+      sections[sectionId] = {
+        order: sectionLayout.order,
+        colSpan: sectionLayout.colSpan === void 0 ? void 0 : Math.max(1, Math.min(columns, Number(sectionLayout.colSpan) || 1)),
+        rowSpan: sectionLayout.rowSpan === void 0 ? void 0 : Math.max(1, Math.min(12, Number(sectionLayout.rowSpan) || 1))
+      };
+    });
+    return {
+      mode,
+      columns,
+      templateId: typeof (layout == null ? void 0 : layout.templateId) === "string" ? layout.templateId : void 0,
+      sections
+    };
+  }
+  ensureSectionLayout(page, sectionId, fallbackOrder) {
+    var _a, _b;
+    const layout = (_a = this.data.moduleLayouts[page]) != null ? _a : structuredClone(DEFAULT_MODULE_LAYOUTS[page]);
+    layout.sections = (_b = layout.sections) != null ? _b : {};
+    layout.sections[sectionId] = {
+      order: fallbackOrder,
+      colSpan: 1,
+      rowSpan: 1,
+      ...layout.sections[sectionId]
+    };
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout(layout);
+  }
+  getSectionLayoutOrder(section, layout) {
+    var _a, _b, _c;
+    return (_c = (_b = (_a = layout.sections) == null ? void 0 : _a[section.id]) == null ? void 0 : _b.order) != null ? _c : section.order;
+  }
+  columnsForLayoutMode(mode) {
+    if (mode === "compact") return 16;
+    if (mode === "minimal") return 1;
+    return 12;
   }
   normalizeFocusRecord(record) {
     var _a, _b, _c, _d, _e, _f, _g;
@@ -7642,80 +7768,221 @@ var EnabledModulesOverviewSection = class {
     });
   }
 };
+var MANAGED_PAGES = ["overview", "research", "reading", "fitness", "finance", "goals"];
+var LAYOUT_TEMPLATES = [
+  { id: "two-columns", label: "\u5747\u5300\u53CC\u5217", description: "\u4E24\u4E2A\u7B49\u5BBD\u5217\uFF0C\u9002\u5408\u901A\u7528\u4FE1\u606F\u6D41\u3002", columns: 2 },
+  { id: "three-columns", label: "\u5747\u5300\u4E09\u5217", description: "\u4E09\u5217\u5E76\u6392\uFF0C\u9002\u5408\u8F7B\u91CF\u5361\u7247\u3002", columns: 3 },
+  { id: "left-large", label: "\u5DE6\u5927\u53F3\u5C0F", description: "\u5DE6\u4FA7\u91CD\u70B9\uFF0C\u53F3\u4FA7\u4E0A\u4E0B\u6392\u5217\u3002", columns: 4 },
+  { id: "right-large", label: "\u5DE6\u5C0F\u53F3\u5927", description: "\u53F3\u4FA7\u91CD\u70B9\uFF0C\u5DE6\u4FA7\u4E0A\u4E0B\u6392\u5217\u3002", columns: 4 },
+  { id: "top-full", label: "\u9876\u90E8\u901A\u680F", description: "\u9996\u4E2A\u677F\u5757\u901A\u680F\uFF0C\u4E0B\u65B9\u53CC\u5217\u3002", columns: 4 },
+  { id: "left-feature", label: "\u5DE6\u5217\u91CD\u70B9", description: "\u5DE6\u4FA7\u6574\u5217\uFF0C\u53F3\u4FA7\u7F51\u683C\u3002", columns: 4 }
+];
 var HomeLayoutManagerSection = class {
   constructor(store, onDataChanged) {
     this.store = store;
     this.onDataChanged = onDataChanged;
+    const currentPage = this.store.getData().currentPage;
+    this.selectedPage = MANAGED_PAGES.includes(currentPage) ? currentPage : "overview";
   }
   render(container) {
-    const current = this.store.getData().userSettings.overviewLayout;
+    var _a;
+    this.host = container;
+    container.empty();
+    const header = container.createDiv({ cls: "cow-layout-manager-header" });
+    header.createSpan({ text: "\u5F53\u524D\u6A21\u5757" });
+    const select = header.createEl("select", { attr: { "aria-label": "\u9009\u62E9\u8981\u8BBE\u7F6E\u5E03\u5C40\u7684\u6A21\u5757" } });
+    MANAGED_PAGES.forEach((page) => select.createEl("option", { value: page, text: PAGE_LABELS[page] }));
+    select.value = this.selectedPage;
+    select.addEventListener("change", () => {
+      this.selectedPage = select.value;
+      this.selectedSectionId = void 0;
+      this.render(container);
+    });
+    const layout = this.store.getModuleLayout(this.selectedPage);
+    const current = layout.mode;
     const grid = container.createDiv({ cls: "cow-layout-picker" });
     [
-      ["default", "\u9ED8\u8BA4\u5E03\u5C40", "\u5361\u7247\u6309 12 \u680F\u7F51\u683C\u5C55\u793A"],
-      ["compact", "\u7D27\u51D1\u5E03\u5C40", "\u66F4\u591A\u5361\u7247\u5E76\u6392\uFF0C\u4FE1\u606F\u66F4\u5BC6"],
-      ["minimal", "\u6781\u7B80\u5E03\u5C40", "\u5355\u5217\u9605\u8BFB\uFF0C\u5C11\u5E72\u6270"]
+      ["default", "\u9ED8\u8BA4\u5E03\u5C40", "\u4FDD\u6301\u5F53\u524D\u9875\u9762\u6807\u51C6\u5361\u7247\u8282\u594F"],
+      ["compact", "\u7D27\u51D1\u5E03\u5C40", "\u589E\u52A0\u7F51\u683C\u5217\u6570\uFF0C\u51CF\u5C11\u95F4\u8DDD\u548C\u7559\u767D"],
+      ["minimal", "\u6781\u7B80\u5E03\u5C40", "\u5355\u5217\u5C55\u793A\uFF0C\u51CF\u5C11\u88C5\u9970\u4F46\u4FDD\u7559\u6570\u636E"],
+      ["custom", "\u81EA\u5B9A\u4E49\u5E03\u5C40", "\u4F7F\u7528\u6A21\u677F\u3001\u8DE8\u5EA6\u548C\u987A\u5E8F\u63A7\u5236\u677F\u5757"]
     ].forEach(([id, title, desc]) => {
       const button = grid.createEl("button", { cls: current === id ? "is-active" : "", attr: { type: "button" } });
       button.createEl("strong", { text: title });
       button.createSpan({ text: desc });
       button.addEventListener("click", async () => {
-        await this.store.setOverviewLayout(id);
-        this.onDataChanged();
+        await this.store.setModuleLayoutMode(this.selectedPage, id);
+        this.rerender();
+      });
+    });
+    const note = container.createDiv({ cls: "cow-meta-line" });
+    note.createSpan({ text: `${PAGE_LABELS[this.selectedPage]} \u5F53\u524D\u5217\u6570\uFF1A${(_a = layout.columns) != null ? _a : 12}\u3002\u81EA\u5B9A\u4E49\u5E03\u5C40\u4F1A\u4FDD\u5B58 columns / colSpan / rowSpan\uFF0C\u5E76\u53EA\u4F5C\u7528\u4E8E\u5F53\u524D\u6A21\u5757\u3002` });
+    if (layout.mode === "custom") {
+      this.renderCustomLayoutEditor(container, layout);
+    }
+  }
+  renderCustomLayoutEditor(container, layout) {
+    container.createEl("h4", { text: "\u5E03\u5C40\u6A21\u677F" });
+    const templates = container.createDiv({ cls: "cow-layout-template-grid" });
+    LAYOUT_TEMPLATES.forEach((template) => {
+      const button = templates.createEl("button", { cls: layout.templateId === template.id ? "is-active" : "", attr: { type: "button" } });
+      const title = button.createDiv({ cls: "cow-layout-template-title" });
+      title.createEl("strong", { text: template.label });
+      if (layout.templateId === template.id) title.createSpan({ text: "\u2713" });
+      this.renderTemplateMiniature(button, template.id);
+      button.createSpan({ text: template.description });
+      button.addEventListener("click", async () => {
+        const sections = this.getManagedSections();
+        await this.store.updateModuleLayout(this.selectedPage, {
+          mode: "custom",
+          columns: template.columns,
+          templateId: template.id,
+          sections: this.createTemplateSectionLayouts(template, sections)
+        });
+        this.rerender();
+      });
+    });
+    container.createEl("h4", { text: "\u5E03\u5C40\u9884\u89C8" });
+    this.renderPreview(container, layout);
+    container.createEl("h4", { text: "\u677F\u5757\u5E03\u5C40" });
+    this.renderSectionEditor(container, layout);
+  }
+  renderTemplateMiniature(container, id) {
+    const mini = container.createDiv({ cls: `cow-layout-template-mini is-${id}` });
+    Array.from({ length: id === "left-feature" ? 5 : 4 }, (_, index) => {
+      mini.createDiv({ text: String.fromCharCode(65 + index) });
+    });
+  }
+  renderPreview(container, layout) {
+    var _a;
+    const sections = this.getManagedSections();
+    const preview = container.createDiv({ cls: "cow-layout-preview" });
+    preview.style.setProperty("--preview-columns", String((_a = layout.columns) != null ? _a : 4));
+    sections.forEach((section) => {
+      var _a2, _b, _c, _d, _e;
+      const sectionLayout = this.getSectionLayout(layout, section);
+      const tile = preview.createEl("button", {
+        cls: [
+          "cow-layout-preview-tile",
+          section.enabled ? "" : "is-disabled",
+          this.selectedSectionId === section.id ? "is-selected" : ""
+        ].filter(Boolean).join(" "),
+        attr: { type: "button" }
+      });
+      tile.style.gridColumn = `span ${this.clamp((_a2 = sectionLayout.colSpan) != null ? _a2 : 1, 1, (_b = layout.columns) != null ? _b : 4)}`;
+      tile.style.gridRow = `span ${this.clamp((_c = sectionLayout.rowSpan) != null ? _c : 1, 1, 3)}`;
+      tile.createEl("strong", { text: section.title });
+      tile.createSpan({ text: `${(_d = sectionLayout.colSpan) != null ? _d : 1}\xD7${(_e = sectionLayout.rowSpan) != null ? _e : 1}${section.enabled ? "" : " \xB7 \u5DF2\u9690\u85CF"}` });
+      tile.addEventListener("click", () => {
+        this.selectedSectionId = section.id;
+        this.rerender();
       });
     });
   }
-};
-var ModuleSwitchSortSection = class {
-  constructor(store, onDataChanged) {
-    this.store = store;
-    this.onDataChanged = onDataChanged;
-  }
-  render(container) {
-    DASHBOARD_PAGES.forEach((pageDefinition) => {
-      const page = pageDefinition.id;
-      const sections = this.store.getAllSections().filter((section) => section.page === page);
-      if (sections.length === 0) return;
-      container.createEl("h4", { text: pageDefinition.label });
-      const list = container.createDiv({ cls: "cow-module-sort-list", attr: { "data-page": page } });
-      sections.forEach((section) => this.renderRow(list, section));
-    });
-  }
-  renderRow(list, section) {
-    const row = list.createDiv({ cls: "cow-module-row", attr: { draggable: "true", "data-id": section.id } });
-    const handle = row.createSpan({ cls: "cow-drag-handle" });
-    (0, import_obsidian26.setIcon)(handle, "grip-vertical");
-    row.createSpan({ text: section.title });
-    row.createSpan({ cls: "cow-module-page", text: section.page });
-    renderSwitch(row, section.enabled, async (checked) => {
-      await this.store.setSectionEnabled(section.id, checked);
-      this.onDataChanged();
-    });
-    row.addEventListener("dragstart", () => {
-      this.draggingId = section.id;
-      row.addClass("is-dragging");
-    });
-    row.addEventListener("dragend", () => {
-      row.removeClass("is-dragging");
-      this.draggingId = void 0;
-    });
-    row.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      const dragging = this.draggingId;
-      if (!dragging || dragging === section.id) return;
-      const draggingEl = list.querySelector(`[data-id="${dragging}"]`);
-      if (draggingEl) list.insertBefore(draggingEl, row);
-    });
-    row.addEventListener("drop", async () => {
-      const ids = Array.from(list.querySelectorAll(".cow-module-row")).map((item) => {
-        var _a;
-        return (_a = item.dataset.id) != null ? _a : "";
+  renderSectionEditor(container, layout) {
+    var _a, _b, _c, _d;
+    const sections = this.getManagedSections();
+    const selected = (_a = sections.find((section) => section.id === this.selectedSectionId)) != null ? _a : sections[0];
+    if (selected && !this.selectedSectionId) this.selectedSectionId = selected.id;
+    const list = container.createDiv({ cls: "cow-layout-section-list" });
+    sections.forEach((section) => {
+      const row = list.createDiv({ cls: `cow-layout-section-row ${this.selectedSectionId === section.id ? "is-selected" : ""} ${section.enabled ? "" : "is-disabled"}` });
+      const title = row.createDiv({ cls: "cow-section-manager-title" });
+      title.createEl("strong", { text: section.title });
+      title.createSpan({ text: section.enabled ? "\u5DF2\u542F\u7528" : "\u5DF2\u9690\u85CF\uFF0C\u91CD\u65B0\u542F\u7528\u540E\u4F1A\u6062\u590D\u6B64\u5E03\u5C40" });
+      row.addEventListener("click", () => {
+        this.selectedSectionId = section.id;
+        this.rerender();
       });
-      await this.store.reorderSections(section.page, ids);
-      this.onDataChanged();
+      const actions = row.createDiv({ cls: "cow-list-item-actions" });
+      const up = actions.createEl("button", { attr: { type: "button", "aria-label": "\u4E0A\u79FB" } });
+      (0, import_obsidian26.setIcon)(up, "arrow-up");
+      up.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        await this.store.moveSectionLayout(this.selectedPage, section.id, "up");
+        this.selectedSectionId = section.id;
+        this.rerender();
+      });
+      const down = actions.createEl("button", { attr: { type: "button", "aria-label": "\u4E0B\u79FB" } });
+      (0, import_obsidian26.setIcon)(down, "arrow-down");
+      down.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        await this.store.moveSectionLayout(this.selectedPage, section.id, "down");
+        this.selectedSectionId = section.id;
+        this.rerender();
+      });
+    });
+    if (!selected) {
+      container.createDiv({ cls: "cow-empty-state", text: "\u5F53\u524D\u6A21\u5757\u6682\u65E0\u53EF\u914D\u7F6E\u677F\u5757\u3002" });
+      return;
+    }
+    const selectedLayout = this.getSectionLayout(layout, selected);
+    const panel = container.createDiv({ cls: "cow-layout-selected-panel" });
+    panel.createEl("strong", { text: `\u5F53\u524D\u9009\u4E2D\uFF1A${selected.title}` });
+    panel.createDiv({ cls: "cow-meta-line", text: selected.enabled ? "\u4FEE\u6539\u5BBD\u5EA6 / \u9AD8\u5EA6\u8DE8\u5EA6\u540E\u4F1A\u7ACB\u5373\u5E94\u7528\u5230\u5F53\u524D\u6A21\u5757\u3002" : "\u8BE5 Section \u5DF2\u9690\u85CF\uFF0C\u5E03\u5C40\u8BBE\u7F6E\u4F1A\u4FDD\u7559\u5230\u6062\u590D\u663E\u793A\u540E\u7EE7\u7EED\u751F\u6548\u3002" });
+    const controls = panel.createDiv({ cls: "cow-layout-span-controls" });
+    this.renderSpanButtons(controls, "\u5BBD\u5EA6", (_b = layout.columns) != null ? _b : 4, (_c = selectedLayout.colSpan) != null ? _c : 1, async (value) => {
+      await this.store.updateSectionLayout(this.selectedPage, selected.id, { colSpan: value });
+      this.selectedSectionId = selected.id;
+      this.rerender();
+    });
+    this.renderSpanButtons(controls, "\u9AD8\u5EA6", 3, (_d = selectedLayout.rowSpan) != null ? _d : 1, async (value) => {
+      await this.store.updateSectionLayout(this.selectedPage, selected.id, { rowSpan: value });
+      this.selectedSectionId = selected.id;
+      this.rerender();
     });
   }
+  renderSpanButtons(container, label, max, current, onPick) {
+    const group = container.createDiv({ cls: "cow-layout-span-group" });
+    group.createSpan({ text: label });
+    for (let value = 1; value <= max; value += 1) {
+      const button = group.createEl("button", { cls: current === value ? "is-active" : "", text: String(value), attr: { type: "button" } });
+      button.addEventListener("click", () => void onPick(value));
+    }
+  }
+  createTemplateSectionLayouts(template, sections) {
+    const layouts = {};
+    sections.forEach((section, index) => {
+      layouts[section.id] = {
+        order: (index + 1) * 10,
+        colSpan: this.templateColSpan(template.id, index),
+        rowSpan: this.templateRowSpan(template.id, index)
+      };
+    });
+    return layouts;
+  }
+  templateColSpan(template, index) {
+    if (template === "two-columns") return 1;
+    if (template === "three-columns") return 1;
+    if (template === "top-full" && index === 0) return 4;
+    if (template === "top-full") return 2;
+    if (template === "left-feature") return index === 0 ? 2 : 1;
+    return 2;
+  }
+  templateRowSpan(template, index) {
+    if ((template === "left-large" || template === "left-feature") && index === 0) return 2;
+    if (template === "right-large" && index === 1) return 2;
+    return 1;
+  }
+  getManagedSections() {
+    const layout = this.store.getModuleLayout(this.selectedPage);
+    return this.store.getAllSections().filter((section) => section.page === this.selectedPage).sort((left, right) => this.getSectionLayout(layout, left).order - this.getSectionLayout(layout, right).order);
+  }
+  getSectionLayout(layout, section) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+    return {
+      order: (_c = (_b = (_a = layout.sections) == null ? void 0 : _a[section.id]) == null ? void 0 : _b.order) != null ? _c : section.order,
+      colSpan: this.clamp((_f = (_e = (_d = layout.sections) == null ? void 0 : _d[section.id]) == null ? void 0 : _e.colSpan) != null ? _f : 1, 1, (_g = layout.columns) != null ? _g : 4),
+      rowSpan: this.clamp((_j = (_i = (_h = layout.sections) == null ? void 0 : _h[section.id]) == null ? void 0 : _i.rowSpan) != null ? _j : 1, 1, 3)
+    };
+  }
+  clamp(value, min, max) {
+    return Math.max(min, Math.min(max, Number(value) || min));
+  }
+  rerender() {
+    if (this.host) this.render(this.host);
+  }
 };
-var MANAGED_PAGES = ["overview", "research", "reading", "fitness", "finance", "goals"];
 var CARD_COLORS2 = [
   { id: "default", label: "\u9ED8\u8BA4" },
   { id: "pink", label: "\u7C89\u8272" },
@@ -15041,11 +15308,18 @@ var DashboardSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     const cardColor = typeof ((_a = this.section.config) == null ? void 0 : _a.cardColor) === "string" ? this.section.config.cardColor : "default";
     const sectionEl = container.createDiv({
       cls: `cow-section cow-section-${(_b = this.section.width) != null ? _b : "md"} cow-section-height-${(_c = this.section.height) != null ? _c : "sm"} cow-card-color-${cardColor}`
     });
+    const sectionLayout = (_d = this.store.getModuleLayout(this.section.page).sections) == null ? void 0 : _d[this.section.id];
+    if (sectionLayout == null ? void 0 : sectionLayout.colSpan) {
+      sectionEl.style.gridColumn = `span ${sectionLayout.colSpan}`;
+    }
+    if (sectionLayout == null ? void 0 : sectionLayout.rowSpan) {
+      sectionEl.style.gridRow = `span ${sectionLayout.rowSpan}`;
+    }
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
     const title = header.createDiv({ cls: "cow-section-title" });
     (0, import_obsidian77.setIcon)(title.createSpan(), this.getIcon());
@@ -15435,9 +15709,6 @@ var DashboardSection = class {
       case "home-layout-manager":
         new HomeLayoutManagerSection(this.store, this.onDataChanged).render(container);
         break;
-      case "module-settings":
-        new ModuleSwitchSortSection(this.store, this.onDataChanged).render(container);
-        break;
       case "banner-background-settings":
         new BannerBackgroundSettingsSection(this.store, this.onDataChanged).render(container);
         break;
@@ -15587,7 +15858,6 @@ var DashboardSection = class {
       "enabled-modules-overview": "panel-top",
       "section-manager": "rows-3",
       "home-layout-manager": "layout-template",
-      "module-settings": "sliders-horizontal",
       "banner-background-settings": "image",
       "calendar-widget-settings": "calendar-days",
       "apex-habit-settings": "calendar-check",
@@ -15662,7 +15932,10 @@ var DashboardGrid = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    const grid = container.createDiv({ cls: "cow-dashboard-grid" });
+    var _a;
+    const layout = this.store.getModuleLayout(this.page);
+    const grid = container.createDiv({ cls: `cow-dashboard-grid cow-module-layout-${layout.mode}` });
+    grid.style.setProperty("--layout-columns", String((_a = layout.columns) != null ? _a : 12));
     const sections = this.store.getSectionsForPage(this.page);
     sections.forEach((section) => {
       new DashboardSection(this.app, this.store, section, async (removedSection) => {
@@ -16083,7 +16356,7 @@ var WorkbenchView = class extends import_obsidian84.ItemView {
     container.addClass("cute-obsidian-workbench");
     this.applyTheme(container);
     (_a = this.sidebar) == null ? void 0 : _a.destroy();
-    const shell = container.createDiv({ cls: `cow-shell cow-layout-${this.plugin.store.getData().userSettings.overviewLayout}` });
+    const shell = container.createDiv({ cls: "cow-shell" });
     this.sidebar = new Sidebar(this.app, this.router.getCurrentPage(), [
       { label: "\u5DE5\u4F5C\u53F0", icon: "home", onClick: () => this.router.navigate("overview") },
       { label: "\u6BCF\u65E5\u7B14\u8BB0", icon: "calendar-days", onClick: () => void new NoteService(this.app).openOrCreateDailyNote(/* @__PURE__ */ new Date()) },
