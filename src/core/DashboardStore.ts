@@ -177,6 +177,10 @@ function todayKey(): string {
   return formatDateKey(new Date());
 }
 
+function currentMonthKey(): string {
+  return todayKey().slice(0, 7);
+}
+
 const DEFAULT_MODULE_LAYOUTS: Record<DashboardPage, ModuleLayoutConfig> = {
   overview: { mode: "default", columns: 12, sections: {} },
   research: { mode: "default", columns: 12, sections: {} },
@@ -188,7 +192,7 @@ const DEFAULT_MODULE_LAYOUTS: Record<DashboardPage, ModuleLayoutConfig> = {
 };
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.5.4",
+  dataVersion: "0.5.5",
   currentPage: "overview",
   sections: [
     {
@@ -2331,7 +2335,7 @@ export class DashboardStore {
   }
 
   getTransactions(): Transaction[] {
-    return this.data.transactions;
+    return this.data.transactions.filter((transaction) => !this.isBudgetAdjustmentTransaction(transaction));
   }
 
   async updateTransaction(transactionId: string, updates: Partial<Transaction>): Promise<void> {
@@ -2349,21 +2353,22 @@ export class DashboardStore {
   }
 
   getBudgets(): Budget[] {
-    return this.data.budgets;
+    return this.data.budgets.filter((budget) => budget.role !== "monthly-limit");
   }
 
-  getMonthlyBudgetLimit(): number {
-    return this.data.budgets.reduce((sum, budget) => sum + budget.amount, 0);
+  getMonthlyBudgetLimit(period = currentMonthKey()): number {
+    const monthly = this.data.budgets.find((budget) => budget.role === "monthly-limit" && budget.period === period);
+    if (monthly) return monthly.amount;
+    return this.getBudgets().reduce((sum, budget) => sum + budget.amount, 0);
   }
 
-  async setMonthlyBudgetLimit(amount: number): Promise<void> {
-    const budget = this.data.budgets[0] ?? { id: "budget-monthly", category: "月预算", amount: 0, spent: 0 };
-    const currentTotal = this.getMonthlyBudgetLimit();
-    const delta = amount - currentTotal;
-    budget.amount = budget.amount + delta;
-    if (!this.data.budgets.some((item) => item.id === budget.id)) {
+  async setMonthlyBudgetLimit(amount: number, period = currentMonthKey()): Promise<void> {
+    let budget = this.data.budgets.find((item) => item.role === "monthly-limit" && item.period === period);
+    if (!budget) {
+      budget = { id: `budget-limit-${period}`, category: "月预算", amount: 0, spent: 0, role: "monthly-limit", period };
       this.data.budgets.unshift(budget);
     }
+    budget.amount = Math.max(0, amount);
     await this.save();
   }
 
@@ -2401,7 +2406,7 @@ export class DashboardStore {
   }
 
   async addAccount(account: Account): Promise<void> {
-    this.data.accounts.push(account);
+    this.data.accounts.push(this.normalizeAccount(account));
     await this.save();
   }
 
@@ -2409,11 +2414,15 @@ export class DashboardStore {
     const account = this.data.accounts.find((item) => item.id === accountId);
     if (!account) return;
     Object.assign(account, updates);
+    Object.assign(account, this.normalizeAccount(account));
     await this.save();
   }
 
   async deleteAccount(accountId: string): Promise<void> {
     this.data.accounts = this.data.accounts.filter((item) => item.id !== accountId);
+    this.data.transactions.forEach((transaction) => {
+      if (transaction.accountId === accountId) transaction.accountId = undefined;
+    });
     await this.save();
   }
 
@@ -2942,7 +2951,7 @@ export class DashboardStore {
   private getCurrentMonthTransactions(): Transaction[] {
     const now = new Date();
     const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    return this.data.transactions.filter((transaction) => transaction.date.startsWith(prefix));
+    return this.getTransactions().filter((transaction) => transaction.date.startsWith(prefix));
   }
 
   getPriorityMatrixItems(): PriorityMatrixItem[] {
@@ -2967,11 +2976,16 @@ export class DashboardStore {
   }
 
   private recalculateBudgetSpent(): void {
-    this.data.budgets.forEach((budget) => {
+    this.getBudgets().forEach((budget) => {
       budget.spent = this.getCurrentMonthTransactions()
         .filter((transaction) => transaction.type === "expense" && transaction.category === budget.category)
         .reduce((sum, transaction) => sum + transaction.amount, 0);
     });
+  }
+
+  private isBudgetAdjustmentTransaction(transaction: Transaction): boolean {
+    return transaction.note === "月度收支管理调整"
+      && (transaction.category === "月度收入调整" || transaction.category === "月度支出调整");
   }
 
   private setSectionEnabledInMemory(sectionId: string, enabled: boolean): void {
@@ -3067,7 +3081,7 @@ export class DashboardStore {
     const merged: WorkbenchData = {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.5.4",
+      dataVersion: "0.5.5",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -3144,7 +3158,9 @@ export class DashboardStore {
         ? partial.transactions
         : structuredClone(DEFAULT_DATA.transactions),
       budgets: Array.isArray(partial.budgets) ? partial.budgets : structuredClone(DEFAULT_DATA.budgets),
-      accounts: Array.isArray(partial.accounts) ? partial.accounts : structuredClone(DEFAULT_DATA.accounts),
+      accounts: Array.isArray(partial.accounts)
+        ? partial.accounts.map((account) => this.normalizeAccount(account))
+        : structuredClone(DEFAULT_DATA.accounts).map((account) => this.normalizeAccount(account)),
       savingGoals: Array.isArray(partial.savingGoals)
         ? partial.savingGoals
         : structuredClone(DEFAULT_DATA.savingGoals),
@@ -3273,6 +3289,26 @@ export class DashboardStore {
     if (type === "拉伸") return "瑜伽";
     if (type === "有氧") return "跑步";
     return "其它";
+  }
+
+  private normalizeAccount(account: Account): Account {
+    return {
+      ...account,
+      id: account.id ?? `account-${Date.now()}`,
+      name: account.name || "未命名账户",
+      type: account.type || "其他",
+      balance: Number(account.balance) || 0,
+      icon: this.accountTypeIcon(account.type)
+    };
+  }
+
+  private accountTypeIcon(type?: Account["type"]): string {
+    if (type === "现金") return "wallet";
+    if (type === "储蓄卡") return "landmark";
+    if (type === "信用卡") return "credit-card";
+    if (type === "支付宝" || type === "微信钱包") return "smartphone";
+    if (type === "投资账户" || type === "证券") return "chart-no-axes-combined";
+    return "circle-dollar-sign";
   }
 
   private normalizeFitnessGoal(goal: FitnessGoal): FitnessGoal {

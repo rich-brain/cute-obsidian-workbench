@@ -28,8 +28,7 @@ import {
   openBudgetModal,
   openFitnessDailyModal,
   openInvestmentWatchModal,
-  openPriorityItemModal,
-  openTransactionModal
+  openPriorityItemModal
 } from "./DashboardEditModals";
 import { TodayFocusTaskModal, TodoStatisticsModal } from "./overview/TodoStatisticsModal";
 import { openReadingNoteModal } from "./reading/ReadingNotesSection";
@@ -197,10 +196,10 @@ export function openAddContentModal(app: App, store: DashboardStore, section: Da
       });
       break;
     case "income-expense-trend":
-      openTransactionModal(app, async (values) => {
+      new AddTransactionModal(app, async (values) => {
         await store.addTransaction(values);
         refresh();
-      });
+      }, undefined, store.getBudgets(), store.getAccounts()).open();
       break;
     case "investment-watch":
       openInvestmentWatchModal(app, async (values) => {

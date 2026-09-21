@@ -362,6 +362,8 @@ export interface Budget {
   spent: number;
   color?: string;
   icon?: string;
+  role?: "category" | "monthly-limit";
+  period?: string;
 }
 
 export interface Account {

@@ -1,5 +1,5 @@
 import { App, setIcon } from "obsidian";
-import type { DashboardStore } from "../../core/DashboardStore";
+import { formatDateKey, type DashboardStore } from "../../core/DashboardStore";
 import { openFinanceTodoModal } from "./FinanceModals";
 
 export class FinanceTodosSection {
@@ -31,6 +31,26 @@ export class FinanceTodosSection {
         await this.store.deleteFinanceTodo(item.id);
         this.onDataChanged();
       });
+    });
+    this.renderCompleteAll(container);
+  }
+
+  private renderCompleteAll(container: HTMLElement): void {
+    const today = formatDateKey(new Date());
+    const todayTodos = this.store.getFinanceTodos().filter((item) => (item.date ?? today) === today);
+    const pending = todayTodos.filter((item) => !item.completed);
+    const button = container.createEl("button", {
+      cls: `cow-finance-todo-complete-all ${pending.length === 0 ? "is-complete" : ""}`,
+      attr: { type: "button" }
+    });
+    setIcon(button.createSpan(), pending.length === 0 ? "check-circle-2" : "check");
+    button.createSpan({ text: pending.length === 0 ? "今日记账待办已完成" : "都完成" });
+    button.addEventListener("click", async () => {
+      if (pending.length === 0) return;
+      for (const todo of pending) {
+        await this.store.updateFinanceTodo(todo.id, { completed: true });
+      }
+      this.onDataChanged();
     });
   }
 }

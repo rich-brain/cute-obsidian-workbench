@@ -1,4 +1,4 @@
-import { App, Notice } from "obsidian";
+import { App, Modal, Notice, setIcon } from "obsidian";
 import { formatDateKey } from "../core/DashboardStore";
 import { CrudItemModal } from "./CrudItemModal";
 import type {
@@ -11,6 +11,8 @@ import type {
   PriorityMatrixItem,
   Transaction
 } from "../types/dashboard";
+import { applyResizableModal } from "./ResizableModal";
+import { getAccountTypeIcon } from "./finance/accountIcons";
 
 const ACCOUNT_TYPES = ["现金", "储蓄卡", "信用卡", "投资账户", "支付宝", "微信钱包", "证券", "其他"];
 const QUADRANTS = [
@@ -80,17 +82,67 @@ export function openBudgetModal(app: App, onSubmit: (values: Budget) => Promise<
 }
 
 export function openAccountModal(app: App, onSubmit: (values: Account) => Promise<void>, account?: Account): void {
-  new CrudItemModal(app, account ? "编辑账户" : "新增账户", {
-    name: account?.name ?? "",
-    type: account?.type ?? "储蓄卡",
-    balance: account?.balance ?? 0,
-    icon: account?.icon ?? "wallet"
-  }, [
-    { key: "name", name: "账户名称" },
-    { key: "type", name: "账户类型", type: "select", options: ACCOUNT_TYPES.map((type) => ({ value: type, label: type })) },
-    { key: "balance", name: "余额", type: "number" },
-    { key: "icon", name: "图标" }
-  ], async (values) => onSubmit({ ...values, id: account?.id ?? `account-${Date.now()}` })).open();
+  new AccountModal(app, onSubmit, account).open();
+}
+
+class AccountModal extends Modal {
+  constructor(app: App, private readonly onSubmit: (values: Account) => Promise<void>, private readonly account?: Account) {
+    super(app);
+  }
+
+  onOpen(): void {
+    applyResizableModal(this, {
+      className: "cute-finance-edit-modal",
+      width: "min(640px, 90vw)",
+      maxWidth: "94vw",
+      maxHeight: "88vh",
+      minWidth: "min(360px, 90vw)",
+      minHeight: "min(280px, 80vh)"
+    });
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-finance-modal");
+    this.contentEl.createEl("h2", { text: this.account ? "编辑账户" : "新增账户" });
+
+    const form = this.contentEl.createDiv({ cls: "cow-finance-form-grid" });
+    const nameRow = form.createDiv({ cls: "cow-finance-form-row" });
+    nameRow.createEl("label", { text: "账户名称" });
+    const name = nameRow.createEl("input", { attr: { type: "text", value: this.account?.name ?? "" } });
+
+    const typeRow = form.createDiv({ cls: "cow-finance-form-row" });
+    typeRow.createEl("label", { text: "账户类型" });
+    const type = typeRow.createEl("select");
+    ACCOUNT_TYPES.forEach((item) => type.createEl("option", { value: item, text: item }));
+    type.value = this.account?.type ?? "储蓄卡";
+
+    const balanceRow = form.createDiv({ cls: "cow-finance-form-row" });
+    balanceRow.createEl("label", { text: "余额" });
+    const balance = balanceRow.createEl("input", { attr: { type: "number", value: String(this.account?.balance ?? 0), step: "0.01" } });
+
+    const preview = this.contentEl.createDiv({ cls: "cow-account-icon-preview" });
+    const renderPreview = (): void => {
+      preview.empty();
+      const icon = preview.createSpan({ cls: "cow-account-icon" });
+      setIcon(icon, getAccountTypeIcon(type.value as Account["type"]));
+      preview.createSpan({ text: `${type.value} · ${name.value.trim() || "未命名账户"}` });
+    };
+    type.addEventListener("change", renderPreview);
+    name.addEventListener("input", renderPreview);
+    renderPreview();
+
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "保存", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
+      const accountType = type.value as Account["type"];
+      await this.onSubmit({
+        id: this.account?.id ?? `account-${Date.now()}`,
+        name: name.value.trim() || "未命名账户",
+        type: accountType,
+        balance: Number(balance.value) || 0,
+        icon: getAccountTypeIcon(accountType)
+      });
+      this.close();
+    });
+  }
 }
 
 export function openInvestmentWatchModal(app: App, onSubmit: (values: InvestmentWatchItem) => Promise<void>, item?: InvestmentWatchItem): void {

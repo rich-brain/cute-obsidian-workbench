@@ -1,6 +1,7 @@
 import { App, setIcon } from "obsidian";
 import { formatDateKey, type DashboardStore } from "../../core/DashboardStore";
 import { AddTransactionModal } from "./AddTransactionModal";
+import { accountLabel } from "./accountIcons";
 
 export class FinanceLedgerSection {
   constructor(
@@ -27,10 +28,15 @@ export class FinanceLedgerSection {
     });
 
     const list = container.createDiv({ cls: "cow-data-list cow-compact-list" });
-    this.store.getTransactions().slice(-5).reverse().forEach((transaction) => {
+    if (todayTransactions.length === 0) {
+      const empty = list.createDiv({ cls: "cow-empty-state" });
+      empty.createEl("p", { text: "今天还没有记账" });
+    }
+    todayTransactions.slice().reverse().forEach((transaction) => {
+      const account = transaction.accountId ? this.store.getAccounts().find((item) => item.id === transaction.accountId) : undefined;
       const row = list.createDiv({ cls: "cow-data-card" });
       row.createEl("strong", { text: `${transaction.type === "income" ? "+" : "-"}¥${transaction.amount} · ${transaction.category}` });
-      row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${transaction.date} · ${transaction.note || "无备注"}` });
+      row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${accountLabel(account)} · ${transaction.note || "无备注"}` });
     });
 
     const add = container.createEl("button", { cls: "finance-add-transaction-bar", attr: { type: "button" } });
@@ -40,8 +46,7 @@ export class FinanceLedgerSection {
       new AddTransactionModal(this.app, async (transaction) => {
         await this.store.addTransaction(transaction);
         this.onDataChanged();
-      }, undefined, this.store.getBudgets()).open();
+      }, undefined, this.store.getBudgets(), this.store.getAccounts()).open();
     });
   }
 }
-

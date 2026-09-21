@@ -1,6 +1,7 @@
 import { App, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import { openAccountModal } from "../DashboardEditModals";
+import { renderAccountIcon } from "./accountIcons";
 
 export class AccountOverviewSection {
   constructor(
@@ -24,7 +25,9 @@ export class AccountOverviewSection {
     this.store.getAccounts().forEach((account) => {
       const row = list.createDiv({ cls: "cow-data-card" });
       const head = row.createDiv({ cls: "cow-list-item-head" });
-      const body = head.createDiv();
+      const title = head.createDiv({ cls: "cow-account-card-title" });
+      renderAccountIcon(title, account.type);
+      const body = title.createDiv();
       body.createEl("strong", { text: account.name });
       const meta = body.createDiv({ cls: "cow-meta-line" });
       meta.createSpan({ cls: "cow-status is-blue", text: account.type });

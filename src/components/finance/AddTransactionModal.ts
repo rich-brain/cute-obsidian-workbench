@@ -1,7 +1,8 @@
 import { App, Modal, Notice } from "obsidian";
-import type { Budget, Transaction } from "../../types/dashboard";
+import type { Account, Budget, Transaction } from "../../types/dashboard";
 import { formatDateKey } from "../../core/DashboardStore";
 import { applyResizableModal } from "../ResizableModal";
+import { accountLabel, renderAccountIcon } from "./accountIcons";
 
 const INCOME_CATEGORIES = ["工资", "奖金", "兼职", "投资", "退款", "其它"];
 
@@ -33,7 +34,8 @@ export class AddTransactionModal extends Modal {
     app: App,
     private readonly onSubmit: (transaction: Transaction) => Promise<void>,
     private readonly transaction?: Transaction,
-    private readonly budgets: Budget[] = []
+    private readonly budgets: Budget[] = [],
+    private readonly accounts: Account[] = []
   ) {
     super(app);
     this.type = transaction?.type ?? "expense";
@@ -81,6 +83,21 @@ export class AddTransactionModal extends Modal {
     amount.min = "0.01";
     amount.step = "0.01";
     const date = createClickableInput(form, "日期", "date", this.transaction?.date ?? today());
+    const accountRow = form.createDiv({ cls: "cow-finance-form-row" });
+    accountRow.createEl("label", { text: "账户" });
+    const account = accountRow.createEl("select");
+    account.createEl("option", { value: "", text: "未选择账户" });
+    this.accounts.forEach((item) => account.createEl("option", { value: item.id, text: `${item.type} · ${item.name}` }));
+    account.value = this.transaction?.accountId ?? "";
+    const accountPreview = this.contentEl.createDiv({ cls: "cow-transaction-account-preview" });
+    const renderPreview = (): void => {
+      accountPreview.empty();
+      const selected = this.accounts.find((item) => item.id === account.value);
+      if (selected) renderAccountIcon(accountPreview, selected.type);
+      accountPreview.createSpan({ text: selected ? accountLabel(selected) : "未选择账户，可以先在“账户总览”中添加账户。" });
+    };
+    account.addEventListener("change", renderPreview);
+    renderPreview();
     const noteRow = this.contentEl.createDiv({ cls: "cow-finance-form-row" });
     noteRow.createEl("label", { text: "备注" });
     const note = noteRow.createEl("textarea", { text: this.transaction?.note ?? "" });
@@ -100,7 +117,7 @@ export class AddTransactionModal extends Modal {
         amount: Math.abs(numericAmount),
         date: date.value || today(),
         note: note.value.trim(),
-        accountId: this.transaction?.accountId
+        accountId: account.value || undefined
       });
       this.close();
     });
@@ -111,4 +128,3 @@ export class AddTransactionModal extends Modal {
     return categories.length > 0 ? categories : ["餐饮", "居住", "交通", "购物", "学习", "娱乐", "其它"];
   }
 }
-

@@ -3,6 +3,7 @@ import { formatDateKey, type DashboardStore } from "../../core/DashboardStore";
 import type { Budget, FinanceTodo, InvestmentWatchItem, Transaction } from "../../types/dashboard";
 import { applyResizableModal } from "../ResizableModal";
 import { AddTransactionModal } from "./AddTransactionModal";
+import { accountLabel } from "./accountIcons";
 
 type PeriodFilter = "week" | "month" | "year";
 
@@ -149,47 +150,63 @@ export class MonthlyFinanceSummaryModal extends Modal {
     const transactions = transactionsForMonth(this.store, key);
     const incomeValue = sumTransactions(transactions, "income");
     const expenseValue = sumTransactions(transactions, "expense");
-    const remainingValue = this.store.getMonthlyBudgetLimit() - expenseValue;
+    const remainingValue = this.store.getMonthlyBudgetLimit(key) - expenseValue;
     const savingRateValue = incomeValue > 0 ? Math.round(((incomeValue - expenseValue) / incomeValue) * 100) : 0;
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal", "cow-finance-modal");
-    const header = this.contentEl.createDiv({ cls: "cow-finance-month-header" });
-    header.createEl("button", { text: "<", attr: { type: "button" } }).addEventListener("click", () => {
-      this.month = new Date(this.month.getFullYear(), this.month.getMonth() - 1, 1);
-      this.render();
-    });
-    header.createEl("h2", { text: `${this.month.getFullYear()}年${this.month.getMonth() + 1}月` });
-    header.createEl("button", { text: ">", attr: { type: "button" } }).addEventListener("click", () => {
-      this.month = new Date(this.month.getFullYear(), this.month.getMonth() + 1, 1);
-      this.render();
-    });
+    this.contentEl.createEl("h2", { text: "管理收支" });
     const form = this.contentEl.createDiv({ cls: "cow-finance-form-grid" });
-    const income = createInput(form, "本月收入", "number", String(incomeValue));
-    const expense = createInput(form, "本月支出", "number", String(expenseValue));
+    const year = this.createYearSelect(form);
+    const month = this.createMonthSelect(form);
+    year.addEventListener("change", () => {
+      this.month = new Date(Number(year.value), this.month.getMonth(), 1);
+      this.render();
+    });
+    month.addEventListener("change", () => {
+      this.month = new Date(this.month.getFullYear(), Number(month.value) - 1, 1);
+      this.render();
+    });
+    const income = createInput(form, "本月收入（真实流水）", "number", String(incomeValue));
+    const expense = createInput(form, "本月支出（真实流水）", "number", String(expenseValue));
     const remaining = createInput(form, "预算剩余", "number", String(remainingValue));
     const savingRate = createInput(form, "储蓄率（自动）", "number", String(savingRateValue));
+    income.disabled = true;
+    expense.disabled = true;
     savingRate.disabled = true;
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     actions.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
-    actions.createEl("button", { text: "保存", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
-      await this.applyAdjustment("income", Number(income.value) - incomeValue, key);
-      await this.applyAdjustment("expense", Number(expense.value) - expenseValue, key);
-      await this.store.setMonthlyBudgetLimit((Number(expense.value) || 0) + (Number(remaining.value) || 0));
+    actions.createEl("button", { text: "保存预算额度", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
+      await this.store.setMonthlyBudgetLimit((Number(expense.value) || 0) + (Number(remaining.value) || 0), key);
       this.onDone();
       this.close();
     });
   }
 
-  private async applyAdjustment(type: Transaction["type"], delta: number, key: string): Promise<void> {
-    if (Math.abs(delta) < 0.01) return;
-    await this.store.addTransaction({
-      id: `tx-adjust-${type}-${Date.now()}`,
-      type,
-      category: type === "income" ? "月度收入调整" : "月度支出调整",
-      amount: Math.abs(delta),
-      date: `${key}-01`,
-      note: "月度收支管理调整"
+  private createYearSelect(container: HTMLElement): HTMLSelectElement {
+    const row = container.createDiv({ cls: "cow-finance-form-row" });
+    row.createEl("label", { text: "年份" });
+    const select = row.createEl("select");
+    const current = new Date().getFullYear();
+    const years = new Set<number>();
+    for (let year = current - 5; year <= current + 3; year += 1) years.add(year);
+    this.store.getTransactions().forEach((tx) => {
+      const year = Number(tx.date.slice(0, 4));
+      if (Number.isFinite(year)) years.add(year);
     });
+    [...years].sort((a, b) => a - b).forEach((year) => select.createEl("option", { value: String(year), text: String(year) }));
+    select.value = String(this.month.getFullYear());
+    return select;
+  }
+
+  private createMonthSelect(container: HTMLElement): HTMLSelectElement {
+    const row = container.createDiv({ cls: "cow-finance-form-row" });
+    row.createEl("label", { text: "月份" });
+    const select = row.createEl("select");
+    for (let month = 1; month <= 12; month += 1) {
+      select.createEl("option", { value: String(month), text: `${month}月` });
+    }
+    select.value = String(this.month.getMonth() + 1);
+    return select;
   }
 }
 
@@ -224,7 +241,7 @@ export class MonthlyBudgetStatisticsModal extends Modal {
       const tx = transactionsForMonth(this.store, key);
       const income = sumTransactions(tx, "income");
       const expense = sumTransactions(tx, "expense");
-      const remaining = this.store.getMonthlyBudgetLimit() - expense;
+      const remaining = this.store.getMonthlyBudgetLimit(key) - expense;
       const card = grid.createDiv({ cls: "cow-data-card" });
       card.createEl("strong", { text: `${month}月` });
       card.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `收入 ${currency(income)} · 支出 ${currency(expense)}` });
@@ -351,7 +368,8 @@ export class TransactionManagerModal extends Modal {
     const head = row.createDiv({ cls: "cow-list-item-head" });
     const body = head.createDiv();
     body.createEl("strong", { text: `${tx.type === "income" ? "+" : "-"}${currency(tx.amount)} · ${tx.category}` });
-    body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${tx.date} · ${tx.note || "无备注"}` });
+    const account = tx.accountId ? this.store.getAccounts().find((item) => item.id === tx.accountId) : undefined;
+    body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${tx.date} · ${accountLabel(account)} · ${tx.note || "无备注"}` });
     const actions = head.createDiv({ cls: "cow-list-item-actions" });
     const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑" } });
     setIcon(edit, "pencil");
@@ -359,7 +377,7 @@ export class TransactionManagerModal extends Modal {
       await this.store.updateTransaction(tx.id, values);
       this.onDone();
       this.render();
-    }, tx, this.store.getBudgets()).open());
+    }, tx, this.store.getBudgets(), this.store.getAccounts()).open());
     const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "删除" } });
     setIcon(remove, "trash-2");
     remove.addEventListener("click", async () => {
@@ -603,17 +621,18 @@ export class TransactionStatisticsModal extends Modal {
     const expense = sumTransactions(tx, "expense");
     renderSummaryCards(container, [["当日收入", currency(income)], ["当日支出", currency(expense)], ["净金额", currency(income - expense)], ["记账笔数", tx.length]]);
     tx.forEach((item) => {
+      const account = item.accountId ? this.store.getAccounts().find((entry) => entry.id === item.accountId) : undefined;
       const row = container.createDiv({ cls: "cow-data-card" });
       const head = row.createDiv({ cls: "cow-list-item-head" });
       const body = head.createDiv();
       body.createEl("strong", { text: `${item.type === "income" ? "+" : "-"}${currency(item.amount)} · ${item.category}` });
-      body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: item.note || "无备注" });
+      body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${accountLabel(account)} · ${item.note || "无备注"}` });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       actions.createEl("button", { text: "编辑", attr: { type: "button" } }).addEventListener("click", () => new AddTransactionModal(this.app, async (values) => {
         await this.store.updateTransaction(item.id, values);
         this.onDone();
         this.render();
-      }, item, this.store.getBudgets()).open());
+      }, item, this.store.getBudgets(), this.store.getAccounts()).open());
       actions.createEl("button", { text: "删除", cls: "mod-warning", attr: { type: "button" } }).addEventListener("click", async () => {
         await this.store.deleteTransaction(item.id);
         this.onDone();
@@ -622,4 +641,3 @@ export class TransactionStatisticsModal extends Modal {
     });
   }
 }
-

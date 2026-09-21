@@ -1,6 +1,7 @@
 import { App, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import { AddTransactionModal } from "./AddTransactionModal";
+import { accountLabel } from "./accountIcons";
 
 export class IncomeExpenseTrendSection {
   constructor(
@@ -23,18 +24,19 @@ export class IncomeExpenseTrendSection {
     });
     const list = container.createDiv({ cls: "cow-data-list cow-compact-list" });
     this.store.getTransactions().slice(-4).reverse().forEach((transaction) => {
+      const account = transaction.accountId ? this.store.getAccounts().find((item) => item.id === transaction.accountId) : undefined;
       const row = list.createDiv({ cls: "cow-data-card" });
       const head = row.createDiv({ cls: "cow-list-item-head" });
       const body = head.createDiv();
       body.createEl("strong", { text: `${transaction.type === "income" ? "收入" : "支出"} ¥${transaction.amount}` });
-      body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${transaction.date} · ${transaction.category} · ${transaction.note || "无备注"}` });
+      body.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${transaction.date} · ${transaction.category} · ${accountLabel(account)} · ${transaction.note || "无备注"}` });
       const actions = head.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑收支" } });
       setIcon(edit, "pencil");
       edit.addEventListener("click", () => new AddTransactionModal(this.app, async (values) => {
         await this.store.updateTransaction(transaction.id, values);
         this.onDataChanged();
-      }, transaction, this.store.getBudgets()).open());
+      }, transaction, this.store.getBudgets(), this.store.getAccounts()).open());
       const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "删除收支" } });
       setIcon(remove, "trash-2");
       remove.addEventListener("click", async () => {
