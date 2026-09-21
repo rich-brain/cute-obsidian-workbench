@@ -24,6 +24,24 @@
   --cow-border: var(--cute-border);
   --cow-shadow: var(--cute-shadow);
   --cow-radius: var(--cute-radius);
+  --wb-space-1: 4px;
+  --wb-space-2: 8px;
+  --wb-space-3: 12px;
+  --wb-space-4: 16px;
+  --wb-space-5: 24px;
+  --wb-space-6: 32px;
+  --wb-radius-sm: 10px;
+  --wb-radius-md: 14px;
+  --wb-radius-lg: var(--cow-radius);
+  --wb-border: 1px solid var(--cow-border);
+  --wb-card-padding: var(--wb-space-3);
+  --wb-grid-gap: var(--wb-space-3);
+  --wb-grid-min: 220px;
+  --wb-button-height: 34px;
+  --wb-input-height: 34px;
+  --wb-modal-width-md: min(760px, 90vw);
+  --wb-modal-width-lg: min(1050px, 92vw);
+  --wb-modal-height: min(720px, 86vh);
   color: var(--cow-ink);
   font-size: var(--cute-font-size);
 }

@@ -9,7 +9,8 @@ const cssFiles = [
   "src/styles/layout.css",
   "src/styles/cards.css",
   "src/styles/dog-theme.css",
-  "src/styles/calendar.css"
+  "src/styles/calendar.css",
+  "src/styles/layout-system.css"
 ];
 
 const banner = `/* Cute Obsidian Workbench styles

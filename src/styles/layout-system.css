@@ -1,0 +1,367 @@
+/* Workbench Layout System
+ * A late-loaded shared layer for responsive sizing, text safety, and modal stability.
+ */
+
+.cute-obsidian-workbench,
+.cute-obsidian-workbench :where(.cow-shell, .cow-main, .cow-page-host, .cow-dashboard-grid, .cow-section, .cow-section-content) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.cute-obsidian-workbench :where(p, span, strong, em, small, li, h1, h2, h3, h4, h5, h6, label, button, input, textarea, select, code, pre) {
+  max-width: 100%;
+}
+
+.cute-obsidian-workbench :where(p, li, label, .cow-section-content, .cow-empty-state, .cow-muted-path, .cow-data-row, .cow-list-item, .cow-note-path) {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.cute-obsidian-workbench :where(img, svg, canvas, video) {
+  max-width: 100%;
+}
+
+.cute-obsidian-workbench :where(input, textarea, select) {
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--wb-input-height);
+  border-radius: var(--wb-radius-sm);
+  box-sizing: border-box;
+}
+
+.cute-obsidian-workbench textarea {
+  height: auto;
+  resize: vertical;
+}
+
+.cute-obsidian-workbench :where(button, .cow-section-add-button, .cow-icon-button) {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.cute-obsidian-workbench button:not(.clickable-icon):not(.cow-icon-button) {
+  min-height: var(--wb-button-height);
+  border-radius: var(--wb-radius-sm);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.cow-truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cow-wrap-anywhere {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.cow-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-space-3);
+  min-width: 0;
+}
+
+.cow-cluster,
+.cow-toolbar,
+.cow-action-row,
+.cow-button-row,
+.cow-filter-row,
+.cow-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wb-space-2);
+  min-width: 0;
+}
+
+.cow-auto-grid,
+.cow-card-grid,
+.cow-panel-grid,
+.cow-section-grid,
+.cow-module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--wb-grid-min)), 1fr));
+  gap: var(--wb-grid-gap);
+  min-width: 0;
+}
+
+.cow-dashboard-grid {
+  gap: var(--wb-grid-gap);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.cow-dashboard-grid > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cow-section {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  height: auto;
+  padding: var(--wb-card-padding);
+  overflow: visible;
+  box-sizing: border-box;
+}
+
+.cow-section-header,
+.cow-card-header,
+.cow-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wb-space-2);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cow-section-title,
+.cow-card-title,
+.cow-panel-title {
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 auto;
+}
+
+.cow-section-title :where(h1, h2, h3, h4, span, strong),
+.cow-card-title :where(h1, h2, h3, h4, span, strong),
+.cow-panel-title :where(h1, h2, h3, h4, span, strong) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.cow-section-actions,
+.cow-card-actions,
+.cow-panel-actions,
+.cow-modal-actions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--wb-space-2);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cow-section-content {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cow-section-content > * {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.cow-data-list,
+.cow-list,
+.cow-note-list {
+  display: grid;
+  gap: var(--wb-space-2);
+  min-width: 0;
+}
+
+.cow-data-row,
+.cow-list-item {
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.cow-data-row :where(strong, span, p, small),
+.cow-list-item :where(strong, span, p, small) {
+  min-width: 0;
+}
+
+.cow-form-grid,
+.cow-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--wb-space-3);
+  min-width: 0;
+}
+
+.cow-form-row,
+.cow-field {
+  display: grid;
+  gap: var(--wb-space-1);
+  min-width: 0;
+}
+
+.modal:has(.cow-modal),
+.cute-resizable-modal,
+.cute-book-modal {
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  min-width: min(360px, calc(100vw - 24px));
+  min-height: min(220px, calc(100vh - 24px));
+  box-sizing: border-box;
+}
+
+.modal:has(.cow-modal) .modal-content,
+.cute-resizable-modal .modal-content,
+.cute-book-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.cow-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-space-3);
+  width: 100%;
+  max-width: 100%;
+  max-height: min(82vh, 720px);
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: var(--wb-space-1);
+  box-sizing: border-box;
+}
+
+.cow-modal > :where(h1, h2, h3, h4) {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-modal-actions {
+  flex: 0 0 auto;
+  margin-top: var(--wb-space-1);
+}
+
+.cow-modal .setting-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--wb-space-2);
+  min-width: 0;
+  padding-inline: 0;
+}
+
+.cow-modal .setting-item-info,
+.cow-modal .setting-item-control {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cow-modal .setting-item-control {
+  flex: 1 1 220px;
+  justify-content: flex-start;
+}
+
+.cow-modal .setting-item-control :where(input, textarea, select) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.cow-modal :where(.cow-modal-body, .cow-scroll-area, .cow-paper-list, .cow-zotero-list, .cow-book-list, .cow-note-manager-list) {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.cow-page-heading {
+  flex-wrap: wrap;
+}
+
+.cow-page-heading > * {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .cow-shell {
+    grid-template-columns: minmax(210px, 232px) minmax(0, 1fr);
+    gap: var(--wb-space-2);
+    padding: var(--wb-space-2);
+  }
+
+  .cow-dashboard-grid {
+    --layout-columns: 8;
+  }
+}
+
+@media (max-width: 900px) {
+  .cow-shell {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+  }
+
+  .cow-main,
+  .cow-page-host {
+    overflow-x: hidden;
+  }
+}
+
+@media (max-width: 700px) {
+  .cow-section-header,
+  .cow-card-header,
+  .cow-panel-header,
+  .cow-page-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cow-section-actions,
+  .cow-card-actions,
+  .cow-panel-actions,
+  .cow-modal-actions,
+  .cow-toolbar,
+  .cow-action-row {
+    justify-content: flex-start;
+  }
+
+  .cow-auto-grid,
+  .cow-card-grid,
+  .cow-panel-grid,
+  .cow-section-grid,
+  .cow-module-grid,
+  .cow-form-grid,
+  .cow-field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .modal:has(.cow-modal),
+  .cute-resizable-modal,
+  .cute-book-modal {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    min-width: 0;
+  }
+
+  .cow-modal {
+    max-height: calc(100vh - 80px);
+  }
+}
