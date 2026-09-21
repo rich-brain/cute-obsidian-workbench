@@ -234,12 +234,40 @@ export interface ReadingQuote {
 
 export interface Workout {
   id: string;
+  title?: string;
   date: string;
-  type: "有氧" | "力量" | "拉伸" | "休息";
+  type: "有氧" | "力量" | "拉伸" | "休息" | "跑步" | "骑行" | "游泳" | "瑜伽" | "其它";
+  workoutType?: "跑步" | "力量" | "骑行" | "游泳" | "瑜伽" | "其它";
+  trainingPlanId?: string;
+  fitnessGoalId?: string;
   duration: number;
+  durationMinutes?: number;
   calories: number;
+  distanceKm?: number;
+  exerciseDetails?: string;
+  feeling?: string;
+  resultSummary?: string;
+  markdownPath?: string;
   completed: boolean;
   note: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TrainingPlan {
+  id: string;
+  title: string;
+  fitnessGoalId?: string;
+  startDate: string;
+  endDate: string;
+  weeklyFrequency?: number;
+  description?: string;
+  note?: string;
+  markdownPath?: string;
+  status?: "planned" | "active" | "completed" | "overdue";
+  completedDate?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface HealthReminder {
@@ -271,15 +299,19 @@ export interface BodyMeasurement {
 export interface FitnessGoal {
   id: string;
   title: string;
+  type?: "减重" | "减脂" | "增肌" | "跑步" | "力量" | "运动频率" | "其它";
+  description?: string;
   current?: number;
   target?: number;
   currentValue?: number;
   targetValue?: number;
-  unit: string;
+  unit?: string;
+  targetUnit?: string;
+  progress?: number;
   startDate?: string;
   deadline: string;
   completedDate?: string;
-  status?: "active" | "completed" | "overdue" | "archived";
+  status?: "planned" | "active" | "completed" | "overdue" | "archived";
   createdAt?: string;
   updatedAt?: string;
 }
@@ -644,6 +676,7 @@ export interface WorkbenchData {
   readingNotes: ReadingNote[];
   readingQuotes: ReadingQuote[];
   workouts: Workout[];
+  trainingPlans: TrainingPlan[];
   bodyMeasurements: BodyMeasurement[];
   fitnessGoals: FitnessGoal[];
   healthReminders: HealthReminder[];

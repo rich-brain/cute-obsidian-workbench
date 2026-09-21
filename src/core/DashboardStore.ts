@@ -50,6 +50,7 @@ import type {
   SectionLayoutConfig,
   TodayFocusTask,
   Transaction,
+  TrainingPlan,
   VenueDefinition,
   WantToReadItem,
   Workout,
@@ -111,7 +112,7 @@ export const AVAILABLE_MODULES: AvailableModuleDefinition[] = [
   { type: "body-measurements", title: "体重与围度记录", description: "体重、BMI 和身体围度变化。", page: "fitness", icon: "ruler", defaultWidth: "md" },
   { type: "cardio-strength-plan", title: "有氧 / 力量安排", description: "平衡有氧和力量训练。", page: "fitness", icon: "heart-pulse", defaultWidth: "md" },
   { type: "water-sleep-habits", title: "习惯", description: "饮水、睡眠和自定义健康习惯。", page: "fitness", icon: "moon", defaultWidth: "md" },
-  { type: "fitness-stats", title: "热量消耗与运动时长", description: "统计本周运动量。", page: "fitness", icon: "flame", defaultWidth: "md" },
+  { type: "fitness-stats", title: "趋势图", description: "观察身体、运动和执行趋势。", page: "fitness", icon: "line-chart", defaultWidth: "lg" },
   { type: "workout-log", title: "运动日志", description: "最近完成的训练记录。", page: "fitness", icon: "notebook-text", defaultWidth: "md" },
   { type: "fitness-goals", title: "健身目标进度", description: "追踪健身目标完成度。", page: "fitness", icon: "target", defaultWidth: "md" },
   { type: "health-reminders", title: "健康提醒", description: "恢复、热身和休息提醒。", page: "fitness", icon: "bell-ring", defaultWidth: "md" },
@@ -187,7 +188,7 @@ const DEFAULT_MODULE_LAYOUTS: Record<DashboardPage, ModuleLayoutConfig> = {
 };
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.5.3",
+  dataVersion: "0.5.4",
   currentPage: "overview",
   sections: [
     {
@@ -526,7 +527,7 @@ const DEFAULT_DATA: WorkbenchData = {
     createSection("fitness", "body-measurements", "体重与围度记录", 40),
     createSection("fitness", "cardio-strength-plan", "有氧 / 力量安排", 50),
     createSection("fitness", "water-sleep-habits", "习惯", 60),
-    createSection("fitness", "fitness-stats", "热量消耗与运动时长", 70),
+    createSection("fitness", "fitness-stats", "趋势图", 70, "lg"),
     createSection("fitness", "workout-log", "运动日志", 80),
     createSection("fitness", "fitness-goals", "健身目标进度", 90),
     createSection("fitness", "health-reminders", "健康提醒", 100),
@@ -723,15 +724,30 @@ const DEFAULT_DATA: WorkbenchData = {
     { id: "workout-2", date: "2026-09-12", type: "有氧", duration: 35, calories: 260, completed: true, note: "椭圆机中等强度" },
     { id: "workout-3", date: "2026-09-10", type: "拉伸", duration: 20, calories: 80, completed: true, note: "肩颈和髋部放松" }
   ],
+  trainingPlans: [
+    {
+      id: "training-plan-weight",
+      title: "每周三练减重计划",
+      fitnessGoalId: "fitness-goal-weight",
+      startDate: "2026-09-01",
+      endDate: "2026-12-31",
+      weeklyFrequency: 3,
+      description: "周一力量，周三有氧，周五全身循环。",
+      note: "根据状态调整强度。",
+      status: "active",
+      createdAt: "2026-09-01T08:00:00.000Z",
+      updatedAt: "2026-09-14T08:00:00.000Z"
+    }
+  ],
   bodyMeasurements: [
     { id: "measure-2026-09-01", date: "2026-09-01", weight: 58.8, bmi: 21.6, waist: 70, chest: 84, hip: 91, note: "", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" },
     { id: "measure-2026-09-08", date: "2026-09-08", weight: 58.2, bmi: 21.4, waist: 69, chest: 84, hip: 90, note: "", createdAt: "2026-09-08T08:00:00.000Z", updatedAt: "2026-09-08T08:00:00.000Z" },
     { id: "measure-2026-09-14", date: "2026-09-14", weight: 57.9, bmi: 21.3, waist: 68, chest: 84, hip: 90, note: "", createdAt: "2026-09-14T08:00:00.000Z", updatedAt: "2026-09-14T08:00:00.000Z" }
   ],
   fitnessGoals: [
-    { id: "fitness-goal-weight", title: "稳定体重", currentValue: 57.9, targetValue: 56.5, unit: "kg", startDate: "2026-09-01", deadline: "2026-12-31", status: "active", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-14T08:00:00.000Z" },
-    { id: "fitness-goal-cardio", title: "本月有氧", currentValue: 210, targetValue: 600, unit: "min", startDate: "2026-09-01", deadline: "2026-09-30", status: "active", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-14T08:00:00.000Z" },
-    { id: "fitness-goal-strength", title: "力量训练", currentValue: 6, targetValue: 12, unit: "次", startDate: "2026-09-01", deadline: "2026-09-30", status: "active", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-14T08:00:00.000Z" }
+    { id: "fitness-goal-weight", title: "稳定体重", type: "减重", description: "稳定下降到更轻盈的状态。", currentValue: 57.9, targetValue: 56.5, unit: "kg", targetUnit: "kg", progress: 46, startDate: "2026-09-01", deadline: "2026-12-31", status: "active", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-14T08:00:00.000Z" },
+    { id: "fitness-goal-cardio", title: "本月有氧", type: "跑步", currentValue: 210, targetValue: 600, unit: "min", targetUnit: "min", progress: 35, startDate: "2026-09-01", deadline: "2026-09-30", status: "active", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-14T08:00:00.000Z" },
+    { id: "fitness-goal-strength", title: "力量训练", type: "力量", currentValue: 6, targetValue: 12, unit: "次", targetUnit: "次", progress: 50, startDate: "2026-09-01", deadline: "2026-09-30", status: "active", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-14T08:00:00.000Z" }
   ],
   healthReminders: [
     { id: "health-warmup", title: "训练前热身 8 分钟。", date: "2026-09-14", time: "18:30", repeatType: "once", repeatDays: [], note: "", enabled: true, createdAt: "2026-09-14T08:00:00.000Z", updatedAt: "2026-09-14T08:00:00.000Z" },
@@ -2046,23 +2062,58 @@ export class DashboardStore {
   }
 
   getWorkouts(): Workout[] {
-    return this.data.workouts;
+    return this.data.workouts.map((workout) => this.normalizeWorkout(workout));
   }
 
   async addWorkout(workout: Workout): Promise<void> {
-    this.data.workouts.push(workout);
+    this.data.workouts.push(this.normalizeWorkout(workout));
+    this.data.workouts.sort((left, right) => right.date.localeCompare(left.date));
     await this.save();
   }
 
   async updateWorkout(workoutId: string, updates: Partial<Workout>): Promise<void> {
     const workout = this.data.workouts.find((item) => item.id === workoutId);
     if (!workout) return;
-    Object.assign(workout, updates);
+    Object.assign(workout, updates, { updatedAt: nowIso() });
+    Object.assign(workout, this.normalizeWorkout(workout));
+    this.data.workouts.sort((left, right) => right.date.localeCompare(left.date));
     await this.save();
   }
 
   async deleteWorkout(workoutId: string): Promise<void> {
     this.data.workouts = this.data.workouts.filter((item) => item.id !== workoutId);
+    await this.save();
+  }
+
+  getTrainingPlans(): TrainingPlan[] {
+    return this.data.trainingPlans.map((plan) => this.withComputedTrainingPlanStatus(plan));
+  }
+
+  async addTrainingPlan(plan: TrainingPlan): Promise<void> {
+    this.data.trainingPlans.push(this.normalizeTrainingPlan(plan));
+    await this.save();
+  }
+
+  async updateTrainingPlan(planId: string, updates: Partial<TrainingPlan>): Promise<void> {
+    const plan = this.data.trainingPlans.find((item) => item.id === planId);
+    if (!plan) return;
+    Object.assign(plan, updates, { updatedAt: nowIso() });
+    Object.assign(plan, this.normalizeTrainingPlan(plan));
+    await this.save();
+  }
+
+  async completeTrainingPlan(planId: string): Promise<void> {
+    const plan = this.data.trainingPlans.find((item) => item.id === planId);
+    if (!plan) return;
+    Object.assign(plan, { status: "completed" as const, completedDate: todayKey(), updatedAt: nowIso() });
+    await this.save();
+  }
+
+  async deleteTrainingPlan(planId: string): Promise<void> {
+    this.data.trainingPlans = this.data.trainingPlans.filter((item) => item.id !== planId);
+    this.data.workouts.forEach((workout) => {
+      if (workout.trainingPlanId === planId) workout.trainingPlanId = undefined;
+    });
     await this.save();
   }
 
@@ -2212,6 +2263,12 @@ export class DashboardStore {
 
   async deleteFitnessGoal(goalId: string): Promise<void> {
     this.data.fitnessGoals = this.data.fitnessGoals.filter((item) => item.id !== goalId);
+    this.data.trainingPlans.forEach((plan) => {
+      if (plan.fitnessGoalId === goalId) plan.fitnessGoalId = undefined;
+    });
+    this.data.workouts.forEach((workout) => {
+      if (workout.fitnessGoalId === goalId) workout.fitnessGoalId = undefined;
+    });
     await this.save();
   }
 
@@ -3010,7 +3067,7 @@ export class DashboardStore {
     const merged: WorkbenchData = {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.5.3",
+      dataVersion: "0.5.4",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -3068,7 +3125,9 @@ export class DashboardStore {
       readingNotes: Array.isArray(partial.readingNotes)
         ? partial.readingNotes.map((note) => this.normalizeReadingNote(note)).filter((note) => note.notePath && note.bookId)
         : this.createInitialReadingNotes(partial),
-      workouts: Array.isArray(partial.workouts) ? partial.workouts : structuredClone(DEFAULT_DATA.workouts),
+      workouts: Array.isArray(partial.workouts)
+        ? partial.workouts.map((workout) => this.normalizeWorkout(workout))
+        : structuredClone(DEFAULT_DATA.workouts).map((workout) => this.normalizeWorkout(workout)),
       bodyMeasurements: Array.isArray(partial.bodyMeasurements)
         ? partial.bodyMeasurements.map((item) => this.normalizeBodyMeasurement(item))
         : structuredClone(DEFAULT_DATA.bodyMeasurements),
@@ -3138,6 +3197,9 @@ export class DashboardStore {
       focusRecords: Array.isArray(partial.focusRecords)
         ? partial.focusRecords.map((record) => this.normalizeFocusRecord(record))
         : structuredClone(DEFAULT_DATA.focusRecords),
+      trainingPlans: Array.isArray(partial.trainingPlans)
+        ? partial.trainingPlans.map((plan) => this.normalizeTrainingPlan(plan))
+        : this.createInitialTrainingPlans(partial),
       fitnessDailyRecords: Array.isArray(partial.fitnessDailyRecords)
         ? partial.fitnessDailyRecords.map((item) => this.normalizeFitnessDailyRecord(item))
         : structuredClone(DEFAULT_DATA.fitnessDailyRecords),
@@ -3161,7 +3223,7 @@ export class DashboardStore {
         ...partial.theme
       }
     };
-    return this.repairResearchRelations(this.repairBookTagRelations(merged));
+    return this.repairFitnessRelations(this.repairResearchRelations(this.repairBookTagRelations(merged)));
   }
 
   private normalizeBodyMeasurement(measurement: BodyMeasurement): BodyMeasurement {
@@ -3180,24 +3242,64 @@ export class DashboardStore {
     };
   }
 
+  private normalizeWorkout(workout: Workout): Workout {
+    const timestamp = workout.createdAt ?? `${workout.date || todayKey()}T00:00:00.000Z`;
+    const workoutType = this.normalizeWorkoutType(workout.workoutType ?? workout.type);
+    const durationMinutes = Number(workout.durationMinutes ?? workout.duration) || 0;
+    return {
+      ...workout,
+      id: workout.id ?? `workout-${Date.now()}`,
+      title: workout.title?.trim() || workout.note?.trim() || `${workoutType}训练`,
+      date: workout.date || todayKey(),
+      type: workout.type ?? workoutType,
+      workoutType,
+      duration: durationMinutes,
+      durationMinutes,
+      calories: Number(workout.calories) || 0,
+      distanceKm: workout.distanceKm !== undefined && Number(workout.distanceKm) > 0 ? Number(workout.distanceKm) : undefined,
+      exerciseDetails: workout.exerciseDetails ?? "",
+      feeling: workout.feeling ?? "",
+      resultSummary: workout.resultSummary ?? "",
+      markdownPath: typeof workout.markdownPath === "string" && workout.markdownPath.length > 0 ? workout.markdownPath : undefined,
+      completed: workout.completed ?? true,
+      note: workout.note ?? "",
+      createdAt: timestamp,
+      updatedAt: workout.updatedAt ?? timestamp
+    };
+  }
+
+  private normalizeWorkoutType(type: Workout["type"] | Workout["workoutType"] | undefined): NonNullable<Workout["workoutType"]> {
+    if (type === "跑步" || type === "力量" || type === "骑行" || type === "游泳" || type === "瑜伽" || type === "其它") return type;
+    if (type === "拉伸") return "瑜伽";
+    if (type === "有氧") return "跑步";
+    return "其它";
+  }
+
   private normalizeFitnessGoal(goal: FitnessGoal): FitnessGoal {
     const timestamp = goal.createdAt ?? `${goal.startDate || goal.deadline || todayKey()}T00:00:00.000Z`;
     const currentValue = Number(goal.currentValue ?? goal.current ?? 0);
     const targetValue = Number(goal.targetValue ?? goal.target ?? 0);
+    const progress = Math.max(0, Math.min(100, Number(goal.progress ?? (targetValue === 0 ? 0 : Math.round((currentValue / targetValue) * 100))) || 0));
     const status = this.getNormalizedFitnessGoalStatus({
       ...goal,
       currentValue,
-      targetValue
+      targetValue,
+      progress
     });
     return {
       ...goal,
       id: goal.id ?? `fitness-goal-${Date.now()}`,
       title: goal.title || "健身目标",
+      type: goal.type ?? "其它",
+      description: goal.description ?? "",
       currentValue,
       targetValue,
-      unit: goal.unit || "",
+      unit: goal.unit || goal.targetUnit || "",
+      targetUnit: goal.targetUnit || goal.unit || "",
+      progress,
       startDate: goal.startDate ?? todayKey(),
       deadline: goal.deadline || todayKey(),
+      completedDate: status === "completed" ? goal.completedDate ?? todayKey() : goal.completedDate,
       status,
       createdAt: timestamp,
       updatedAt: goal.updatedAt ?? timestamp
@@ -3206,9 +3308,66 @@ export class DashboardStore {
 
   private getNormalizedFitnessGoalStatus(goal: FitnessGoal): FitnessGoal["status"] {
     if (goal.status === "archived") return "archived";
-    if (goal.status === "completed" || goal.completedDate) return "completed";
+    if (goal.status === "completed" || goal.completedDate || goal.progress === 100) return "completed";
+    if (goal.startDate && todayKey() < goal.startDate) return "planned";
     if (goal.deadline && goal.deadline < todayKey()) return "overdue";
     return "active";
+  }
+
+  private normalizeTrainingPlan(plan: TrainingPlan): TrainingPlan {
+    const timestamp = plan.createdAt ?? `${plan.startDate || todayKey()}T00:00:00.000Z`;
+    const startDate = plan.startDate || todayKey();
+    const endDate = plan.endDate && plan.endDate >= startDate ? plan.endDate : startDate;
+    const status = this.getNormalizedTrainingPlanStatus({ ...plan, startDate, endDate });
+    return {
+      id: plan.id ?? `training-plan-${Date.now()}`,
+      title: plan.title || "训练计划",
+      fitnessGoalId: plan.fitnessGoalId,
+      startDate,
+      endDate,
+      weeklyFrequency: Math.max(0, Number(plan.weeklyFrequency) || 0),
+      description: plan.description ?? "",
+      note: plan.note ?? "",
+      markdownPath: typeof plan.markdownPath === "string" && plan.markdownPath.length > 0 ? plan.markdownPath : undefined,
+      status,
+      completedDate: status === "completed" ? plan.completedDate ?? todayKey() : plan.completedDate,
+      createdAt: timestamp,
+      updatedAt: plan.updatedAt ?? timestamp
+    };
+  }
+
+  private withComputedTrainingPlanStatus(plan: TrainingPlan): TrainingPlan {
+    return { ...plan, status: this.getNormalizedTrainingPlanStatus(plan) };
+  }
+
+  private getNormalizedTrainingPlanStatus(plan: TrainingPlan): NonNullable<TrainingPlan["status"]> {
+    if (plan.status === "completed" || plan.completedDate) return "completed";
+    if (todayKey() < plan.startDate) return "planned";
+    if (todayKey() > plan.endDate) return "overdue";
+    return "active";
+  }
+
+  private createInitialTrainingPlans(partial: Partial<WorkbenchData>): TrainingPlan[] {
+    if (!Array.isArray(partial.workouts)) {
+      return structuredClone(DEFAULT_DATA.trainingPlans).map((plan) => this.normalizeTrainingPlan(plan));
+    }
+    const firstGoalId = (Array.isArray(partial.fitnessGoals) ? partial.fitnessGoals : DEFAULT_DATA.fitnessGoals)[0]?.id;
+    const pending = partial.workouts.filter((workout) => !workout.completed);
+    if (pending.length === 0) {
+      return structuredClone(DEFAULT_DATA.trainingPlans).map((plan) => this.normalizeTrainingPlan(plan));
+    }
+    return pending.map((workout) => this.normalizeTrainingPlan({
+      id: `training-plan-${workout.id}`,
+      title: workout.note || `${workout.type}训练计划`,
+      fitnessGoalId: firstGoalId,
+      startDate: workout.date,
+      endDate: workout.date,
+      weeklyFrequency: 1,
+      description: `${workout.type} · ${workout.duration}min`,
+      note: workout.note,
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    }));
   }
 
   private normalizeHealthReminder(reminder: HealthReminder): HealthReminder {
@@ -3450,6 +3609,19 @@ export class DashboardStore {
       book.tags = (book.tagIds ?? [])
         .map((id) => data.bookTags.find((tag) => tag.id === id)?.name)
         .filter(Boolean) as string[];
+    });
+    return data;
+  }
+
+  private repairFitnessRelations(data: WorkbenchData): WorkbenchData {
+    const goalIds = new Set(data.fitnessGoals.map((goal) => goal.id));
+    const planIds = new Set(data.trainingPlans.map((plan) => plan.id));
+    data.trainingPlans.forEach((plan) => {
+      if (plan.fitnessGoalId && !goalIds.has(plan.fitnessGoalId)) plan.fitnessGoalId = undefined;
+    });
+    data.workouts.forEach((workout) => {
+      if (workout.trainingPlanId && !planIds.has(workout.trainingPlanId)) workout.trainingPlanId = undefined;
+      if (workout.fitnessGoalId && !goalIds.has(workout.fitnessGoalId)) workout.fitnessGoalId = undefined;
     });
     return data;
   }

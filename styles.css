@@ -3295,6 +3295,82 @@
   font-weight: 800;
 }
 
+.cow-training-plan-list,
+.cow-fitness-detail-section {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cow-training-plan-card,
+.cow-fitness-goal-active,
+.cow-fitness-goal-planned,
+.cow-fitness-goal-completed,
+.cow-fitness-goal-overdue {
+  min-width: 0;
+  height: auto;
+  cursor: pointer;
+}
+
+.cow-training-plan-title,
+.cow-fitness-detail-header {
+  min-width: 0;
+}
+
+.cow-training-plan-title strong,
+.cow-fitness-detail-header h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-training-plan-card p,
+.cow-fitness-detail-modal p {
+  margin: 0;
+  color: var(--cow-muted);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.cow-training-plan-card.is-completed,
+.cow-fitness-goal-completed {
+  border-color: rgba(67, 199, 122, 0.28);
+  background: rgba(229, 252, 232, 0.62);
+}
+
+.cow-training-plan-card.is-overdue,
+.cow-fitness-goal-overdue {
+  border-color: rgba(255, 124, 124, 0.3);
+  background: rgba(255, 235, 233, 0.64);
+}
+
+.cow-training-plan-card.is-planned,
+.cow-fitness-goal-planned {
+  border-color: rgba(255, 209, 102, 0.3);
+  background: rgba(255, 247, 214, 0.62);
+}
+
+.cow-fitness-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cow-fitness-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.cow-fitness-detail-section {
+  padding: 12px;
+  border: 1px solid rgba(242, 59, 141, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
 .cow-reading-plan-modal,
 .cow-reading-plan-modal-body {
   min-height: 0;
@@ -4801,6 +4877,94 @@
   font-size: 12px;
   line-height: 1.45;
   min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-workout-log,
+.cow-fitness-trend {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cow-workout-filter-row,
+.cow-fitness-trend-toolbar,
+.cow-fitness-trend-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cow-workout-filter-row input,
+.cow-workout-filter-row select,
+.cow-fitness-trend-toolbar input,
+.cow-fitness-trend-filters select {
+  flex: 1 1 140px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cow-fitness-trend-toolbar button {
+  flex: 0 1 auto;
+  min-width: min(72px, 100%);
+}
+
+.cow-fitness-trend-toolbar button.is-active {
+  background: rgba(242, 59, 141, 0.16);
+  border-color: rgba(242, 59, 141, 0.34);
+  color: var(--cute-primary);
+}
+
+.cow-workout-card {
+  cursor: pointer;
+}
+
+.cow-workout-card p {
+  margin: 6px 0 0;
+  color: var(--cow-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.cow-fitness-trend-chart {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(242, 59, 141, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.52);
+  overflow: hidden;
+}
+
+.cow-fitness-trend-svg {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  min-width: 0;
+}
+
+.cow-fitness-trend-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.cow-fitness-trend-summary span {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(242, 59, 141, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 247, 250, 0.72);
+  color: var(--cow-muted);
+  font-size: 12px;
+  font-weight: 800;
   overflow-wrap: anywhere;
 }
 

@@ -27,7 +27,6 @@ import {
   openBodyMeasurementModal,
   openBudgetModal,
   openFitnessDailyModal,
-  openFitnessGoalModal,
   openInvestmentWatchModal,
   openPriorityItemModal,
   openTransactionModal
@@ -38,6 +37,9 @@ import { openReadingPlanModal } from "./reading/ReadingPlanModals";
 import { openReadingQuoteModal } from "./reading/ReadingQuotesSection";
 import { openBookTagModal } from "./reading/ReadingTagManagerSection";
 import { openWantToReadModal } from "./reading/WantToReadSection";
+import { openTrainingPlanModal } from "./fitness/FitnessModals";
+import { openFitnessGoalModal as openFitnessGoalEditorModal } from "./fitness/FitnessModals";
+import { openWorkoutRecordModal } from "./fitness/FitnessModals";
 import { applyResizableModal } from "./ResizableModal";
 
 export function openAddContentModal(app: App, store: DashboardStore, section: DashboardSectionConfig, onDataChanged: () => void): void {
@@ -96,11 +98,10 @@ export function openAddContentModal(app: App, store: DashboardStore, section: Da
       openBookTagModal(app, store, refresh);
       break;
     case "workout-plan":
+      openTrainingPlanModal(app, store, refresh);
+      break;
     case "workout-log":
-      openWorkoutModal(app, async (values) => {
-        await store.addWorkout({ ...values, id: `workout-${Date.now()}` });
-        refresh();
-      }, section.type === "workout-log");
+      openWorkoutRecordModal(app, store, refresh);
       break;
     case "health-reminders":
       openTextModal(app, "新增健康提醒", "提醒", "", async (text) => {
@@ -175,10 +176,7 @@ export function openAddContentModal(app: App, store: DashboardStore, section: Da
       });
       break;
     case "fitness-goals":
-      openFitnessGoalModal(app, async (values) => {
-        await store.addFitnessGoal(values);
-        refresh();
-      });
+      openFitnessGoalEditorModal(app, store, refresh);
       break;
     case "monthly-budget":
       openBudgetLimitModal(app, store.getMonthlyBudgetLimit(), async (value) => {

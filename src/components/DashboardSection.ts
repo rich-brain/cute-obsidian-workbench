@@ -65,7 +65,9 @@ import {
   openBodyMeasurementModal,
   openDailyHealthHabitModal,
   openFitnessGoalModal,
-  openHealthReminderModal
+  openHealthReminderModal,
+  openTrainingPlanModal,
+  openWorkoutRecordModal
 } from "./fitness/FitnessModals";
 import { GoalBreakdownSection } from "./goals/GoalBreakdownSection";
 import { GoalsCheckinSection } from "./goals/GoalsCheckinSection";
@@ -240,6 +242,12 @@ export class DashboardSection {
     if (this.section.type === "body-measurements") {
       addAction("记录数据", "plus", () => openBodyMeasurementModal(this.app, this.store, this.onDataChanged));
       addAction("统计", "bar-chart-3", () => new BodyMeasurementStatisticsModal(this.app, this.store, this.onDataChanged).open());
+    }
+    if (this.section.type === "workout-plan") {
+      addAction("新增计划", "plus", () => openTrainingPlanModal(this.app, this.store, this.onDataChanged));
+    }
+    if (this.section.type === "workout-log") {
+      addAction("新增日志", "plus", () => openWorkoutRecordModal(this.app, this.store, this.onDataChanged));
     }
     if (this.section.type === "water-sleep-habits") {
       addAction("编辑今日", "pencil", () => openDailyHealthHabitModal(this.app, this.store, this.onDataChanged));
@@ -727,7 +735,7 @@ export class DashboardSection {
       "body-measurements": "ruler",
       "cardio-strength-plan": "heart-pulse",
       "water-sleep-habits": "moon",
-      "fitness-stats": "flame",
+      "fitness-stats": "line-chart",
       "workout-log": "notebook-text",
       "fitness-goals": "target",
       "health-reminders": "bell-ring",
