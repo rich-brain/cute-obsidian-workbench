@@ -1,7 +1,7 @@
 import { App, Notice, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import type { BookItem, ReadingPlan } from "../../types/dashboard";
-import { openReadingPlanModal, readingPlanStatusLabel } from "./ReadingPlanModals";
+import { openReadingPlanDetailModal, openReadingPlanModal, readingPlanStatusLabel } from "./ReadingPlanModals";
 
 export class ReadingPlanSection {
   constructor(
@@ -30,6 +30,15 @@ export class ReadingPlanSection {
     const book = this.store.getBooks().find((item) => item.id === plan.bookId);
     const status = this.resolveStatus(plan);
     const card = container.createDiv({ cls: `cow-reading-plan-card is-${status}` });
+    card.setAttr("role", "button");
+    card.setAttr("tabindex", "0");
+    card.addEventListener("click", () => openReadingPlanDetailModal(this.app, this.store, this.onDataChanged, plan));
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openReadingPlanDetailModal(this.app, this.store, this.onDataChanged, plan);
+      }
+    });
 
     const cover = card.createDiv({ cls: "cow-reading-plan-cover" });
     const src = book ? this.getCoverSrc(book) : undefined;
@@ -43,7 +52,8 @@ export class ReadingPlanSection {
     title.createSpan({ text: book ? book.author : "这条计划保留了数据，但书籍记录可能已被删除。" });
     const badge = head.createSpan({ cls: `cow-reading-plan-status is-${status}`, text: status === "completed" ? `✓ ${readingPlanStatusLabel(status)}` : readingPlanStatusLabel(status) });
 
-    body.createDiv({ cls: "cow-meta-line", text: `${formatDateRange(plan.startDate, plan.endDate)} · ${plan.targetPages ? `${plan.targetPages} 页` : "读完本书"}` });
+    body.createDiv({ cls: "cow-meta-line", text: formatDateRange(plan.startDate, plan.endDate) });
+    body.createDiv({ cls: "cow-meta-line", text: `目标：${plan.goal ?? "读完本书"}` });
     if (plan.note) body.createEl("p", { text: plan.note });
     this.renderProgress(body, book, plan);
 
@@ -75,12 +85,10 @@ export class ReadingPlanSection {
   }
 
   private renderProgress(container: HTMLElement, book: BookItem | undefined, plan: ReadingPlan): void {
-    const current = book?.currentPage ?? 0;
-    const total = plan.targetPages ?? book?.totalPages ?? 0;
-    const progress = total <= 0 ? 0 : Math.min(100, Math.round((current / total) * 100));
+    const progress = Math.max(0, Math.min(100, Number(plan.progress) || 0));
     const row = container.createDiv({ cls: "cow-reading-plan-progress" });
-    row.createSpan({ text: `阅读进度 ${progress}%` });
-    row.createSpan({ text: `${current}/${total || 0} 页` });
+    row.createSpan({ text: `计划进度 ${progress}%` });
+    if (book?.totalPages) row.createSpan({ text: `${book.currentPage}/${book.totalPages} 页` });
     const track = row.createDiv({ cls: "cow-month-progress-track" });
     track.createDiv({ cls: "cow-month-progress-fill is-pink", attr: { style: `width: ${progress}%` } });
   }
@@ -109,14 +117,20 @@ export class ReadingPlanSection {
   private iconButton(container: HTMLElement, icon: string, label: string, onClick: () => void): void {
     const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
     setIcon(button, icon);
-    button.addEventListener("click", onClick);
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      onClick();
+    });
   }
 
   private textButton(container: HTMLElement, label: string, icon: string, onClick: () => void): void {
     const button = container.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
     setIcon(button.createSpan(), icon);
     button.createSpan({ text: label });
-    button.addEventListener("click", onClick);
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      onClick();
+    });
   }
 }
 

@@ -2748,11 +2748,27 @@
   background: rgba(255, 255, 255, 0.5);
 }
 
+.cow-book-card-shelf {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-content: start;
+  width: max-content;
+  max-width: 150px;
+  padding: 10px;
+}
+
+.cow-book-card-current {
+  grid-template-columns: minmax(48px, 58px) minmax(0, 1fr);
+  align-items: center;
+}
+
 .cow-book-cover {
   display: grid;
   place-items: center;
+  width: 100%;
+  aspect-ratio: 2 / 3;
   min-width: 0;
-  min-height: 94px;
+  min-height: 0;
   border: 3px solid #5b281c;
   border-radius: 10px;
   background:
@@ -2761,6 +2777,16 @@
   color: #5b281c;
   font-size: 20px;
   font-weight: 900;
+  overflow: hidden;
+}
+
+.cow-book-card-shelf .cow-book-cover {
+  width: clamp(120px, 18vw, 150px);
+  max-width: 100%;
+}
+
+.cow-book-card-current .cow-book-cover {
+  width: 58px;
 }
 
 .cow-book-cover img {
@@ -2771,8 +2797,9 @@
 }
 
 .cow-book-body {
-  display: grid;
-  align-content: start;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 7px;
   min-width: 0;
 }
@@ -2788,12 +2815,55 @@
   font-size: 12px;
 }
 
+.cow-book-shelf-title,
+.cow-book-current-title {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cow-book-shelf-title {
+  width: 100%;
+  color: var(--cow-ink);
+  font-size: 13px;
+  text-align: center;
+}
+
+.cow-book-current-title {
+  flex: 1 1 180px;
+}
+
+.cow-reading-status-pill {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--cow-pink-strong);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.cow-reading-status-pill.is-reading {
+  color: #2f8c4d;
+  border-color: rgba(67, 199, 122, 0.24);
+  background: rgba(228, 255, 237, 0.58);
+}
+
+.cow-reading-status-pill.is-finished {
+  color: #287645;
+}
+
 .cow-book-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 5px;
   min-width: 0;
+  margin-left: auto;
 }
 
 .cow-book-controls input,
@@ -2838,6 +2908,7 @@
   border: 1px solid rgba(242, 59, 141, 0.18);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.52);
+  cursor: pointer;
 }
 
 .cow-reading-plan-card.is-active {
@@ -2853,6 +2924,11 @@
 .cow-reading-plan-card.is-overdue {
   border-color: rgba(255, 124, 124, 0.3);
   background: rgba(255, 235, 233, 0.64);
+}
+
+.cow-reading-plan-card:focus-visible {
+  outline: 2px solid rgba(242, 59, 141, 0.42);
+  outline-offset: 2px;
 }
 
 .cow-reading-plan-cover,
@@ -2993,10 +3069,230 @@
 .cow-reading-plan-modal,
 .cow-reading-plan-modal-body,
 .cow-reading-plan-picker,
-.cow-reading-plan-form {
+.cow-reading-plan-form,
+.cow-reading-plan-detail-card,
+.cow-reading-note-modal-content,
+.cow-reading-note-form {
   display: grid;
   gap: 12px;
   min-width: 0;
+}
+
+.cow-progress-editor-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(64px, 84px) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cow-progress-editor-inline input[type="range"] {
+  min-width: 0;
+}
+
+.cow-reading-plan-detail-card {
+  padding: 12px;
+  border: 1px solid rgba(242, 59, 141, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.cow-reading-rhythm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cow-reading-rhythm span {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 224, 237, 0.62);
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-reading-note-card {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cow-reading-note-card .cow-link-button {
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cow-ink);
+  font-weight: 800;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.cow-linked-notes-panel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(242, 59, 141, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.cow-reading-note-mini-list {
+  gap: 8px;
+}
+
+.cow-book-tag-chip-list,
+.cow-want-read-list,
+.cow-want-read-history,
+.cow-want-read-picker-panel,
+.cow-book-tag-manager-list,
+.cow-reading-quote-grid {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cow-book-tag-chip-list,
+.cow-quote-style-list,
+.cow-quote-color-list,
+.cow-book-tag-color-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cow-book-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 5px 10px;
+  border: 1px solid rgba(242, 59, 141, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--cow-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cow-book-tag-chip.is-selected {
+  border-color: color-mix(in srgb, var(--book-tag-color, var(--cow-primary)) 68%, #7a2f4c);
+  background: color-mix(in srgb, var(--book-tag-color, var(--cow-primary)) 34%, white);
+  color: #6a173e;
+}
+
+.cow-want-read-card,
+.cow-book-tag-manager-card,
+.cow-reading-quote-card {
+  min-width: 0;
+  height: auto;
+  box-sizing: border-box;
+}
+
+.cow-want-read-card p,
+.cow-want-read-picker-panel p,
+.cow-reading-quote-card p {
+  margin: 0;
+  color: var(--cow-muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.cow-want-read-history {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px dashed rgba(242, 59, 141, 0.22);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.36);
+}
+
+.cow-reading-quote-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.cow-reading-quote-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(242, 59, 141, 0.18);
+  border-radius: 16px;
+  box-shadow: 0 8px 18px rgba(242, 59, 141, 0.08);
+}
+
+.cow-reading-quote-card.is-sticky {
+  transform: rotate(-0.4deg);
+  border-style: dashed;
+}
+
+.cow-reading-quote-card.is-soft {
+  border-color: rgba(118, 199, 242, 0.22);
+}
+
+.cow-reading-quote-card.is-card {
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0));
+}
+
+.cow-reading-quote-card blockquote {
+  margin: 0;
+  min-width: 0;
+  color: var(--cow-ink);
+  font-size: 14px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.cow-quote-source {
+  color: var(--cow-pink-strong);
+  font-size: 12px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.cow-quote-style-list button {
+  padding: 6px 10px;
+  border: 1px solid rgba(242, 59, 141, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--cow-ink);
+}
+
+.cow-quote-style-list button.is-selected {
+  border-color: rgba(242, 59, 141, 0.38);
+  background: rgba(255, 224, 237, 0.76);
+  color: var(--cow-pink-strong);
+  font-weight: 800;
+}
+
+.cow-quote-color-list button,
+.cow-book-tag-color-grid button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid rgba(91, 40, 28, 0.18);
+  border-radius: 999px;
+}
+
+.cow-quote-color-list button.is-selected,
+.cow-book-tag-color-grid button.is-selected {
+  border-color: var(--cow-pink-strong);
+  box-shadow: 0 0 0 3px rgba(242, 59, 141, 0.16);
+}
+
+.cow-book-tag-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--book-tag-color, var(--cow-primary)) 58%, #7a2f4c);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--book-tag-color, var(--cow-primary)) 30%, white);
+  color: #6a173e;
+  font-weight: 800;
 }
 
 .cow-reading-plan-modal,

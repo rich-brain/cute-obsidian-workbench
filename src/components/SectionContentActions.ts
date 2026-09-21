@@ -33,6 +33,11 @@ import {
   openTransactionModal
 } from "./DashboardEditModals";
 import { TodayFocusTaskModal, TodoStatisticsModal } from "./overview/TodoStatisticsModal";
+import { openReadingNoteModal } from "./reading/ReadingNotesSection";
+import { openReadingPlanModal } from "./reading/ReadingPlanModals";
+import { openReadingQuoteModal } from "./reading/ReadingQuotesSection";
+import { openBookTagModal } from "./reading/ReadingTagManagerSection";
+import { openWantToReadModal } from "./reading/WantToReadSection";
 import { applyResizableModal } from "./ResizableModal";
 
 export function openAddContentModal(app: App, store: DashboardStore, section: DashboardSectionConfig, onDataChanged: () => void): void {
@@ -71,18 +76,24 @@ export function openAddContentModal(app: App, store: DashboardStore, section: Da
       });
       break;
     case "bookshelf":
-    case "reading-plan":
-    case "reading-notes":
-    case "wishlist-books":
       new AddBookModal(app, store, async () => {
         refresh();
       }).open();
       break;
+    case "wishlist-books":
+      openWantToReadModal(app, store, refresh);
+      break;
+    case "reading-plan":
+      openReadingPlanModal(app, store, refresh);
+      break;
+    case "reading-notes":
+      openReadingNoteModal(app, store, refresh);
+      break;
     case "reading-quotes":
-      openQuoteModal(app, async (values) => {
-        await store.addReadingQuote({ ...values, id: `quote-${Date.now()}` });
-        refresh();
-      });
+      openReadingQuoteModal(app, store, refresh);
+      break;
+    case "reading-tag-manager":
+      openBookTagModal(app, store, refresh);
       break;
     case "workout-plan":
     case "workout-log":

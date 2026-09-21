@@ -2,17 +2,21 @@ import { App, Notice, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import type { BookItem } from "../../types/dashboard";
 import { AddBookModal } from "./AddBookModal";
+import { openReadingNoteForBook } from "./ReadingNotesSection";
+
+type BookCardVariant = "shelf" | "current";
 
 export class BookCard {
   constructor(
     private readonly app: App,
     private readonly store: DashboardStore,
     private readonly book: BookItem,
-    private readonly onDataChanged: () => void
+    private readonly onDataChanged: () => void,
+    private readonly variant: BookCardVariant = "current"
   ) {}
 
   render(container: HTMLElement): void {
-    const card = container.createDiv({ cls: "cow-book-card" });
+    const card = container.createDiv({ cls: `cow-book-card cow-book-card-${this.variant}` });
     const cover = card.createDiv({ cls: "cow-book-cover" });
     const coverSrc = this.getCoverSrc();
     if (coverSrc) {
@@ -21,43 +25,21 @@ export class BookCard {
       cover.createSpan({ text: this.book.title.slice(0, 2) });
     }
 
+    if (this.variant === "shelf") {
+      const title = card.createEl("strong", {
+        cls: "cow-book-shelf-title",
+        text: this.book.title,
+        attr: { title: this.book.title }
+      });
+      title.setAttr("aria-label", this.book.title);
+      return;
+    }
+
     const body = card.createDiv({ cls: "cow-book-body" });
-    body.createEl("strong", { text: this.book.title });
-    body.createSpan({ text: `${this.book.author} · ${this.statusLabel()}` });
-    if (this.book.startDate) body.createSpan({ text: `开始：${this.book.startDate}` });
-    if (this.book.readingStatus === "finished" && this.book.finishDate) body.createSpan({ text: `完成：${this.book.finishDate}` });
-    const progress = this.book.totalPages === 0 ? 0 : Math.round((this.book.currentPage / this.book.totalPages) * 100);
-    const track = body.createDiv({ cls: "cow-month-progress-track" });
-    track.createDiv({ cls: "cow-month-progress-fill is-pink", attr: { style: `width: ${progress}%` } });
+    body.createSpan({ cls: `cow-reading-status-pill is-${this.book.readingStatus ?? "want-to-read"}`, text: this.statusLabel() });
+    body.createEl("strong", { cls: "cow-book-current-title", text: this.book.title, attr: { title: this.book.title } });
 
     const controls = body.createDiv({ cls: "cow-book-controls" });
-    const status = controls.createEl("select", { attr: { "aria-label": "阅读状态" } });
-    [
-      { value: "want-to-read", label: "想读" },
-      { value: "reading", label: "在读" },
-      { value: "finished", label: "已读" }
-    ].forEach((option) => status.createEl("option", { value: option.value, text: option.label }));
-    status.value = this.book.readingStatus ?? "want-to-read";
-    status.addEventListener("change", async () => {
-      const nextStatus = status.value as BookItem["readingStatus"];
-      const shouldCompletePlans = nextStatus === "finished" ? this.shouldCompleteRelatedPlans() : false;
-      await this.store.updateBookReadingStatus(this.book.id, nextStatus);
-      if (nextStatus === "finished") {
-        await this.completeRelatedPlansIfConfirmed(shouldCompletePlans);
-      }
-      this.onDataChanged();
-    });
-    const pageInput = controls.createEl("input", {
-      type: "number",
-      value: String(this.book.currentPage),
-      attr: { min: "0", max: String(this.book.totalPages), "aria-label": "当前页数" }
-    });
-    pageInput.addEventListener("change", async () => {
-      await this.store.updateBookPage(this.book.id, Number(pageInput.value) || 0);
-      this.onDataChanged();
-    });
-    controls.createSpan({ text: `/ ${this.book.totalPages}` });
-
     const openBook = controls.createEl("button", { attr: { type: "button", "aria-label": "阅读书籍" } });
     setIcon(openBook, "book-open");
     openBook.addEventListener("click", () => void this.openBook());
@@ -110,16 +92,7 @@ export class BookCard {
   }
 
   private async openNote(): Promise<void> {
-    if (!this.book.notePath) {
-      new Notice("这本书还没有绑定阅读笔记。");
-      return;
-    }
-    const file = this.app.vault.getFileByPath(this.book.notePath);
-    if (!file) {
-      new Notice(`没有找到笔记：${this.book.notePath}`);
-      return;
-    }
-    await this.app.workspace.getLeaf(false).openFile(file);
+    await openReadingNoteForBook(this.app, this.store, this.book);
   }
 
   private getCoverSrc(): string | undefined {

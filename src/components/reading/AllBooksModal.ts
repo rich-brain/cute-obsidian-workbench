@@ -3,6 +3,7 @@ import type { DashboardStore } from "../../core/DashboardStore";
 import type { BookItem } from "../../types/dashboard";
 import { applyResizableModal } from "../ResizableModal";
 import { AddBookModal } from "./AddBookModal";
+import { openReadingNoteForBook } from "./ReadingNotesSection";
 
 type BookFilter = "all" | "want-to-read" | "reading" | "finished" | "on-shelf" | "off-shelf";
 
@@ -94,7 +95,9 @@ export class AllBooksModal extends Modal {
     const body = row.createDiv({ cls: "cow-all-book-body" });
     body.createEl("strong", { text: book.title });
     body.createSpan({ text: `${book.author} · ${this.statusLabel(book)} · ${book.shelfStatus === "off-shelf" ? "已下架" : "书架上"}` });
-    body.createSpan({ text: [book.bookFilePath, book.notePath].filter(Boolean).join(" · ") || "暂无文件路径" });
+    if ((book.tags ?? []).length > 0) body.createSpan({ text: `标签：${book.tags.join(" / ")}` });
+    const noteCount = this.store.getReadingNotesForBook(book.id).length;
+    body.createSpan({ text: [book.bookFilePath, noteCount > 0 ? `${noteCount} 条阅读笔记` : ""].filter(Boolean).join(" · ") || "暂无文件路径" });
     const actions = row.createDiv({ cls: "cow-list-item-actions" });
     this.iconButton(actions, "book-open", "打开书籍", () => void this.openBook(book));
     this.iconButton(actions, "notebook-tabs", "打开笔记", () => void this.openNote(book));
@@ -151,16 +154,7 @@ export class AllBooksModal extends Modal {
   }
 
   private async openNote(book: BookItem): Promise<void> {
-    if (!book.notePath) {
-      new Notice("这本书还没有绑定阅读笔记。");
-      return;
-    }
-    const file = this.app.vault.getFileByPath(book.notePath);
-    if (!file) {
-      new Notice(`没有找到笔记：${book.notePath}`);
-      return;
-    }
-    await this.app.workspace.getLeaf(false).openFile(file);
+    await openReadingNoteForBook(this.app, this.store, book);
   }
 
   private getCoverSrc(book: BookItem): string | undefined {

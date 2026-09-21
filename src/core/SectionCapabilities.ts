@@ -10,6 +10,7 @@ const ADDABLE_SECTION_TYPES = new Set([
   "research-memo",
   "reading-notes",
   "reading-quotes",
+  "reading-tag-manager",
   "wishlist-books",
   "workout-plan",
   "workout-log",

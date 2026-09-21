@@ -2,9 +2,15 @@ import { App, Modal, Notice, requestUrl, setIcon } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import type { BookItem } from "../../types/dashboard";
 import { applyResizableModal } from "../ResizableModal";
+import { openVaultMarkdown } from "../research/MarkdownFilePicker";
 
-type TabId = "search" | "local" | "manual";
+type TabId = "search" | "local" | "manual" | "wishlist";
 type BookDraft = Partial<BookItem> & { title: string; author: string };
+
+interface AddBookModalOptions {
+  initialDraft?: Partial<BookItem>;
+  onBookSaved?: (book: BookItem) => Promise<void> | void;
+}
 
 interface BookSearchResult {
   title: string;
@@ -23,23 +29,28 @@ export class AddBookModal extends Modal {
   private activeTab: TabId = "search";
   private draft: BookDraft;
   private searchResults: BookSearchResult[] = [];
+  private selectedWantToReadId?: string;
 
   constructor(
     app: App,
     private readonly store: DashboardStore,
     private readonly onDataChanged: () => void,
-    private readonly book?: BookItem
+    private readonly book?: BookItem,
+    private readonly options: AddBookModalOptions = {}
   ) {
     super(app);
     this.draft = {
       ...book,
-      title: book?.title ?? "",
-      author: book?.author ?? "",
-      totalPages: book?.totalPages ?? 200,
+      ...options.initialDraft,
+      title: options.initialDraft?.title ?? book?.title ?? "",
+      author: options.initialDraft?.author ?? book?.author ?? "",
+      description: options.initialDraft?.description ?? book?.description,
+      totalPages: options.initialDraft?.totalPages ?? book?.totalPages ?? 200,
       currentPage: book?.currentPage ?? 0,
       readingStatus: book?.readingStatus ?? (book?.status === "在读" ? "reading" : book?.status === "已读" ? "finished" : "want-to-read"),
       shelfStatus: book?.shelfStatus ?? "on-shelf",
-      tags: book?.tags ?? []
+      tags: book?.tags ?? [],
+      tagIds: book?.tagIds ?? []
     };
     if (book) this.activeTab = "manual";
   }
@@ -64,17 +75,21 @@ export class AddBookModal extends Modal {
     const body = this.contentEl.createDiv({ cls: "cow-book-modal-body" });
     if (this.activeTab === "search") this.renderSearchTab(body);
     if (this.activeTab === "local") this.renderLocalTab(body);
+    if (this.activeTab === "wishlist") this.renderWishlistTab(body);
     this.renderBookForm(body);
+    if (this.book) this.renderLinkedReadingNotes(body);
     this.renderActions();
   }
 
   private renderTabs(): void {
     const tabs = this.contentEl.createDiv({ cls: "cow-book-tabs" });
-    [
+    const tabItems: Array<{ id: TabId; label: string }> = [
       { id: "search", label: "搜索导入" },
       { id: "local", label: "本地文件" },
       { id: "manual", label: "手动添加" }
-    ].forEach((tab) => {
+    ];
+    if (!this.book) tabItems.push({ id: "wishlist", label: "从想读清单添加" });
+    tabItems.forEach((tab) => {
       const button = tabs.createEl("button", { text: tab.label, cls: this.activeTab === tab.id ? "is-active" : "", attr: { type: "button" } });
       button.addEventListener("click", () => {
         this.activeTab = tab.id as TabId;
@@ -141,6 +156,37 @@ export class AddBookModal extends Modal {
     });
   }
 
+  private renderWishlistTab(container: HTMLElement): void {
+    const panel = container.createDiv({ cls: "cow-want-read-picker-panel" });
+    panel.createEl("p", { text: "选择待处理想读记录后，会预填书名、作者和简介；保存后才会创建正式 Book。" });
+    const pending = this.store.getWantToReadItems().filter((item) => item.status === "pending");
+    if (pending.length === 0) {
+      panel.createDiv({ cls: "cow-empty-state", text: "当前没有待处理的想读记录。" });
+      return;
+    }
+    const list = panel.createDiv({ cls: "cow-data-list" });
+    pending.forEach((item) => {
+      const button = list.createEl("button", {
+        cls: `cow-data-card cow-click-card ${this.selectedWantToReadId === item.id ? "is-selected" : ""}`,
+        attr: { type: "button" }
+      });
+      button.createEl("strong", { text: item.title });
+      button.createDiv({ cls: "cow-meta-line", text: item.author || "未知作者" });
+      if (item.summary) button.createEl("p", { text: item.summary });
+      button.addEventListener("click", () => {
+        this.selectedWantToReadId = item.id;
+        this.draft = {
+          ...this.draft,
+          title: item.title,
+          author: item.author ?? "",
+          description: item.summary ?? ""
+        };
+        this.activeTab = "manual";
+        this.render();
+      });
+    });
+  }
+
   private renderBookForm(container: HTMLElement): void {
     const form = container.createDiv({ cls: "cow-book-form" });
     const cover = form.createDiv({ cls: "cow-book-form-cover" });
@@ -188,7 +234,7 @@ export class AddBookModal extends Modal {
       { value: "on-shelf", label: "上架" },
       { value: "off-shelf", label: "下架" }
     ], (value) => this.draft.shelfStatus = value as BookItem["shelfStatus"]);
-    this.bindInput(this.textField(fields, "标签", (this.draft.tags ?? []).join(", ")), (value) => this.draft.tags = value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean));
+    this.renderTagPicker(fields);
     this.bindInput(this.textareaField(fields, "简介", this.draft.description ?? ""), (value) => this.draft.description = value);
   }
 
@@ -226,6 +272,10 @@ export class AddBookModal extends Modal {
     const book = await this.prepareBook();
     if (this.book) await this.store.updateBook(this.book.id, book);
     else await this.store.addBook(book);
+    if (!this.book && this.selectedWantToReadId) {
+      await this.store.updateWantToReadItem(this.selectedWantToReadId, { status: "added", bookId: book.id });
+    }
+    await this.options.onBookSaved?.(book);
     this.onDataChanged();
     this.close();
   }
@@ -235,7 +285,6 @@ export class AddBookModal extends Modal {
     if (this.draft.coverUrl && !this.draft.coverPath) {
       this.draft.coverPath = await this.downloadCover(this.draft.coverUrl, this.draft.title);
     }
-    const notePath = this.draft.notePath || await this.ensureBookNote();
     return {
       id: this.book?.id ?? `book-${Date.now()}`,
       ...this.book,
@@ -247,11 +296,41 @@ export class AddBookModal extends Modal {
       status: readingStatus === "reading" ? "在读" : readingStatus === "finished" ? "已读" : "想读",
       readingStatus,
       shelfStatus: this.draft.shelfStatus ?? "on-shelf",
-      notePath,
+      notePath: this.draft.notePath,
       createdAt: this.book?.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      tags: this.draft.tags ?? []
+      tagIds: this.draft.tagIds ?? [],
+      tags: this.store.getBookTags().filter((tag) => (this.draft.tagIds ?? []).includes(tag.id)).map((tag) => tag.name)
     };
+  }
+
+  private renderTagPicker(container: HTMLElement): void {
+    const row = container.createDiv({ cls: "cow-book-form-row cow-book-tag-picker-row" });
+    row.createEl("label", { text: "标签" });
+    const chips = row.createDiv({ cls: "cow-book-tag-chip-list" });
+    const selected = new Set(this.draft.tagIds ?? []);
+    const tags = this.store.getBookTags();
+    if (tags.length === 0) {
+      chips.createDiv({ cls: "cow-empty-state", text: "暂无阅读标签，可在阅读页的标签管理中新增。" });
+      return;
+    }
+    tags.forEach((tag) => {
+      const active = selected.has(tag.id);
+      const chip = chips.createEl("button", {
+        cls: `cow-book-tag-chip ${active ? "is-selected" : ""}`,
+        attr: { type: "button" }
+      });
+      chip.createSpan({ text: active ? "✓" : "" });
+      chip.createSpan({ text: tag.name });
+      chip.style.setProperty("--book-tag-color", tag.color);
+      chip.addEventListener("click", () => {
+        if (selected.has(tag.id)) selected.delete(tag.id);
+        else selected.add(tag.id);
+        this.draft.tagIds = [...selected];
+        this.draft.tags = this.store.getBookTags().filter((item) => selected.has(item.id)).map((item) => item.name);
+        this.render();
+      });
+    });
   }
 
   private async searchBooks(query: string): Promise<BookSearchResult[]> {
@@ -350,40 +429,6 @@ export class AddBookModal extends Modal {
     }
   }
 
-  private async ensureBookNote(): Promise<string> {
-    await this.ensureFolder("Books/Notes");
-    const path = await this.uniquePath(`Books/Notes/${this.safeName(this.draft.title)}.md`);
-    const isbn = this.draft.isbn13 ?? this.draft.isbn10 ?? "";
-    const content = [
-      "---",
-      "type: book",
-      `title: ${this.escapeYaml(this.draft.title)}`,
-      `author: ${this.escapeYaml(this.draft.author)}`,
-      `status: ${this.draft.readingStatus ?? "want-to-read"}`,
-      `startDate: ${this.draft.startDate ?? ""}`,
-      `finishDate: ${this.draft.finishDate ?? ""}`,
-      `isbn: ${isbn}`,
-      `publisher: ${this.escapeYaml(this.draft.publisher ?? "")}`,
-      `totalPages: ${this.draft.totalPages ?? ""}`,
-      `cover: ${this.draft.coverPath ?? ""}`,
-      `bookFile: ${this.draft.bookFilePath ?? ""}`,
-      "---",
-      "",
-      `# ${this.draft.title}`,
-      "",
-      this.draft.bookFilePath ? `书籍文件：[[${this.draft.bookFilePath}]]` : "书籍文件：",
-      "",
-      "## 阅读进度",
-      "",
-      "## 阅读笔记",
-      "",
-      "## 金句",
-      ""
-    ].join("\n");
-    await this.app.vault.create(path, content);
-    return path;
-  }
-
   private textField(container: HTMLElement, label: string, value: string, type = "text"): HTMLInputElement {
     const row = container.createDiv({ cls: "cow-book-form-row" });
     row.createEl("label", { text: label });
@@ -459,10 +504,6 @@ export class AddBookModal extends Modal {
     return value.replace(/[\\/:*?"<>|#^[\]]/g, " ").replace(/\s+/g, " ").trim() || "book";
   }
 
-  private escapeYaml(value: string): string {
-    return `"${value.replace(/"/g, '\\"')}"`;
-  }
-
   private renderCoverImage(container: HTMLElement, src: string, title: string): void {
     const img = container.createEl("img", { attr: { src, alt: title } });
     img.addEventListener("error", () => {
@@ -473,6 +514,29 @@ export class AddBookModal extends Modal {
 
   private today(): string {
     return new Date().toISOString().slice(0, 10);
+  }
+
+  private renderLinkedReadingNotes(container: HTMLElement): void {
+    if (!this.book) return;
+    const section = container.createDiv({ cls: "cow-linked-notes-panel" });
+    section.createEl("strong", { text: "关联阅读笔记" });
+    const notes = this.store.getReadingNotesForBook(this.book.id);
+    if (notes.length === 0) {
+      section.createDiv({ cls: "cow-empty-state", text: "暂无已绑定的 Vault Markdown 阅读笔记。" });
+      return;
+    }
+    const list = section.createDiv({ cls: "cow-data-list cow-reading-note-mini-list" });
+    notes.forEach((note) => {
+      const row = list.createDiv({ cls: "cow-data-card cow-click-card" });
+      const head = row.createDiv({ cls: "cow-list-item-head" });
+      head.createEl("strong", { text: note.title });
+      head.createDiv({ cls: "cow-list-item-actions" }).createEl("button", { text: "打开", attr: { type: "button" } }).addEventListener("click", (event) => {
+        event.stopPropagation();
+        void openVaultMarkdown(this.app, note.notePath);
+      });
+      row.createDiv({ cls: "cow-meta-line", text: note.notePath });
+      row.addEventListener("click", () => void openVaultMarkdown(this.app, note.notePath));
+    });
   }
 }
 

@@ -21,9 +21,9 @@ class ReadingPlanModal extends Modal {
   private selectedBookId: string;
   private startDate: string;
   private endDate: string;
-  private targetPages: number | undefined;
+  private goal: string;
+  private progress: number;
   private note: string;
-  private status: ReadingPlan["status"];
 
   constructor(
     app: App,
@@ -36,9 +36,9 @@ class ReadingPlanModal extends Modal {
     this.selectedBookId = plan?.bookId ?? store.getBooks()[0]?.id ?? "";
     this.startDate = plan?.startDate ?? today;
     this.endDate = plan?.endDate ?? today;
-    this.targetPages = plan?.targetPages;
+    this.goal = plan?.goal ?? (plan?.targetPages ? `${plan.targetPages} 页` : "读完本书");
+    this.progress = Math.max(0, Math.min(100, Number(plan?.progress ?? (plan?.status === "completed" ? 100 : 0)) || 0));
     this.note = plan?.note ?? "";
-    this.status = plan?.status ?? "planned";
   }
 
   onOpen(): void {
@@ -126,29 +126,29 @@ class ReadingPlanModal extends Modal {
       this.render();
     });
 
-    const pages = form.createDiv({ cls: "cow-book-form-row" });
-    pages.createEl("label", { text: "目标页数" });
-    const input = pages.createEl("input", {
-      value: this.targetPages === undefined ? "" : String(this.targetPages),
-      attr: { type: "number", min: "0", placeholder: "留空表示读完本书" }
+    const goalRow = form.createDiv({ cls: "cow-book-form-row" });
+    goalRow.createEl("label", { text: "阅读目标" });
+    const goal = goalRow.createEl("input", {
+      value: this.goal,
+      attr: { type: "text", placeholder: "例如：读完整本书 / 第 1-4 章 / 300 页" }
     });
-    input.addEventListener("input", () => {
-      this.targetPages = input.value ? Math.max(0, Number(input.value) || 0) : undefined;
-    });
+    goal.addEventListener("input", () => this.goal = goal.value);
 
-    const statusRow = form.createDiv({ cls: "cow-book-form-row" });
-    statusRow.createEl("label", { text: "计划状态" });
-    const status = statusRow.createEl("select");
-    [
-      ["planned", "计划中"],
-      ["active", "进行中"],
-      ["completed", "已完成"],
-      ["overdue", "已逾期"]
-    ].forEach(([value, label]) => status.createEl("option", { value, text: label }));
-    status.value = this.status;
-    status.addEventListener("change", () => {
-      this.status = status.value as ReadingPlan["status"];
-    });
+    const progressRow = form.createDiv({ cls: "cow-book-form-row cow-progress-editor-row" });
+    progressRow.createEl("label", { text: "计划进度" });
+    const progressControls = progressRow.createDiv({ cls: "cow-progress-editor-inline" });
+    const range = progressControls.createEl("input", { attr: { type: "range", min: "0", max: "100", step: "1" } });
+    const number = progressControls.createEl("input", { value: String(this.progress), attr: { type: "number", min: "0", max: "100", step: "1", "aria-label": "进度百分比" } });
+    const percent = progressControls.createSpan({ text: `${this.progress}%` });
+    range.value = String(this.progress);
+    const updateProgress = (value: number) => {
+      this.progress = Math.max(0, Math.min(100, Math.round(value)));
+      range.value = String(this.progress);
+      number.value = String(this.progress);
+      percent.setText(`${this.progress}%`);
+    };
+    range.addEventListener("input", () => updateProgress(Number(range.value)));
+    number.addEventListener("input", () => updateProgress(Number(number.value) || 0));
 
     const noteRow = form.createDiv({ cls: "cow-book-form-row" });
     noteRow.createEl("label", { text: "备注" });
@@ -185,15 +185,21 @@ class ReadingPlanModal extends Modal {
         return;
       }
       const now = new Date().toISOString();
+      const status = computeReadingPlanStatus(this.startDate, this.endDate, this.progress);
+      const completedDate = status === "completed" ? this.plan?.completedDate ?? todayKey() : undefined;
+      const completedAt = status === "completed" ? this.plan?.completedAt ?? now : undefined;
       const payload: ReadingPlan = {
         id: this.plan?.id ?? `reading-plan-${Date.now()}`,
         bookId: this.selectedBookId,
         startDate: this.startDate,
         endDate: this.endDate,
-        targetPages: this.targetPages,
+        targetPages: this.plan?.targetPages,
+        goal: this.goal.trim() || "读完本书",
+        progress: this.progress,
         note: this.note.trim(),
-        status: this.status,
-        completedDate: this.status === "completed" ? this.plan?.completedDate ?? todayKey() : undefined,
+        status,
+        completedDate,
+        completedAt,
         createdAt: this.plan?.createdAt ?? now,
         updatedAt: now
       };
@@ -215,6 +221,103 @@ class ReadingPlanModal extends Modal {
   private getCoverSrc(book: BookItem): string | undefined {
     if (book.coverPath) return this.app.vault.adapter.getResourcePath(book.coverPath);
     return book.cover ?? book.coverUrl;
+  }
+}
+
+export function openReadingPlanDetailModal(
+  app: App,
+  store: DashboardStore,
+  onDataChanged: () => void,
+  plan: ReadingPlan
+): void {
+  new ReadingPlanDetailModal(app, store, onDataChanged, plan).open();
+}
+
+class ReadingPlanDetailModal extends Modal {
+  constructor(
+    app: App,
+    private readonly store: DashboardStore,
+    private readonly onDataChanged: () => void,
+    private readonly plan: ReadingPlan
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    applyResizableModal(this, {
+      className: "cute-reading-plan-detail-modal",
+      width: "min(760px, 90vw)",
+      height: "min(620px, 86vh)",
+      maxWidth: "96vw",
+      maxHeight: "92vh",
+      minWidth: "min(500px, 92vw)",
+      minHeight: "min(380px, 82vh)"
+    });
+    this.render();
+  }
+
+  private render(): void {
+    const plan = this.store.getReadingPlans().find((item) => item.id === this.plan.id) ?? this.plan;
+    const book = this.store.getBooks().find((item) => item.id === plan.bookId);
+    const status = plan.status;
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-reading-plan-detail-modal-content");
+    this.contentEl.createEl("h2", { text: "阅读计划详情" });
+    const card = this.contentEl.createDiv({ cls: `cow-reading-plan-detail-card is-${status}` });
+    const head = card.createDiv({ cls: "cow-list-item-head" });
+    const title = head.createEl("button", { cls: "cow-link-button", text: book?.title ?? "未找到关联书籍", attr: { type: "button" } });
+    title.addEventListener("click", () => {
+      if (!book) return;
+      new AddBookModal(this.app, this.store, () => {
+        this.onDataChanged();
+        this.render();
+      }, book).open();
+    });
+    head.createSpan({ cls: `cow-reading-plan-status is-${status}`, text: status === "completed" ? `✓ ${readingPlanStatusLabel(status)}` : readingPlanStatusLabel(status) });
+    card.createDiv({ cls: "cow-meta-line", text: book ? `${book.author} · ${book.currentPage}/${book.totalPages} 页` : "这条计划保留了数据，但书籍记录可能已被删除。" });
+    card.createDiv({ cls: "cow-meta-line", text: formatDateRange(plan.startDate, plan.endDate) });
+    if (plan.completedAt ?? plan.completedDate) card.createDiv({ cls: "cow-meta-line", text: `完成：${(plan.completedAt ?? plan.completedDate)?.slice(0, 10)}` });
+    card.createEl("p", { text: plan.goal ?? "读完本书" });
+    this.renderProgress(card, plan);
+    this.renderRhythm(card, plan, book);
+    if (plan.note) card.createEl("p", { text: plan.note });
+
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "编辑", attr: { type: "button" } }).addEventListener("click", () => openReadingPlanModal(this.app, this.store, () => {
+      this.onDataChanged();
+      this.close();
+    }, plan));
+    if (status !== "completed") {
+      actions.createEl("button", { text: "完成", attr: { type: "button" } }).addEventListener("click", async () => {
+        await this.store.completeReadingPlan(plan.id);
+        this.onDataChanged();
+        this.render();
+      });
+    }
+    actions.createEl("button", { text: "关闭", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => this.close());
+  }
+
+  private renderProgress(container: HTMLElement, plan: ReadingPlan): void {
+    const progress = Math.max(0, Math.min(100, Number(plan.progress) || 0));
+    const row = container.createDiv({ cls: "cow-reading-plan-progress" });
+    row.createSpan({ text: `计划进度 ${progress}%` });
+    const track = row.createDiv({ cls: "cow-month-progress-track" });
+    track.createDiv({ cls: "cow-month-progress-fill is-pink", attr: { style: `width: ${progress}%` } });
+  }
+
+  private renderRhythm(container: HTMLElement, plan: ReadingPlan, book: BookItem | undefined): void {
+    const today = todayKey();
+    const daysLeft = Math.max(0, daysBetween(today, plan.endDate) + 1);
+    const rhythm = container.createDiv({ cls: "cow-reading-rhythm" });
+    if (book?.totalPages) {
+      const remainingPages = Math.max(0, book.totalPages - book.currentPage);
+      const pagesPerDay = daysLeft <= 0 ? remainingPages : Math.ceil(remainingPages / daysLeft);
+      rhythm.createSpan({ text: `剩余 ${remainingPages} 页` });
+      rhythm.createSpan({ text: `${daysLeft} 天` });
+      rhythm.createSpan({ text: `建议 ${pagesPerDay} 页/天` });
+      return;
+    }
+    rhythm.createSpan({ text: `剩余 ${daysLeft} 天` });
   }
 }
 
@@ -364,7 +467,7 @@ export class ReadingPlanStatisticsModal extends Modal {
       const card = shell.createDiv({ cls: `cow-data-card ${this.resolveStatus(plan) === "completed" ? "is-complete" : ""}` });
       card.createEl("strong", { text: book?.title ?? "未知书籍" });
       card.createDiv({ cls: "cow-meta-line", text: `${formatDateRange(plan.startDate, plan.endDate)} · ${readingPlanStatusLabel(this.resolveStatus(plan))}` });
-      card.createDiv({ cls: "cow-meta-line", text: `${book?.author ?? "未知作者"} · ${plan.targetPages ? `${plan.targetPages}页` : "读完本书"}` });
+      card.createDiv({ cls: "cow-meta-line", text: `${book?.author ?? "未知作者"} · ${plan.goal ?? "读完本书"} · ${plan.progress ?? 0}%` });
       if (plan.note) card.createEl("p", { text: plan.note });
     });
   }
@@ -420,7 +523,21 @@ export function readingPlanStatusLabel(status: ReadingPlan["status"]): string {
   if (status === "active") return "进行中";
   if (status === "completed") return "已完成";
   if (status === "overdue") return "已逾期";
-  return "计划中";
+  return "未开始";
+}
+
+function computeReadingPlanStatus(startDate: string, endDate: string, progress: number): ReadingPlan["status"] {
+  if (progress >= 100) return "completed";
+  const today = todayKey();
+  if (today < startDate) return "planned";
+  if (today > endDate) return "overdue";
+  return "active";
+}
+
+function daysBetween(startDate: string, endDate: string): number {
+  const start = new Date(`${startDate}T00:00:00`).getTime();
+  const end = new Date(`${endDate}T00:00:00`).getTime();
+  return Math.floor((end - start) / 86400000);
 }
 
 function bookStatusLabel(book: BookItem): string {

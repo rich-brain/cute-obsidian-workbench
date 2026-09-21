@@ -106,10 +106,13 @@ import { BookshelfSection } from "./reading/BookshelfSection";
 import { CurrentReadingSection } from "./reading/CurrentReadingSection";
 import { ReadingCheckinSection } from "./reading/ReadingCheckinSection";
 import { ReadingHeatmapSection } from "./reading/ReadingHeatmapSection";
-import { ReadingNotesSection } from "./reading/ReadingNotesSection";
+import { ReadingNotesSection, openReadingNoteModal } from "./reading/ReadingNotesSection";
 import { ReadingPlanSection } from "./reading/ReadingPlanSection";
 import { ReadingPlanStatisticsModal, openReadingPlanModal } from "./reading/ReadingPlanModals";
 import { ReadingQuotesSection } from "./reading/ReadingQuotesSection";
+import { openReadingQuoteModal } from "./reading/ReadingQuotesSection";
+import { ReadingTagManagerSection, openBookTagModal } from "./reading/ReadingTagManagerSection";
+import { WantToReadSection, openWantToReadModal } from "./reading/WantToReadSection";
 import { ReadingStatsSection } from "./reading/ReadingStatsSection";
 import { DataAnalysisTasksSection } from "./research/DataAnalysisTasksSection";
 import { ExperimentSection } from "./research/ExperimentSection";
@@ -270,6 +273,18 @@ export class DashboardSection {
     if (this.section.type === "reading-plan") {
       addAction("新增计划", "plus", () => openReadingPlanModal(this.app, this.store, this.onDataChanged));
       addAction("统计", "bar-chart-3", () => new ReadingPlanStatisticsModal(this.app, this.store).open());
+    }
+    if (this.section.type === "reading-notes") {
+      addAction("添加笔记", "plus", () => openReadingNoteModal(this.app, this.store, this.onDataChanged));
+    }
+    if (this.section.type === "reading-quotes") {
+      addAction("添加金句", "plus", () => openReadingQuoteModal(this.app, this.store, this.onDataChanged));
+    }
+    if (this.section.type === "wishlist-books") {
+      addAction("添加想读", "plus", () => openWantToReadModal(this.app, this.store, this.onDataChanged));
+    }
+    if (this.section.type === "reading-tag-manager") {
+      addAction("新增标签", "plus", () => openBookTagModal(this.app, this.store, this.onDataChanged));
     }
   }
 
@@ -461,11 +476,14 @@ export class DashboardSection {
       case "reading-quotes":
         new ReadingQuotesSection(this.app, this.store, this.onDataChanged).render(container);
         break;
+      case "reading-tag-manager":
+        new ReadingTagManagerSection(this.app, this.store, this.onDataChanged).render(container);
+        break;
       case "finished-books":
         new BookListSection(this.app, this.store, "finished", this.onDataChanged).render(container);
         break;
       case "wishlist-books":
-        new BookListSection(this.app, this.store, "want-to-read", this.onDataChanged).render(container);
+        new WantToReadSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "reading-stats":
         new ReadingStatsSection(this.store).render(container);
@@ -697,6 +715,7 @@ export class DashboardSection {
       "reading-checkin": "calendar-check",
       "reading-notes": "notebook-tabs",
       "reading-quotes": "quote",
+      "reading-tag-manager": "tags",
       "finished-books": "badge-check",
       "wishlist-books": "bookmark-plus",
       "reading-stats": "pie-chart",

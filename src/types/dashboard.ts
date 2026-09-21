@@ -173,9 +173,28 @@ export interface BookItem {
   finishDate?: string;
   notePath?: string;
   bookFilePath?: string;
+  tagIds?: string[];
   createdAt?: string;
   updatedAt?: string;
   tags: string[];
+}
+
+export interface WantToReadItem {
+  id: string;
+  title: string;
+  author?: string;
+  summary?: string;
+  status: "pending" | "added";
+  bookId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BookTagDefinition {
+  id: string;
+  name: string;
+  color: string;
+  order?: number;
 }
 
 export interface ReadingPlan {
@@ -184,9 +203,21 @@ export interface ReadingPlan {
   startDate: string;
   endDate: string;
   targetPages?: number;
+  goal?: string;
+  progress?: number;
   note?: string;
   status: "planned" | "active" | "completed" | "overdue";
   completedDate?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReadingNote {
+  id: string;
+  title: string;
+  notePath: string;
+  bookId: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -195,6 +226,10 @@ export interface ReadingQuote {
   id: string;
   text: string;
   source: string;
+  bookId?: string;
+  note?: string;
+  style?: "default" | "sticky" | "soft" | "card";
+  backgroundColor?: string;
 }
 
 export interface Workout {
@@ -603,7 +638,10 @@ export interface WorkbenchData {
   researchMemos: string[];
   dataAnalysisTasks: DataAnalysisTask[];
   books: BookItem[];
+  wantToReadItems: WantToReadItem[];
+  bookTags: BookTagDefinition[];
   readingPlans: ReadingPlan[];
+  readingNotes: ReadingNote[];
   readingQuotes: ReadingQuote[];
   workouts: Workout[];
   bodyMeasurements: BodyMeasurement[];

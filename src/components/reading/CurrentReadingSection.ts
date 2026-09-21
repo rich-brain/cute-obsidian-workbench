@@ -12,6 +12,6 @@ export class CurrentReadingSection {
   render(container: HTMLElement): void {
     const current = this.store.getBooks().filter((book) => book.readingStatus === "reading" && book.shelfStatus !== "off-shelf").slice(0, 2);
     const grid = container.createDiv({ cls: "cow-book-grid" });
-    current.forEach((book) => new BookCard(this.app, this.store, book, this.onDataChanged).render(grid));
+    current.forEach((book) => new BookCard(this.app, this.store, book, this.onDataChanged, "current").render(grid));
   }
 }

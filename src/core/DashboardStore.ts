@@ -4,6 +4,7 @@ import type {
   ApexHabitSettings,
   Bill,
   BookItem,
+  BookTagDefinition,
   BodyMeasurement,
   Budget,
   CalendarTodo,
@@ -38,6 +39,7 @@ import type {
   PaperTagDefinition,
   PriorityMatrixItem,
   ReadingQuote,
+  ReadingNote,
   ReadingPlan,
   ResearchDeadline,
   ResearchPaper,
@@ -49,6 +51,7 @@ import type {
   TodayFocusTask,
   Transaction,
   VenueDefinition,
+  WantToReadItem,
   Workout,
   ThemeSettings,
   WorkbenchData
@@ -96,6 +99,7 @@ export const AVAILABLE_MODULES: AvailableModuleDefinition[] = [
   { type: "reading-checkin", title: "本周阅读打卡", description: "本周阅读习惯打卡。", page: "reading", icon: "calendar-check", defaultWidth: "md" },
   { type: "reading-notes", title: "阅读笔记", description: "阅读笔记入口。", page: "reading", icon: "notebook-tabs", defaultWidth: "md" },
   { type: "reading-quotes", title: "金句摘录", description: "值得反复看的句子。", page: "reading", icon: "quote", defaultWidth: "md" },
+  { type: "reading-tag-manager", title: "标签管理", description: "管理阅读书籍标签。", page: "reading", icon: "tags", defaultWidth: "md" },
   { type: "finished-books", title: "已读清单", description: "已经读完的书。", page: "reading", icon: "badge-check", defaultWidth: "md" },
   { type: "wishlist-books", title: "想读清单", description: "准备开始的书。", page: "reading", icon: "bookmark-plus", defaultWidth: "md" },
   { type: "reading-stats", title: "阅读进度统计", description: "页数、完成率和阅读数量。", page: "reading", icon: "pie-chart", defaultWidth: "md" },
@@ -183,7 +187,7 @@ const DEFAULT_MODULE_LAYOUTS: Record<DashboardPage, ModuleLayoutConfig> = {
 };
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.5.0",
+  dataVersion: "0.5.3",
   currentPage: "overview",
   sections: [
     {
@@ -461,7 +465,7 @@ const DEFAULT_DATA: WorkbenchData = {
       page: "reading",
       type: "finished-books",
       title: "已读清单",
-      order: 70,
+      order: 80,
       enabled: true,
       width: "md",
       height: "md"
@@ -471,7 +475,17 @@ const DEFAULT_DATA: WorkbenchData = {
       page: "reading",
       type: "wishlist-books",
       title: "想读清单",
-      order: 80,
+      order: 90,
+      enabled: true,
+      width: "md",
+      height: "md"
+    },
+    {
+      id: "reading-tag-manager",
+      page: "reading",
+      type: "reading-tag-manager",
+      title: "标签管理",
+      order: 70,
       enabled: true,
       width: "md",
       height: "md"
@@ -481,7 +495,7 @@ const DEFAULT_DATA: WorkbenchData = {
       page: "reading",
       type: "reading-stats",
       title: "阅读进度统计",
-      order: 90,
+      order: 100,
       enabled: true,
       width: "md",
       height: "md"
@@ -491,7 +505,7 @@ const DEFAULT_DATA: WorkbenchData = {
       page: "reading",
       type: "reading-heatmap",
       title: "月度阅读热力图",
-      order: 100,
+      order: 110,
       enabled: true,
       width: "md",
       height: "md"
@@ -501,7 +515,7 @@ const DEFAULT_DATA: WorkbenchData = {
       page: "reading",
       type: "ai-reading-review",
       title: "AI 阅读复盘",
-      order: 110,
+      order: 120,
       enabled: true,
       width: "md",
       height: "md"
@@ -659,6 +673,7 @@ const DEFAULT_DATA: WorkbenchData = {
       status: "在读",
       rating: 4,
       startDate: "2026-09-01",
+      tagIds: ["book-tag-efficiency", "book-tag-focus"],
       tags: ["效率", "专注"]
     },
     {
@@ -671,6 +686,7 @@ const DEFAULT_DATA: WorkbenchData = {
       rating: 5,
       startDate: "2026-08-01",
       finishDate: "2026-08-21",
+      tagIds: ["book-tag-habit"],
       tags: ["习惯"]
     },
     {
@@ -680,16 +696,27 @@ const DEFAULT_DATA: WorkbenchData = {
       totalPages: 499,
       currentPage: 0,
       status: "想读",
+      tagIds: ["book-tag-psychology"],
       tags: ["心理学"]
     }
   ],
   readingQuotes: [
-    { id: "quote-1", text: "专注不是拒绝世界，而是选择此刻真正重要的事。", source: "深度工作" },
-    { id: "quote-2", text: "微小习惯会在时间里复利。", source: "Atomic Habits" }
+    { id: "quote-1", text: "专注不是拒绝世界，而是选择此刻真正重要的事。", source: "深度工作", bookId: "book-deep-work", style: "sticky", backgroundColor: "#fff1ad" },
+    { id: "quote-2", text: "微小习惯会在时间里复利。", source: "Atomic Habits", bookId: "book-atomic-habits", style: "soft", backgroundColor: "#ffe0ed" }
   ],
+  wantToReadItems: [
+    { id: "want-design-book", title: "设计心理学", author: "Donald A. Norman", summary: "补一下产品设计和可用性基础。", status: "pending", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" }
+  ],
+  bookTags: [
+    { id: "book-tag-efficiency", name: "效率", color: "#f8a8c4", order: 10 },
+    { id: "book-tag-focus", name: "专注", color: "#76c7f2", order: 20 },
+    { id: "book-tag-habit", name: "习惯", color: "#7bd88f", order: 30 },
+    { id: "book-tag-psychology", name: "心理学", color: "#c9b6ff", order: 40 }
+  ],
+  readingNotes: [],
   readingPlans: [
-    { id: "plan-deep-work-sep", bookId: "book-deep-work", startDate: "2026-09-01", endDate: "2026-09-30", targetPages: 304, note: "完成全书并整理深度工作实践清单。", status: "active", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" },
-    { id: "plan-thinking-oct", bookId: "book-thinking", startDate: "2026-10-01", endDate: "2026-10-31", targetPages: 180, note: "先读判断与决策相关章节。", status: "planned", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" }
+    { id: "plan-deep-work-sep", bookId: "book-deep-work", startDate: "2026-09-01", endDate: "2026-09-30", targetPages: 304, goal: "读完整本书", progress: 62, note: "完成全书并整理深度工作实践清单。", status: "active", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" },
+    { id: "plan-thinking-oct", bookId: "book-thinking", startDate: "2026-10-01", endDate: "2026-10-31", targetPages: 180, goal: "阅读判断与决策相关章节", progress: 0, note: "先读判断与决策相关章节。", status: "planned", createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" }
   ],
   workouts: [
     { id: "workout-1", date: "2026-09-14", type: "力量", duration: 45, calories: 320, completed: false, note: "下肢力量 + 核心" },
@@ -1821,8 +1848,42 @@ export class DashboardStore {
     return this.data.readingQuotes;
   }
 
+  getWantToReadItems(): WantToReadItem[] {
+    return this.data.wantToReadItems;
+  }
+
+  getBookTags(): BookTagDefinition[] {
+    return this.data.bookTags;
+  }
+
   getReadingPlans(): ReadingPlan[] {
     return this.data.readingPlans.map((plan) => this.withComputedReadingPlanStatus(plan));
+  }
+
+  getReadingNotes(): ReadingNote[] {
+    return this.data.readingNotes;
+  }
+
+  getReadingNotesForBook(bookId: string): ReadingNote[] {
+    return this.data.readingNotes.filter((note) => note.bookId === bookId);
+  }
+
+  async addReadingNote(note: ReadingNote): Promise<void> {
+    this.data.readingNotes.push(this.normalizeReadingNote(note));
+    await this.save();
+  }
+
+  async updateReadingNote(noteId: string, updates: Partial<ReadingNote>): Promise<void> {
+    const note = this.data.readingNotes.find((item) => item.id === noteId);
+    if (!note) return;
+    Object.assign(note, updates, { updatedAt: new Date().toISOString() });
+    Object.assign(note, this.normalizeReadingNote(note));
+    await this.save();
+  }
+
+  async deleteReadingNote(noteId: string): Promise<void> {
+    this.data.readingNotes = this.data.readingNotes.filter((item) => item.id !== noteId);
+    await this.save();
   }
 
   async addReadingPlan(plan: ReadingPlan): Promise<void> {
@@ -1847,16 +1908,18 @@ export class DashboardStore {
   async completeReadingPlan(planId: string): Promise<void> {
     const plan = this.data.readingPlans.find((item) => item.id === planId);
     if (!plan) return;
-    Object.assign(plan, { status: "completed" as const, completedDate: formatDateKey(new Date()), updatedAt: new Date().toISOString() });
+    const now = new Date().toISOString();
+    Object.assign(plan, { status: "completed" as const, progress: 100, completedDate: formatDateKey(new Date()), completedAt: now, updatedAt: now });
     await this.save();
   }
 
   shouldShowActiveReadingPlan(plan: ReadingPlan, dateKey = formatDateKey(new Date())): boolean {
-    return !plan.completedDate || plan.completedDate >= dateKey;
+    const completedDate = plan.completedDate ?? plan.completedAt?.slice(0, 10);
+    return !completedDate || completedDate >= dateKey;
   }
 
   async addReadingQuote(quote: ReadingQuote): Promise<void> {
-    this.data.readingQuotes.push(quote);
+    this.data.readingQuotes.push(this.normalizeReadingQuote(quote));
     await this.save();
   }
 
@@ -1864,11 +1927,53 @@ export class DashboardStore {
     const quote = this.data.readingQuotes.find((item) => item.id === quoteId);
     if (!quote) return;
     Object.assign(quote, updates);
+    Object.assign(quote, this.normalizeReadingQuote(quote));
     await this.save();
   }
 
   async deleteReadingQuote(quoteId: string): Promise<void> {
     this.data.readingQuotes = this.data.readingQuotes.filter((item) => item.id !== quoteId);
+    await this.save();
+  }
+
+  async addWantToReadItem(item: WantToReadItem): Promise<void> {
+    this.data.wantToReadItems.push(this.normalizeWantToReadItem(item));
+    await this.save();
+  }
+
+  async updateWantToReadItem(itemId: string, updates: Partial<WantToReadItem>): Promise<void> {
+    const item = this.data.wantToReadItems.find((entry) => entry.id === itemId);
+    if (!item) return;
+    Object.assign(item, updates, { updatedAt: new Date().toISOString() });
+    Object.assign(item, this.normalizeWantToReadItem(item));
+    await this.save();
+  }
+
+  async deleteWantToReadItem(itemId: string): Promise<void> {
+    this.data.wantToReadItems = this.data.wantToReadItems.filter((item) => item.id !== itemId);
+    await this.save();
+  }
+
+  async addBookTag(tag: BookTagDefinition): Promise<void> {
+    this.data.bookTags.push(this.normalizeBookTag(tag, this.data.bookTags.length));
+    await this.save();
+  }
+
+  async updateBookTag(tagId: string, updates: Partial<BookTagDefinition>): Promise<void> {
+    const tag = this.data.bookTags.find((item) => item.id === tagId);
+    if (!tag) return;
+    Object.assign(tag, updates);
+    Object.assign(tag, this.normalizeBookTag(tag, this.data.bookTags.indexOf(tag)));
+    this.syncLegacyBookTags();
+    await this.save();
+  }
+
+  async deleteBookTag(tagId: string): Promise<void> {
+    this.data.bookTags = this.data.bookTags.filter((tag) => tag.id !== tagId);
+    this.data.books.forEach((book) => {
+      book.tagIds = (book.tagIds ?? []).filter((id) => id !== tagId);
+    });
+    this.syncLegacyBookTags();
     await this.save();
   }
 
@@ -2905,7 +3010,7 @@ export class DashboardStore {
     const merged: WorkbenchData = {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.5.0",
+      dataVersion: "0.5.3",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2947,15 +3052,22 @@ export class DashboardStore {
       dataAnalysisTasks: Array.isArray(partial.dataAnalysisTasks)
         ? partial.dataAnalysisTasks
         : structuredClone(DEFAULT_DATA.dataAnalysisTasks),
+      bookTags: this.mergeBookTags(partial),
       books: Array.isArray(partial.books)
         ? partial.books.map((book) => this.normalizeBook(book))
         : structuredClone(DEFAULT_DATA.books).map((book) => this.normalizeBook(book)),
+      wantToReadItems: Array.isArray(partial.wantToReadItems)
+        ? partial.wantToReadItems.map((item) => this.normalizeWantToReadItem(item))
+        : this.createInitialWantToReadItems(partial),
       readingQuotes: Array.isArray(partial.readingQuotes)
-        ? partial.readingQuotes
-        : structuredClone(DEFAULT_DATA.readingQuotes),
+        ? partial.readingQuotes.map((quote) => this.normalizeReadingQuote(quote))
+        : structuredClone(DEFAULT_DATA.readingQuotes).map((quote) => this.normalizeReadingQuote(quote)),
       readingPlans: Array.isArray(partial.readingPlans)
         ? partial.readingPlans.map((plan) => this.normalizeReadingPlan(plan))
         : this.createInitialReadingPlans(partial),
+      readingNotes: Array.isArray(partial.readingNotes)
+        ? partial.readingNotes.map((note) => this.normalizeReadingNote(note)).filter((note) => note.notePath && note.bookId)
+        : this.createInitialReadingNotes(partial),
       workouts: Array.isArray(partial.workouts) ? partial.workouts : structuredClone(DEFAULT_DATA.workouts),
       bodyMeasurements: Array.isArray(partial.bodyMeasurements)
         ? partial.bodyMeasurements.map((item) => this.normalizeBodyMeasurement(item))
@@ -3049,7 +3161,7 @@ export class DashboardStore {
         ...partial.theme
       }
     };
-    return this.repairResearchRelations(merged);
+    return this.repairResearchRelations(this.repairBookTagRelations(merged));
   }
 
   private normalizeBodyMeasurement(measurement: BodyMeasurement): BodyMeasurement {
@@ -3160,6 +3272,13 @@ export class DashboardStore {
   private normalizeBook(book: BookItem): BookItem {
     const readingStatus = book.readingStatus ?? this.readingStatusFromLegacy(book.status);
     const timestamp = book.createdAt ?? nowIso();
+    const tagIds = Array.from(new Set([
+      ...(Array.isArray(book.tagIds) ? book.tagIds : []),
+      ...(Array.isArray(book.tags) ? book.tags.map((tag) => this.definitionId("book-tag", tag)) : [])
+    ]));
+    const tagNames = tagIds
+      .map((id) => this.data?.bookTags?.find((tag) => tag.id === id)?.name ?? DEFAULT_DATA.bookTags.find((tag) => tag.id === id)?.name)
+      .filter(Boolean) as string[];
     const normalized: BookItem = {
       ...book,
       id: book.id ?? `book-${Date.now()}`,
@@ -3178,7 +3297,8 @@ export class DashboardStore {
       finishDate: readingStatus === "finished" ? book.finishDate : book.finishDate,
       createdAt: timestamp,
       updatedAt: book.updatedAt ?? timestamp,
-      tags: Array.isArray(book.tags) ? book.tags : []
+      tagIds,
+      tags: tagNames.length > 0 ? tagNames : Array.isArray(book.tags) ? book.tags : []
     };
     if (normalized.readingStatus === "reading") normalized.startDate = normalized.startDate || formatDateKey(new Date());
     if (normalized.readingStatus === "finished") {
@@ -3187,6 +3307,41 @@ export class DashboardStore {
       normalized.finishDate = normalized.finishDate || formatDateKey(new Date());
     }
     return normalized;
+  }
+
+  private normalizeWantToReadItem(item: WantToReadItem): WantToReadItem {
+    const timestamp = item.createdAt ?? nowIso();
+    return {
+      id: item.id ?? `want-read-${Date.now()}`,
+      title: item.title || "未命名书籍",
+      author: item.author ?? "",
+      summary: item.summary ?? "",
+      status: item.status === "added" ? "added" : "pending",
+      bookId: item.bookId,
+      createdAt: timestamp,
+      updatedAt: item.updatedAt ?? timestamp
+    };
+  }
+
+  private normalizeBookTag(tag: BookTagDefinition, index = 0): BookTagDefinition {
+    return {
+      id: tag.id || this.definitionId("book-tag", tag.name || `标签${index + 1}`),
+      name: tag.name || `标签${index + 1}`,
+      color: tag.color || "#f8a8c4",
+      order: tag.order ?? (index + 1) * 10
+    };
+  }
+
+  private normalizeReadingQuote(quote: ReadingQuote): ReadingQuote {
+    return {
+      id: quote.id ?? `quote-${Date.now()}`,
+      text: quote.text || "",
+      source: quote.source ?? "",
+      bookId: quote.bookId,
+      note: quote.note ?? "",
+      style: quote.style ?? "default",
+      backgroundColor: quote.backgroundColor ?? "#fff7fb"
+    };
   }
 
   private normalizeResearchPaper(paper: ResearchPaper): ResearchPaper {
@@ -3288,6 +3443,17 @@ export class DashboardStore {
     return data;
   }
 
+  private repairBookTagRelations(data: WorkbenchData): WorkbenchData {
+    const tagIds = new Set(data.bookTags.map((tag) => tag.id));
+    data.books.forEach((book) => {
+      book.tagIds = (book.tagIds ?? []).filter((id) => tagIds.has(id));
+      book.tags = (book.tagIds ?? [])
+        .map((id) => data.bookTags.find((tag) => tag.id === id)?.name)
+        .filter(Boolean) as string[];
+    });
+    return data;
+  }
+
   private createInitialLiteratureNotes(partial: Partial<WorkbenchData>): LiteratureNote[] {
     if (!Array.isArray(partial.researchPapers)) {
       return structuredClone(DEFAULT_DATA.literatureNotes).map((note) => this.normalizeLiteratureNote(note)).filter((note) => note.notePath);
@@ -3354,6 +3520,48 @@ export class DashboardStore {
     return [...map.values()];
   }
 
+  private mergeBookTags(partial: Partial<WorkbenchData>): BookTagDefinition[] {
+    const map = new Map<string, BookTagDefinition>();
+    structuredClone(DEFAULT_DATA.bookTags).forEach((item, index) => map.set(item.id, this.normalizeBookTag(item, index)));
+    if (Array.isArray(partial.bookTags)) {
+      partial.bookTags.forEach((item, index) => map.set(item.id, this.normalizeBookTag(item, index)));
+    }
+    if (Array.isArray(partial.books)) {
+      partial.books.forEach((book) => {
+        (book.tags ?? []).forEach((name) => {
+          const id = this.definitionId("book-tag", name);
+          if (!map.has(id)) map.set(id, { id, name, color: "#f8a8c4", order: map.size * 10 + 10 });
+        });
+      });
+    }
+    return [...map.values()].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }
+
+  private createInitialWantToReadItems(partial: Partial<WorkbenchData>): WantToReadItem[] {
+    if (!Array.isArray(partial.books)) return structuredClone(DEFAULT_DATA.wantToReadItems).map((item) => this.normalizeWantToReadItem(item));
+    return partial.books
+      .map((book) => this.normalizeBook(book))
+      .filter((book) => book.readingStatus === "want-to-read")
+      .map((book) => this.normalizeWantToReadItem({
+        id: `want-read-${book.id}`,
+        title: book.title,
+        author: book.author,
+        summary: book.description ?? "",
+        status: "pending",
+        createdAt: book.createdAt ?? nowIso(),
+        updatedAt: book.updatedAt ?? book.createdAt ?? nowIso()
+      }));
+  }
+
+  private syncLegacyBookTags(): void {
+    this.data.books.forEach((book) => {
+      const ids = Array.isArray(book.tagIds) ? book.tagIds : [];
+      book.tags = ids
+        .map((id) => this.data.bookTags.find((tag) => tag.id === id)?.name)
+        .filter(Boolean) as string[];
+    });
+  }
+
   private paperStatusIdFromName(name: string): string {
     if (name === "未开始" || name === "未读") return "paper-status-unread";
     if (name === "计划阅读") return "paper-status-planned";
@@ -3418,7 +3626,10 @@ export class DashboardStore {
     const today = todayKey();
     const startDate = plan.startDate || today;
     const endDate = plan.endDate && plan.endDate >= startDate ? plan.endDate : startDate;
-    const status = plan.status ?? "planned";
+    const progress = Math.max(0, Math.min(100, Number(plan.progress ?? (plan.status === "completed" ? 100 : 0)) || 0));
+    const completedDate = plan.completedDate ?? plan.completedAt?.slice(0, 10);
+    const status = progress >= 100 || plan.status === "completed" || completedDate ? "completed" : plan.status ?? "planned";
+    const completedAt = status === "completed" ? plan.completedAt ?? `${completedDate ?? today}T00:00:00.000Z` : undefined;
     return {
       ...plan,
       id: plan.id ?? `reading-plan-${Date.now()}`,
@@ -3426,22 +3637,38 @@ export class DashboardStore {
       startDate,
       endDate,
       targetPages: plan.targetPages === undefined ? undefined : Math.max(0, Number(plan.targetPages) || 0),
+      goal: plan.goal ?? (plan.targetPages ? `${plan.targetPages} 页` : "读完本书"),
+      progress,
       note: plan.note ?? "",
       status,
-      completedDate: status === "completed" ? plan.completedDate ?? today : plan.completedDate,
+      completedDate: status === "completed" ? completedDate ?? today : undefined,
+      completedAt,
       createdAt: timestamp,
       updatedAt: plan.updatedAt ?? timestamp
     };
   }
 
   private withComputedReadingPlanStatus(plan: ReadingPlan): ReadingPlan {
-    if (plan.status === "completed" || plan.completedDate) {
-      return { ...plan, status: "completed" };
+    const completedDate = plan.completedDate ?? plan.completedAt?.slice(0, 10);
+    if (plan.progress === 100 || plan.status === "completed" || completedDate) {
+      return { ...plan, status: "completed", completedDate: completedDate ?? todayKey() };
     }
     const today = todayKey();
     if (today < plan.startDate) return { ...plan, status: "planned" };
     if (today > plan.endDate) return { ...plan, status: "overdue" };
     return { ...plan, status: "active" };
+  }
+
+  private normalizeReadingNote(note: ReadingNote): ReadingNote {
+    const timestamp = note.createdAt ?? nowIso();
+    return {
+      id: note.id ?? `reading-note-${Date.now()}`,
+      title: note.title || this.fileName(note.notePath) || "阅读笔记",
+      notePath: typeof note.notePath === "string" ? note.notePath : "",
+      bookId: note.bookId,
+      createdAt: timestamp,
+      updatedAt: note.updatedAt ?? timestamp
+    };
   }
 
   private createInitialReadingPlans(partial: Partial<WorkbenchData>): ReadingPlan[] {
@@ -3458,11 +3685,32 @@ export class DashboardStore {
         startDate: book.startDate || todayKey(),
         endDate: book.finishDate || todayKey(),
         targetPages: book.totalPages,
+        goal: "读完整本书",
+        progress: book.totalPages > 0 ? Math.round((book.currentPage / book.totalPages) * 100) : 0,
         note: "由旧阅读状态迁移生成。",
         status: "active",
         createdAt: timestamp,
         updatedAt: timestamp
       }));
+  }
+
+  private createInitialReadingNotes(partial: Partial<WorkbenchData>): ReadingNote[] {
+    const books = Array.isArray(partial.books) ? partial.books : DEFAULT_DATA.books;
+    return books
+      .map((book) => this.normalizeBook(book))
+      .filter((book) => typeof book.notePath === "string" && book.notePath.length > 0)
+      .map((book) => this.normalizeReadingNote({
+        id: `reading-note-${book.id}`,
+        title: `${book.title} 阅读笔记`,
+        notePath: book.notePath ?? "",
+        bookId: book.id,
+        createdAt: book.createdAt ?? nowIso(),
+        updatedAt: book.updatedAt ?? book.createdAt ?? nowIso()
+      }));
+  }
+
+  private fileName(path: string): string {
+    return path.split(/[\\/]/).pop()?.replace(/\.md$/i, "") ?? "";
   }
 
   private createInitialGoalActions(partial: Partial<WorkbenchData>): GoalAction[] {

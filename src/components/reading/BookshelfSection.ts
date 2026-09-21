@@ -13,6 +13,6 @@ export class BookshelfSection {
     const grid = container.createDiv({ cls: "cow-book-grid" });
     this.store.getBooks()
       .filter((book) => book.shelfStatus !== "off-shelf")
-      .forEach((book) => new BookCard(this.app, this.store, book, this.onDataChanged).render(grid));
+      .forEach((book) => new BookCard(this.app, this.store, book, this.onDataChanged, "shelf").render(grid));
   }
 }
