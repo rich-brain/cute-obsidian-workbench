@@ -1,4 +1,4 @@
-import { READING_HABITS, type DashboardStore, formatDateKey } from "../../core/DashboardStore";
+import { type DashboardStore, formatDateKey } from "../../core/DashboardStore";
 
 export class ReadingHeatmapSection {
   constructor(private readonly store: DashboardStore) {}
@@ -10,7 +10,7 @@ export class ReadingHeatmapSection {
     for (let day = 1; day <= days; day += 1) {
       const date = new Date(now.getFullYear(), now.getMonth(), day);
       const key = formatDateKey(date);
-      const count = READING_HABITS.filter((habit) => this.store.isHabitCompleted(habit.id, key)).length;
+      const count = this.store.getActiveCheckInDefinitions("reading").filter((habit) => this.store.isCheckInCompleted(habit.id, key)).length;
       grid.createSpan({ cls: `level-${count}`, attr: { "aria-label": key } });
     }
   }

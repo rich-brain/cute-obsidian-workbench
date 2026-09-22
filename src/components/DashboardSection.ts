@@ -7,6 +7,8 @@ import { openAddContentModal } from "./SectionContentActions";
 import { HabitStatisticsModal } from "./overview/HabitStatisticsModal";
 import { MonthlyProgressStatisticsModal } from "./overview/MonthlyProgressStatisticsModal";
 import { ContributionHeatmapSection } from "./overview/ContributionHeatmapSection";
+import { CheckInSection } from "./checkin/CheckInSection";
+import { openCheckInHistoryModal, openCheckInManagerModal } from "./checkin/CheckInModals";
 import { HabitOverviewSection } from "./overview/HabitOverviewSection";
 import { MonthlyCalendarSection } from "./overview/MonthlyCalendarSection";
 import { MonthlyProgressSection } from "./overview/MonthlyProgressSection";
@@ -214,6 +216,7 @@ export class DashboardSection {
     this.renderGoalHeaderActions(actions);
     this.renderReadingHeaderActions(actions);
     this.renderResearchHeaderActions(actions);
+    this.renderCheckInHeaderActions(actions);
 
     const menuButton = actions.createEl("button", {
       cls: "cow-icon-button",
@@ -261,6 +264,22 @@ export class DashboardSection {
       addAction("新增提醒", "plus", () => openHealthReminderModal(this.app, this.store, this.onDataChanged));
       addAction("统计", "bar-chart-3", () => new HealthReminderStatisticsModal(this.app, this.store).open());
     }
+  }
+
+  private renderCheckInHeaderActions(actions: HTMLElement): void {
+    const moduleId = this.getCheckInModuleId();
+    if (!moduleId) return;
+    const addAction = (label: string, icon: string, onClick: () => void): void => {
+      const button = actions.createEl("button", {
+        cls: "cow-section-add-button",
+        attr: { type: "button", "aria-label": label }
+      });
+      setIcon(button.createSpan(), icon);
+      button.createSpan({ text: label });
+      button.addEventListener("click", onClick);
+    };
+    addAction("自定义", "sliders-horizontal", () => openCheckInManagerModal(this.app, this.store, moduleId, this.onDataChanged));
+    addAction("历史记录", "history", () => openCheckInHistoryModal(this.app, this.store, moduleId === "overview" ? undefined : moduleId));
   }
 
   private renderReadingHeaderActions(actions: HTMLElement): void {
@@ -417,7 +436,7 @@ export class DashboardSection {
         break;
       case "habit-overview":
       case "habit-summary":
-        new HabitOverviewSection(this.store, this.onDataChanged).render(container);
+        new CheckInSection(this.store, "all", this.onDataChanged).render(container);
         break;
       case "monthly-progress":
         new MonthlyProgressSection(this.store).render(container);
@@ -446,7 +465,7 @@ export class DashboardSection {
         new PaperFieldManagerSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "research-checkin":
-        new ResearchCheckinSection(this.store, this.onDataChanged).render(container);
+        new CheckInSection(this.store, "research", this.onDataChanged).render(container);
         break;
       case "experiment-plan":
         new ExperimentSection(this.app, this.store, "plan", this.onDataChanged).render(container);
@@ -476,7 +495,7 @@ export class DashboardSection {
         new ReadingPlanSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "reading-checkin":
-        new ReadingCheckinSection(this.store, this.onDataChanged).render(container);
+        new CheckInSection(this.store, "reading", this.onDataChanged).render(container);
         break;
       case "reading-notes":
         new ReadingNotesSection(this.app, this.store, this.onDataChanged).render(container);
@@ -509,7 +528,7 @@ export class DashboardSection {
         new WorkoutPlanSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "fitness-checkin":
-        new FitnessCheckinSection(this.store, this.onDataChanged).render(container);
+        new CheckInSection(this.store, "fitness", this.onDataChanged).render(container);
         break;
       case "body-measurements":
         new BodyMeasurementsSection(this.app, this.store, this.onDataChanged).render(container);
@@ -554,7 +573,7 @@ export class DashboardSection {
         new BillRemindersSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "finance-checkin":
-        new FinanceCheckinSection(this.store, this.onDataChanged).render(container);
+        new CheckInSection(this.store, "finance", this.onDataChanged).render(container);
         break;
       case "income-expense-trend":
         new IncomeExpenseTrendSection(this.app, this.store, this.onDataChanged).render(container);
@@ -587,7 +606,7 @@ export class DashboardSection {
         new PriorityMatrixSection(this.app, this.store, this.onDataChanged).render(container);
         break;
       case "goals-checkin":
-        new GoalsCheckinSection(this.store, this.onDataChanged).render(container);
+        new CheckInSection(this.store, "goals", this.onDataChanged).render(container);
         break;
       case "review-checklist":
         new ReviewChecklistSection(this.app, this.store, this.onDataChanged).render(container);
@@ -649,6 +668,26 @@ export class DashboardSection {
 
     if (this.section.type === "today-focus") {
       new TodoStatisticsModal(this.app, this.store, new Date(), this.onDataChanged).open();
+    }
+  }
+
+  private getCheckInModuleId(): DashboardSectionConfig["page"] | undefined {
+    switch (this.section.type) {
+      case "habit-overview":
+      case "habit-summary":
+        return "overview";
+      case "research-checkin":
+        return "research";
+      case "reading-checkin":
+        return "reading";
+      case "fitness-checkin":
+        return "fitness";
+      case "finance-checkin":
+        return "finance";
+      case "goals-checkin":
+        return "goals";
+      default:
+        return undefined;
     }
   }
 

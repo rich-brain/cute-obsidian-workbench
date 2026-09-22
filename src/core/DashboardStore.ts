@@ -8,6 +8,8 @@ import type {
   BodyMeasurement,
   Budget,
   CalendarTodo,
+  CheckInDefinition,
+  CheckInRecord,
   CustomSectionInput,
   DataAnalysisTask,
   DashboardPage,
@@ -187,6 +189,53 @@ function currentMonthKey(): string {
   return todayKey().slice(0, 7);
 }
 
+function createDefaultCheckInDefinitions(): CheckInDefinition[] {
+  const createdAt = new Date("2026-09-14T08:00:00.000Z").getTime();
+  const create = (moduleId: CheckInDefinition["moduleId"], id: string, title: string, order: number, icon: string, color: string): CheckInDefinition => ({
+    id,
+    moduleId,
+    title,
+    icon,
+    color,
+    enabled: true,
+    order,
+    createdAt,
+    updatedAt: createdAt
+  });
+  return [
+    create("overview", "reading", "阅读", 10, "book-open", "#ff8fbc"),
+    create("overview", "fitness", "健身", 20, "dumbbell", "#7bd88f"),
+    create("overview", "finance", "理财", 30, "coins", "#ffd166"),
+    create("overview", "writing", "写作", 40, "pencil", "#9ecbff"),
+    create("overview", "study", "学习", 50, "graduation-cap", "#c9a7ff"),
+    create("research", "research-reading-paper", "阅读论文", 10, "book-marked", "#9ecbff"),
+    create("research", "research-experiment", "实验", 20, "flask-conical", "#c9a7ff"),
+    create("research", "research-writing", "写作", 30, "pencil", "#ff8fbc"),
+    create("research", "research-data", "整理数据", 40, "database", "#7bd88f"),
+    create("research", "research-meeting", "组会准备", 50, "users", "#ffd166"),
+    create("reading", "reading-pages", "读书", 10, "book-open", "#ff8fbc"),
+    create("reading", "reading-note", "写笔记", 20, "notebook-tabs", "#9ecbff"),
+    create("reading", "reading-quote", "摘录", 30, "quote", "#ffd166"),
+    create("reading", "reading-review", "复盘", 40, "rotate-ccw", "#c9a7ff"),
+    create("reading", "reading-plan", "计划", 50, "calendar-range", "#7bd88f"),
+    create("fitness", "fitness-workout", "训练", 10, "dumbbell", "#7bd88f"),
+    create("fitness", "fitness-water", "饮水", 20, "droplets", "#9ecbff"),
+    create("fitness", "fitness-sleep", "睡眠", 30, "moon", "#c9a7ff"),
+    create("fitness", "fitness-stretch", "拉伸", 40, "activity", "#ffd166"),
+    create("fitness", "fitness-recovery", "恢复", 50, "heart-pulse", "#ff8fbc"),
+    create("finance", "finance-record", "记账", 10, "receipt", "#ffd166"),
+    create("finance", "finance-budget", "预算", 20, "wallet-cards", "#ff8fbc"),
+    create("finance", "finance-review", "复盘", 30, "rotate-ccw", "#c9a7ff"),
+    create("finance", "finance-save", "储蓄", 40, "piggy-bank", "#7bd88f"),
+    create("finance", "finance-invest", "观察", 50, "candlestick-chart", "#9ecbff"),
+    create("goals", "goals-plan", "计划", 10, "calendar-check", "#9ecbff"),
+    create("goals", "goals-action", "行动", 20, "target", "#ff8fbc"),
+    create("goals", "goals-review", "复盘", 30, "rotate-ccw", "#c9a7ff"),
+    create("goals", "goals-focus", "聚焦", 40, "focus", "#ffd166"),
+    create("goals", "goals-adjust", "调整", 50, "sliders-horizontal", "#7bd88f")
+  ];
+}
+
 const DEFAULT_MODULE_LAYOUTS: Record<DashboardPage, ModuleLayoutConfig> = {
   overview: { mode: "default", columns: 12, sections: {} },
   research: { mode: "default", columns: 12, sections: {} },
@@ -199,7 +248,7 @@ const DEFAULT_MODULE_LAYOUTS: Record<DashboardPage, ModuleLayoutConfig> = {
 };
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.6.0",
+  dataVersion: "0.7.0",
   currentPage: "overview",
   sections: [
     {
@@ -875,6 +924,8 @@ const DEFAULT_DATA: WorkbenchData = {
       { id: "custom-study", label: "学习", enabled: true, order: 50 }
     ]
   },
+  checkInDefinitions: createDefaultCheckInDefinitions(),
+  checkInRecords: [],
   quickActions: [
     { id: "quick-new-note", label: "新建笔记", enabled: true, order: 10, type: "new-note" },
     { id: "quick-daily-note", label: "打开今日笔记", enabled: true, order: 20, type: "daily-note" },
@@ -1252,11 +1303,23 @@ export class DashboardStore {
 
   async addCustomHabit(label: string): Promise<void> {
     const nextOrder = this.data.apexHabitSettings.customHabits.reduce((max, habit) => Math.max(max, habit.order), 0) + 10;
+    const id = `habit-${Date.now()}`;
     this.data.apexHabitSettings.customHabits.push({
-      id: `habit-${Date.now()}`,
+      id,
       label,
       enabled: true,
       order: nextOrder
+    });
+    this.data.checkInDefinitions.push({
+      id,
+      moduleId: "overview",
+      title: label,
+      icon: "sparkles",
+      color: "#ff8fbc",
+      enabled: true,
+      order: nextOrder,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     });
     await this.save();
   }
@@ -1265,11 +1328,24 @@ export class DashboardStore {
     const habit = this.data.apexHabitSettings.customHabits.find((item) => item.id === habitId);
     if (!habit) return;
     Object.assign(habit, updates);
+    const definition = this.data.checkInDefinitions.find((item) => item.id === habitId || item.id === habitId.replace(/^custom-/, ""));
+    if (definition) {
+      if (updates.label !== undefined) definition.title = updates.label;
+      if (updates.enabled !== undefined) definition.enabled = updates.enabled;
+      if (updates.order !== undefined) definition.order = updates.order;
+      definition.updatedAt = Date.now();
+    }
     await this.save();
   }
 
   async deleteCustomHabit(habitId: string): Promise<void> {
     this.data.apexHabitSettings.customHabits = this.data.apexHabitSettings.customHabits.filter((item) => item.id !== habitId);
+    const definition = this.data.checkInDefinitions.find((item) => item.id === habitId || item.id === habitId.replace(/^custom-/, ""));
+    if (definition) {
+      definition.archived = true;
+      definition.enabled = false;
+      definition.updatedAt = Date.now();
+    }
     await this.save();
   }
 
@@ -1278,6 +1354,11 @@ export class DashboardStore {
     this.data.apexHabitSettings.customHabits.forEach((habit) => {
       const order = orderMap.get(habit.id);
       if (order !== undefined) habit.order = order;
+      const definition = this.data.checkInDefinitions.find((item) => item.id === habit.id || item.id === habit.id.replace(/^custom-/, ""));
+      if (definition && order !== undefined) {
+        definition.order = order;
+        definition.updatedAt = Date.now();
+      }
     });
     await this.save();
   }
@@ -3105,20 +3186,109 @@ export class DashboardStore {
   }
 
   isHabitCompleted(habitId: string, date: string): boolean {
-    return Boolean(this.data.habits[habitId]?.[date]);
+    return this.isCheckInCompleted(habitId, date);
   }
 
   async toggleHabit(habitId: string, date: string): Promise<void> {
-    this.data.habits[habitId] = this.data.habits[habitId] ?? {};
-    this.data.habits[habitId][date] = !this.data.habits[habitId][date];
+    await this.toggleCheckIn(habitId, date);
+  }
+
+  getCheckInDefinitions(moduleId?: string, includeArchived = false): CheckInDefinition[] {
+    return this.data.checkInDefinitions
+      .filter((definition) => (includeArchived || !definition.archived) && (!moduleId || definition.moduleId === moduleId))
+      .sort((left, right) => {
+        if (left.moduleId === right.moduleId) return left.order - right.order;
+        return this.getCheckInModuleOrder(left.moduleId) - this.getCheckInModuleOrder(right.moduleId);
+      });
+  }
+
+  getActiveCheckInDefinitions(moduleId?: string): CheckInDefinition[] {
+    return this.getCheckInDefinitions(moduleId).filter((definition) => definition.enabled);
+  }
+
+  getCheckInRecords(checkInId?: string): CheckInRecord[] {
+    return this.data.checkInRecords.filter((record) => !checkInId || record.checkInId === checkInId);
+  }
+
+  getCheckInRecordsByDate(date: string): CheckInRecord[] {
+    return this.data.checkInRecords.filter((record) => record.date === date);
+  }
+
+  isCheckInCompleted(checkInId: string, date: string): boolean {
+    return this.data.checkInRecords.some((record) => record.checkInId === checkInId && record.date === date);
+  }
+
+  async toggleCheckIn(checkInId: string, date: string): Promise<boolean> {
+    const index = this.data.checkInRecords.findIndex((record) => record.checkInId === checkInId && record.date === date);
+    if (index >= 0) {
+      this.data.checkInRecords.splice(index, 1);
+      await this.save();
+      return false;
+    }
+    this.data.checkInRecords.push({
+      id: `checkin-record-${checkInId}-${date}`,
+      checkInId,
+      date,
+      completedAt: Date.now()
+    });
+    this.dedupeCheckInRecordsInMemory();
+    await this.save();
+    return true;
+  }
+
+  async addCheckInDefinition(input: Pick<CheckInDefinition, "moduleId" | "title"> & Partial<CheckInDefinition>): Promise<void> {
+    const nextOrder = this.getCheckInDefinitions(input.moduleId, true).reduce((max, item) => Math.max(max, item.order), 0) + 10;
+    const now = Date.now();
+    this.data.checkInDefinitions.push({
+      id: input.id ?? `checkin-${input.moduleId}-${now}`,
+      moduleId: input.moduleId,
+      title: input.title,
+      icon: input.icon ?? "circle",
+      color: input.color ?? "#ff8fbc",
+      enabled: input.enabled ?? true,
+      archived: false,
+      order: input.order ?? nextOrder,
+      createdAt: input.createdAt ?? now,
+      updatedAt: now
+    });
+    await this.save();
+  }
+
+  async updateCheckInDefinition(definitionId: string, updates: Partial<CheckInDefinition>): Promise<void> {
+    const definition = this.data.checkInDefinitions.find((item) => item.id === definitionId);
+    if (!definition) return;
+    if (updates.enabled === false && definition.enabled) {
+      updates.inactiveFrom = updates.inactiveFrom ?? todayKey();
+    }
+    if (updates.enabled === true && !definition.enabled) {
+      updates.inactiveFrom = undefined;
+      updates.archived = false;
+    }
+    Object.assign(definition, updates, { updatedAt: Date.now() });
+    await this.save();
+  }
+
+  async archiveCheckInDefinition(definitionId: string): Promise<void> {
+    await this.updateCheckInDefinition(definitionId, { archived: true, enabled: false, inactiveFrom: todayKey() });
+  }
+
+  async reorderCheckInDefinitions(moduleId: string, orderedIds: string[]): Promise<void> {
+    const orderMap = new Map(orderedIds.map((id, index) => [id, (index + 1) * 10]));
+    this.data.checkInDefinitions.forEach((definition) => {
+      const order = orderMap.get(definition.id);
+      if (definition.moduleId === moduleId && order !== undefined) {
+        definition.order = order;
+        definition.updatedAt = Date.now();
+      }
+    });
     await this.save();
   }
 
   getWeeklyCompletionRate(): number {
     const habitCompletion: boolean[] = [];
     this.getCurrentWeekDates().forEach((date) => {
-      DEFAULT_HABITS.forEach((habit) => {
-        habitCompletion.push(this.isHabitCompleted(habit.id, date));
+      this.getActiveCheckInDefinitions().forEach((habit) => {
+        habitCompletion.push(this.isCheckInCompleted(habit.id, date));
       });
     });
     const focusCompletion = this.data.todayFocusTasks.map((task) => task.completed);
@@ -3139,7 +3309,8 @@ export class DashboardStore {
       const date = new Date(today);
       date.setDate(today.getDate() - offset);
       const key = formatDateKey(date);
-      const allDone = DEFAULT_HABITS.every((habit) => this.isHabitCompleted(habit.id, key));
+      const habits = this.getActiveCheckInDefinitions();
+      const allDone = habits.length > 0 && habits.every((habit) => this.isCheckInCompleted(habit.id, key));
       if (!allDone) {
         break;
       }
@@ -3190,7 +3361,7 @@ export class DashboardStore {
     const merged: WorkbenchData = {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.6.0",
+      dataVersion: "0.7.0",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -3318,6 +3489,8 @@ export class DashboardStore {
           ? partial.apexHabitSettings.customHabits
           : structuredClone(DEFAULT_DATA.apexHabitSettings.customHabits)
       },
+      checkInDefinitions: this.mergeCheckInDefinitions(partial),
+      checkInRecords: this.mergeCheckInRecords(partial),
       quickActions: Array.isArray(partial.quickActions)
         ? partial.quickActions
         : structuredClone(DEFAULT_DATA.quickActions),
@@ -3581,6 +3754,87 @@ export class DashboardStore {
       createdAt: timestamp,
       updatedAt: todo.updatedAt ?? timestamp
     };
+  }
+
+  private mergeCheckInDefinitions(partial: Partial<WorkbenchData>): CheckInDefinition[] {
+    const definitions = new Map<string, CheckInDefinition>();
+    const add = (definition: Partial<CheckInDefinition>, index = 0): void => {
+      if (!definition.id) return;
+      const existing = definitions.get(definition.id);
+      const normalized = this.normalizeCheckInDefinition(definition, index, existing);
+      definitions.set(normalized.id, normalized);
+    };
+    createDefaultCheckInDefinitions().forEach((definition, index) => add(definition, index));
+    (partial.apexHabitSettings?.customHabits ?? []).forEach((habit, index) => {
+      add({
+        id: habit.id.replace(/^custom-/, ""),
+        moduleId: "overview",
+        title: habit.label,
+        enabled: habit.enabled,
+        order: habit.order,
+        icon: "sparkles",
+        color: "#ff8fbc"
+      }, index);
+    });
+    (partial.checkInDefinitions ?? []).forEach((definition, index) => add(definition, index));
+    return [...definitions.values()].sort((left, right) => {
+      if (left.moduleId === right.moduleId) return left.order - right.order;
+      return this.getCheckInModuleOrder(left.moduleId) - this.getCheckInModuleOrder(right.moduleId);
+    });
+  }
+
+  private mergeCheckInRecords(partial: Partial<WorkbenchData>): CheckInRecord[] {
+    const records = new Map<string, CheckInRecord>();
+    const add = (record: Partial<CheckInRecord>): void => {
+      if (!record.checkInId || !record.date) return;
+      const date = record.date.slice(0, 10);
+      const key = `${record.checkInId}::${date}`;
+      if (records.has(key)) return;
+      records.set(key, {
+        id: record.id ?? `checkin-record-${record.checkInId}-${date}`,
+        checkInId: record.checkInId,
+        date,
+        completedAt: Number(record.completedAt) || Date.now()
+      });
+    };
+    (partial.checkInRecords ?? []).forEach(add);
+    Object.entries(partial.habits ?? {}).forEach(([checkInId, byDate]) => {
+      Object.entries(byDate ?? {}).forEach(([date, completed]) => {
+        if (completed) add({ checkInId, date, completedAt: new Date(`${date}T12:00:00`).getTime() });
+      });
+    });
+    return [...records.values()].sort((left, right) => left.date.localeCompare(right.date));
+  }
+
+  private normalizeCheckInDefinition(definition: Partial<CheckInDefinition>, index: number, existing?: CheckInDefinition): CheckInDefinition {
+    const now = Date.now();
+    return {
+      id: definition.id ?? existing?.id ?? `checkin-${now}-${index}`,
+      moduleId: definition.moduleId ?? existing?.moduleId ?? "overview",
+      title: definition.title ?? existing?.title ?? "未命名打卡",
+      icon: definition.icon ?? existing?.icon ?? "circle",
+      color: definition.color ?? existing?.color ?? "#ff8fbc",
+      enabled: definition.enabled ?? existing?.enabled ?? true,
+      archived: definition.archived ?? existing?.archived ?? false,
+      inactiveFrom: definition.inactiveFrom ?? existing?.inactiveFrom,
+      order: Number(definition.order ?? existing?.order ?? (index + 1) * 10),
+      createdAt: Number(definition.createdAt ?? existing?.createdAt ?? now),
+      updatedAt: Number(definition.updatedAt ?? existing?.updatedAt ?? now)
+    };
+  }
+
+  private dedupeCheckInRecordsInMemory(): void {
+    const records = new Map<string, CheckInRecord>();
+    this.data.checkInRecords.forEach((record) => {
+      const key = `${record.checkInId}::${record.date}`;
+      if (!records.has(key)) records.set(key, record);
+    });
+    this.data.checkInRecords = [...records.values()];
+  }
+
+  private getCheckInModuleOrder(moduleId: string): number {
+    const order = ["overview", "research", "reading", "fitness", "finance", "goals"].indexOf(moduleId);
+    return order === -1 ? 99 : order;
   }
 
   private normalizeTask(task: Task): Task {

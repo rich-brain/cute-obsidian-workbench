@@ -1,5 +1,4 @@
 import type { DashboardStore } from "../core/DashboardStore";
-import { DEFAULT_HABITS } from "../core/DashboardStore";
 import { CalendarService } from "./CalendarService";
 
 export interface HabitDayStatus {
@@ -130,9 +129,10 @@ export class StatisticsService {
 
   private getHabitStatuses(date: Date): HabitDayStatus[] {
     const dateKey = this.calendar.getDateKey(date);
-    return DEFAULT_HABITS.map((habit) => ({
-      ...habit,
-      completed: this.store.isHabitCompleted(habit.id, dateKey)
+    return this.store.getActiveCheckInDefinitions().map((habit) => ({
+      id: habit.id,
+      label: habit.title,
+      completed: this.store.isCheckInCompleted(habit.id, dateKey)
     }));
   }
 
@@ -163,7 +163,8 @@ export class StatisticsService {
   }
 
   private isAllHabitsDone(date: Date): boolean {
-    return this.getHabitStatuses(date).every((status) => status.completed);
+    const statuses = this.getHabitStatuses(date);
+    return statuses.length > 0 && statuses.every((status) => status.completed);
   }
 
   private getCompletionRate(days: HabitDayStatus[][]): number {

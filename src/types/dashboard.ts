@@ -604,6 +604,27 @@ export interface ApexHabitSettings {
   customHabits: CustomHabitItem[];
 }
 
+export interface CheckInDefinition {
+  id: string;
+  moduleId: "research" | "reading" | "fitness" | "finance" | "goals" | "overview" | string;
+  title: string;
+  icon?: string;
+  color?: string;
+  enabled: boolean;
+  archived?: boolean;
+  inactiveFrom?: string;
+  order: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CheckInRecord {
+  id: string;
+  checkInId: string;
+  date: string;
+  completedAt: number;
+}
+
 export interface QuickActionConfig {
   id: string;
   label: string;
@@ -755,6 +776,8 @@ export interface WorkbenchData {
   calendarSettings: CalendarSettings;
   calendarTodos: CalendarTodo[];
   apexHabitSettings: ApexHabitSettings;
+  checkInDefinitions: CheckInDefinition[];
+  checkInRecords: CheckInRecord[];
   quickActions: QuickActionConfig[];
   focusSettings: FocusSettings;
   focusState: FocusState;

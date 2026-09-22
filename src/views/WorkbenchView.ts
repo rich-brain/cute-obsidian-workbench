@@ -34,6 +34,8 @@ export class WorkbenchView extends ItemView {
   private readonly router: DashboardRouter;
   private sidebar?: Sidebar;
   private pageHost?: HTMLElement;
+  private dateWatcher?: number;
+  private lastDateKey = this.getDateKey(new Date());
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -60,10 +62,15 @@ export class WorkbenchView extends ItemView {
       await this.plugin.store.setCurrentPage(page);
       this.render();
     });
+    this.dateWatcher = window.setInterval(() => this.checkDateChange(), 60_000);
     this.render();
   }
 
   async onClose(): Promise<void> {
+    if (this.dateWatcher) {
+      window.clearInterval(this.dateWatcher);
+      this.dateWatcher = undefined;
+    }
     this.sidebar?.destroy();
     this.eventBus.clear();
   }
@@ -164,5 +171,21 @@ export class WorkbenchView extends ItemView {
         this.render();
       }
     ).open();
+  }
+
+  private checkDateChange(): void {
+    const current = this.getDateKey(new Date());
+    if (current === this.lastDateKey) return;
+    this.lastDateKey = current;
+    this.pageHost?.querySelectorAll(".cow-checkin-section").forEach((section) => {
+      section.dispatchEvent(new CustomEvent("cow-checkin-date-change"));
+    });
+  }
+
+  private getDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 }
