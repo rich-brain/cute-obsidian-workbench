@@ -23,7 +23,7 @@ __export(main_exports, {
   default: () => CuteObsidianWorkbenchPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian88 = require("obsidian");
+var import_obsidian90 = require("obsidian");
 
 // src/core/DashboardStore.ts
 var DASHBOARD_PAGES = [
@@ -32,6 +32,7 @@ var DASHBOARD_PAGES = [
   { id: "reading", label: "\u9605\u8BFB", icon: "book-open", description: "\u8BFB\u4E66\u961F\u5217\u4E0E\u6458\u5F55\u8FDB\u5EA6" },
   { id: "fitness", label: "\u5065\u8EAB", icon: "dumbbell", description: "\u8BAD\u7EC3\u3001\u6062\u590D\u548C\u4E60\u60EF\u6253\u5361" },
   { id: "finance", label: "\u7406\u8D22", icon: "coins", description: "\u9884\u7B97\u3001\u8D44\u4EA7\u548C\u6295\u8D44\u89C2\u5BDF" },
+  { id: "tasks", label: "\u4EFB\u52A1\u7BA1\u7406", icon: "list-todo", description: "\u628A\u60F3\u505A\u7684\u4E8B\uFF0C\u53D8\u6210\u6B63\u5728\u53D1\u751F\u7684\u4E8B" },
   { id: "goals", label: "\u76EE\u6807\u7BA1\u7406", icon: "target", description: "\u957F\u671F\u76EE\u6807\u4E0E\u9636\u6BB5\u8BA1\u5212" },
   { id: "modules", label: "\u6A21\u5757\u7BA1\u7406", icon: "layout-grid", description: "\u6A21\u5757\u542F\u7528\u3001\u5E03\u5C40\u548C\u6570\u636E\u7ED1\u5B9A" }
 ];
@@ -142,11 +143,12 @@ var DEFAULT_MODULE_LAYOUTS = {
   reading: { mode: "default", columns: 12, sections: {} },
   fitness: { mode: "default", columns: 12, sections: {} },
   finance: { mode: "default", columns: 12, sections: {} },
+  tasks: { mode: "default", columns: 12, sections: {} },
   goals: { mode: "default", columns: 12, sections: {} },
   modules: { mode: "default", columns: 12, sections: {} }
 };
 var DEFAULT_DATA = {
-  dataVersion: "0.5.5",
+  dataVersion: "0.6.0",
   currentPage: "overview",
   sections: [
     {
@@ -747,6 +749,9 @@ var DEFAULT_DATA = {
     { id: "finance-todo-bills", title: "\u786E\u8BA4\u8D26\u5355\u63D0\u9192", completed: false },
     { id: "finance-todo-invest", title: "\u6574\u7406\u6295\u8D44\u89C2\u5BDF\u7B14\u8BB0", completed: false }
   ],
+  tasks: [],
+  taskProjects: [],
+  taskSettings: {},
   goals: [
     {
       id: "goal-research",
@@ -1209,8 +1214,8 @@ var DashboardStore = class {
     return [...this.data.focusRecords].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
   getTodayFocusRecords() {
-    const today5 = formatDateKey(/* @__PURE__ */ new Date());
-    return this.getFocusRecords().filter((record) => record.date === today5);
+    const today6 = formatDateKey(/* @__PURE__ */ new Date());
+    return this.getFocusRecords().filter((record) => record.date === today6);
   }
   async updateFocusSettings(updates) {
     var _a, _b;
@@ -2301,6 +2306,98 @@ var DashboardStore = class {
     this.data.financeTodos = this.data.financeTodos.filter((item) => item.id !== todoId);
     await this.save();
   }
+  getTasks() {
+    this.generateDueRecurringTasks(false);
+    return this.data.tasks.map((task) => this.normalizeTask(task));
+  }
+  async addTask(task) {
+    var _a;
+    const normalized = this.normalizeTask({ ...task, id: (_a = task.id) != null ? _a : `task-${Date.now()}` });
+    this.data.tasks.push(normalized);
+    await this.save();
+    return normalized;
+  }
+  async updateTask(taskId, updates) {
+    var _a;
+    const task = this.data.tasks.find((item) => item.id === taskId);
+    if (!task) return;
+    const nextStatus = updates.status;
+    Object.assign(task, updates, { updatedAt: nowIso() });
+    if (nextStatus === "done") task.completedDate = (_a = task.completedDate) != null ? _a : todayKey();
+    if (nextStatus && nextStatus !== "done") task.completedDate = void 0;
+    Object.assign(task, this.normalizeTask(task));
+    await this.save();
+  }
+  async deleteTask(taskId, mode = "keep-children") {
+    const childIds = this.data.tasks.filter((task) => task.parentTaskId === taskId).map((task) => task.id);
+    this.data.tasks = this.data.tasks.filter((task) => task.id !== taskId && (mode === "delete-children" ? !childIds.includes(task.id) : true));
+    if (mode === "keep-children") {
+      this.data.tasks.forEach((task) => {
+        if (task.parentTaskId === taskId) task.parentTaskId = void 0;
+      });
+    }
+    await this.save();
+  }
+  getTaskProjects() {
+    return this.data.taskProjects.map((project) => this.normalizeTaskProject(project));
+  }
+  async addTaskProject(project) {
+    var _a;
+    const normalized = this.normalizeTaskProject({ ...project, id: (_a = project.id) != null ? _a : `task-project-${Date.now()}` });
+    this.data.taskProjects.push(normalized);
+    await this.save();
+    return normalized;
+  }
+  async updateTaskProject(projectId, updates) {
+    const project = this.data.taskProjects.find((item) => item.id === projectId);
+    if (!project) return;
+    Object.assign(project, updates);
+    Object.assign(project, this.normalizeTaskProject(project));
+    await this.save();
+  }
+  async deleteTaskProject(projectId) {
+    this.data.taskProjects = this.data.taskProjects.filter((project) => project.id !== projectId);
+    this.data.tasks.forEach((task) => {
+      if (task.projectId === projectId) task.projectId = void 0;
+    });
+    await this.save();
+  }
+  async updateTaskSettings(updates) {
+    this.data.taskSettings = { ...this.data.taskSettings, ...updates };
+    await this.save();
+  }
+  getTaskSettings() {
+    return { ...this.data.taskSettings };
+  }
+  async generateDueRecurringTasks(save = true) {
+    const today6 = todayKey();
+    let changed = false;
+    this.data.tasks.forEach((task) => {
+      var _a, _b;
+      if (!((_a = task.recurrence) == null ? void 0 : _a.enabled) || task.recurrence.frequency === "none") return;
+      const nextDate = (_b = task.recurrence.nextDate) != null ? _b : task.plannedDate;
+      if (!nextDate || nextDate > today6 || task.recurrence.lastGeneratedDate === nextDate) return;
+      const generatedId = `task-rec-${task.id}-${nextDate}`;
+      if (!this.data.tasks.some((item) => item.id === generatedId)) {
+        this.data.tasks.push(this.normalizeTask({
+          ...task,
+          id: generatedId,
+          status: "todo",
+          plannedDate: nextDate,
+          completedDate: void 0,
+          parentTaskId: void 0,
+          recurrence: { frequency: "none", enabled: false },
+          createdAt: nowIso(),
+          updatedAt: nowIso()
+        }));
+      }
+      task.recurrence.lastGeneratedDate = nextDate;
+      task.recurrence.nextDate = this.nextRecurrenceDate(nextDate, task.recurrence.frequency, task.recurrence.interval);
+      task.updatedAt = nowIso();
+      changed = true;
+    });
+    if (changed && save) await this.save();
+  }
   getGoals() {
     return this.data.goals;
   }
@@ -2719,11 +2816,11 @@ var DashboardStore = class {
     return this.data.todayFocusTasks.filter((task) => !task.completed).length;
   }
   getCheckinStreakDays() {
-    const today5 = /* @__PURE__ */ new Date();
+    const today6 = /* @__PURE__ */ new Date();
     let streak = 0;
     for (let offset = 0; offset < 366; offset += 1) {
-      const date = new Date(today5);
-      date.setDate(today5.getDate() - offset);
+      const date = new Date(today6);
+      date.setDate(today6.getDate() - offset);
       const key = formatDateKey(date);
       const allDone = DEFAULT_HABITS.every((habit) => this.isHabitCompleted(habit.id, key));
       if (!allDone) {
@@ -2746,11 +2843,11 @@ var DashboardStore = class {
     };
   }
   getCurrentWeekDates() {
-    const today5 = /* @__PURE__ */ new Date();
-    const day = today5.getDay();
+    const today6 = /* @__PURE__ */ new Date();
+    const day = today6.getDay();
     const mondayOffset = day === 0 ? -6 : 1 - day;
-    const monday = new Date(today5);
-    monday.setDate(today5.getDate() + mondayOffset);
+    const monday = new Date(today6);
+    monday.setDate(today6.getDate() + mondayOffset);
     return Array.from({ length: 7 }, (_, index) => {
       const date = new Date(monday);
       date.setDate(monday.getDate() + index);
@@ -2767,7 +2864,7 @@ var DashboardStore = class {
     const merged = {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.5.5",
+      dataVersion: "0.6.0",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -2808,6 +2905,12 @@ var DashboardStore = class {
       savingGoals: Array.isArray(partial.savingGoals) ? partial.savingGoals : structuredClone(DEFAULT_DATA.savingGoals),
       bills: Array.isArray(partial.bills) ? partial.bills : structuredClone(DEFAULT_DATA.bills),
       financeTodos: Array.isArray(partial.financeTodos) ? partial.financeTodos.map((item) => this.normalizeFinanceTodo(item)) : structuredClone(DEFAULT_DATA.financeTodos),
+      tasks: Array.isArray(partial.tasks) ? partial.tasks.map((item) => this.normalizeTask(item)) : structuredClone(DEFAULT_DATA.tasks).map((item) => this.normalizeTask(item)),
+      taskProjects: Array.isArray(partial.taskProjects) ? partial.taskProjects.map((item) => this.normalizeTaskProject(item)) : structuredClone(DEFAULT_DATA.taskProjects),
+      taskSettings: {
+        ...DEFAULT_DATA.taskSettings,
+        ...partial.taskSettings
+      },
       goals: Array.isArray(partial.goals) ? partial.goals : structuredClone(DEFAULT_DATA.goals),
       goalActions: Array.isArray(partial.goalActions) ? partial.goalActions.map((action) => this.normalizeGoalAction(action)) : this.createInitialGoalActions(partial),
       objectives: Array.isArray(partial.objectives) ? partial.objectives.map((item) => this.normalizeObjective(item)) : structuredClone(DEFAULT_DATA.objectives).map((item) => this.normalizeObjective(item)),
@@ -3065,6 +3168,70 @@ var DashboardStore = class {
       createdAt: timestamp,
       updatedAt: (_f = todo.updatedAt) != null ? _f : timestamp
     };
+  }
+  normalizeTask(task) {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    const timestamp = (_a = task.createdAt) != null ? _a : nowIso();
+    const status = this.normalizeTaskStatus(task.status);
+    const recurrence = task.recurrence && task.recurrence.frequency !== "none" ? {
+      frequency: this.normalizeRecurrenceFrequency(task.recurrence.frequency),
+      interval: Math.max(1, Number(task.recurrence.interval) || 1),
+      nextDate: task.recurrence.nextDate,
+      enabled: (_b = task.recurrence.enabled) != null ? _b : true,
+      lastGeneratedDate: task.recurrence.lastGeneratedDate
+    } : ((_c = task.recurrence) == null ? void 0 : _c.frequency) === "none" ? { frequency: "none", enabled: false } : void 0;
+    return {
+      ...task,
+      id: (_d = task.id) != null ? _d : `task-${Date.now()}`,
+      title: task.title || "\u672A\u547D\u540D\u4EFB\u52A1",
+      description: (_e = task.description) != null ? _e : "",
+      status,
+      priority: this.normalizeTaskPriority(task.priority),
+      sourceModule: (_f = task.sourceModule) != null ? _f : "general",
+      projectId: task.projectId || void 0,
+      goalId: task.goalId || void 0,
+      parentTaskId: task.parentTaskId || void 0,
+      tags: Array.isArray(task.tags) ? task.tags.filter(Boolean) : [],
+      plannedDate: task.plannedDate || void 0,
+      startDate: task.startDate || void 0,
+      dueDate: task.dueDate || void 0,
+      completedDate: status === "done" ? (_g = task.completedDate) != null ? _g : todayKey() : task.completedDate,
+      estimatedMinutes: Number(task.estimatedMinutes) > 0 ? Number(task.estimatedMinutes) : void 0,
+      actualMinutes: Number(task.actualMinutes) > 0 ? Number(task.actualMinutes) : void 0,
+      recurrence,
+      linkedNote: task.linkedNote || void 0,
+      createdAt: timestamp,
+      updatedAt: (_h = task.updatedAt) != null ? _h : timestamp
+    };
+  }
+  normalizeTaskProject(project) {
+    var _a, _b, _c;
+    return {
+      id: (_a = project.id) != null ? _a : `task-project-${Date.now()}`,
+      name: project.name || "\u672A\u547D\u540D\u9879\u76EE",
+      description: (_b = project.description) != null ? _b : "",
+      createdAt: (_c = project.createdAt) != null ? _c : nowIso()
+    };
+  }
+  normalizeTaskStatus(status) {
+    if (status === "inbox" || status === "todo" || status === "doing" || status === "waiting" || status === "done" || status === "cancelled") return status;
+    return "inbox";
+  }
+  normalizeTaskPriority(priority) {
+    if (priority === "high" || priority === "medium" || priority === "low" || priority === "none") return priority;
+    return "none";
+  }
+  normalizeRecurrenceFrequency(frequency) {
+    if (frequency === "daily" || frequency === "weekly" || frequency === "monthly" || frequency === "custom") return frequency;
+    return "daily";
+  }
+  nextRecurrenceDate(date, frequency, interval = 1) {
+    const next = /* @__PURE__ */ new Date(`${date}T00:00:00`);
+    const step = Math.max(1, Number(interval) || 1);
+    if (frequency === "weekly") next.setDate(next.getDate() + 7 * step);
+    else if (frequency === "monthly") next.setMonth(next.getMonth() + step);
+    else next.setDate(next.getDate() + step);
+    return formatDateKey(next);
   }
   normalizeBook(book) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i;
@@ -3428,13 +3595,13 @@ var DashboardStore = class {
   normalizeReadingPlan(plan) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
     const timestamp = (_a = plan.createdAt) != null ? _a : nowIso();
-    const today5 = todayKey();
-    const startDate = plan.startDate || today5;
+    const today6 = todayKey();
+    const startDate = plan.startDate || today6;
     const endDate = plan.endDate && plan.endDate >= startDate ? plan.endDate : startDate;
     const progress = Math.max(0, Math.min(100, Number((_b = plan.progress) != null ? _b : plan.status === "completed" ? 100 : 0) || 0));
     const completedDate = (_d = plan.completedDate) != null ? _d : (_c = plan.completedAt) == null ? void 0 : _c.slice(0, 10);
     const status = progress >= 100 || plan.status === "completed" || completedDate ? "completed" : (_e = plan.status) != null ? _e : "planned";
-    const completedAt = status === "completed" ? (_f = plan.completedAt) != null ? _f : `${completedDate != null ? completedDate : today5}T00:00:00.000Z` : void 0;
+    const completedAt = status === "completed" ? (_f = plan.completedAt) != null ? _f : `${completedDate != null ? completedDate : today6}T00:00:00.000Z` : void 0;
     return {
       ...plan,
       id: (_g = plan.id) != null ? _g : `reading-plan-${Date.now()}`,
@@ -3446,7 +3613,7 @@ var DashboardStore = class {
       progress,
       note: (_i = plan.note) != null ? _i : "",
       status,
-      completedDate: status === "completed" ? completedDate != null ? completedDate : today5 : void 0,
+      completedDate: status === "completed" ? completedDate != null ? completedDate : today6 : void 0,
       completedAt,
       createdAt: timestamp,
       updatedAt: (_j = plan.updatedAt) != null ? _j : timestamp
@@ -3458,9 +3625,9 @@ var DashboardStore = class {
     if (plan.progress === 100 || plan.status === "completed" || completedDate) {
       return { ...plan, status: "completed", completedDate: completedDate != null ? completedDate : todayKey() };
     }
-    const today5 = todayKey();
-    if (today5 < plan.startDate) return { ...plan, status: "planned" };
-    if (today5 > plan.endDate) return { ...plan, status: "overdue" };
+    const today6 = todayKey();
+    if (today6 < plan.startDate) return { ...plan, status: "planned" };
+    if (today6 > plan.endDate) return { ...plan, status: "overdue" };
     return { ...plan, status: "active" };
   }
   normalizeReadingNote(note) {
@@ -3914,12 +4081,12 @@ var HealthReminderService = class {
   async checkMissedReminders() {
     var _a, _b, _c;
     const missed = [];
-    const today5 = formatDateKey(/* @__PURE__ */ new Date());
+    const today6 = formatDateKey(/* @__PURE__ */ new Date());
     const now = /* @__PURE__ */ new Date();
     for (const reminder of this.store.getHealthReminders()) {
       if (!this.shouldCheck(reminder)) continue;
-      const date = (_a = reminder.date) != null ? _a : today5;
-      if (date > today5) continue;
+      const date = (_a = reminder.date) != null ? _a : today6;
+      if (date > today6) continue;
       if (!this.isScheduledForDate(reminder, date)) continue;
       const scheduled = this.getScheduledDate(reminder, date);
       if (!scheduled || scheduled >= now) continue;
@@ -3989,7 +4156,7 @@ var HealthReminderService = class {
 };
 
 // src/views/WorkbenchView.ts
-var import_obsidian87 = require("obsidian");
+var import_obsidian89 = require("obsidian");
 
 // src/core/DashboardRouter.ts
 var ROUTE_CHANGED_EVENT = "route-changed";
@@ -4045,6 +4212,7 @@ var PAGE_LABELS = {
   reading: "\u9605\u8BFB",
   fitness: "\u5065\u8EAB",
   finance: "\u7406\u8D22",
+  tasks: "\u4EFB\u52A1\u7BA1\u7406",
   goals: "\u76EE\u6807\u7BA1\u7406",
   modules: "\u6A21\u5757\u7BA1\u7406"
 };
@@ -4248,11 +4416,11 @@ var Sidebar = class {
       attr: { type: "button" }
     });
     todayButton.addEventListener("click", () => {
-      const today5 = /* @__PURE__ */ new Date();
-      this.visibleMonth = new Date(today5.getFullYear(), today5.getMonth(), 1);
-      this.selectedDate = today5;
+      const today6 = /* @__PURE__ */ new Date();
+      this.visibleMonth = new Date(today6.getFullYear(), today6.getMonth(), 1);
+      this.selectedDate = today6;
       this.renderMiniCalendarContent();
-      this.onOpenDay(today5);
+      this.onOpenDay(today6);
     });
     const weekdays = ["\u65E5", "\u4E00", "\u4E8C", "\u4E09", "\u56DB", "\u4E94", "\u516D"];
     const grid = this.calendarEl.createDiv({ cls: "cow-mini-calendar-grid" });
@@ -4262,9 +4430,9 @@ var Sidebar = class {
         grid.createSpan({ cls: "cow-empty-day" });
         return;
       }
-      const today5 = /* @__PURE__ */ new Date();
+      const today6 = /* @__PURE__ */ new Date();
       const button = grid.createEl("button", {
-        cls: `cow-day ${this.calendar.isSameDate(date, today5) ? "is-today" : ""} ${this.calendar.isSameDate(date, this.selectedDate) ? "is-selected" : ""}`,
+        cls: `cow-day ${this.calendar.isSameDate(date, today6) ? "is-today" : ""} ${this.calendar.isSameDate(date, this.selectedDate) ? "is-selected" : ""}`,
         text: String(date.getDate()),
         attr: { type: "button", "aria-label": this.calendar.getDateKey(date) }
       });
@@ -6440,10 +6608,10 @@ var ReadingPlanModal = class extends import_obsidian18.Modal {
     this.onDataChanged = onDataChanged;
     this.plan = plan;
     this.query = "";
-    const today5 = todayKey3();
+    const today6 = todayKey3();
     this.selectedBookId = (_c = (_b = plan == null ? void 0 : plan.bookId) != null ? _b : (_a = store.getBooks()[0]) == null ? void 0 : _a.id) != null ? _c : "";
-    this.startDate = (_d = plan == null ? void 0 : plan.startDate) != null ? _d : today5;
-    this.endDate = (_e = plan == null ? void 0 : plan.endDate) != null ? _e : today5;
+    this.startDate = (_d = plan == null ? void 0 : plan.startDate) != null ? _d : today6;
+    this.endDate = (_e = plan == null ? void 0 : plan.endDate) != null ? _e : today6;
     this.goal = (_f = plan == null ? void 0 : plan.goal) != null ? _f : (plan == null ? void 0 : plan.targetPages) ? `${plan.targetPages} \u9875` : "\u8BFB\u5B8C\u672C\u4E66";
     this.progress = Math.max(0, Math.min(100, Number((_g = plan == null ? void 0 : plan.progress) != null ? _g : (plan == null ? void 0 : plan.status) === "completed" ? 100 : 0) || 0));
     this.note = (_h = plan == null ? void 0 : plan.note) != null ? _h : "";
@@ -6692,8 +6860,8 @@ var ReadingPlanDetailModal = class extends import_obsidian18.Modal {
     track.createDiv({ cls: "cow-month-progress-fill is-pink", attr: { style: `width: ${progress}%` } });
   }
   renderRhythm(container, plan, book) {
-    const today5 = todayKey3();
-    const daysLeft = Math.max(0, daysBetween(today5, plan.endDate) + 1);
+    const today6 = todayKey3();
+    const daysLeft = Math.max(0, daysBetween(today6, plan.endDate) + 1);
     const rhythm = container.createDiv({ cls: "cow-reading-rhythm" });
     if (book == null ? void 0 : book.totalPages) {
       const remainingPages = Math.max(0, book.totalPages - book.currentPage);
@@ -6902,9 +7070,9 @@ function readingPlanStatusLabel(status) {
 }
 function computeReadingPlanStatus(startDate, endDate, progress) {
   if (progress >= 100) return "completed";
-  const today5 = todayKey3();
-  if (today5 < startDate) return "planned";
-  if (today5 > endDate) return "overdue";
+  const today6 = todayKey3();
+  if (today6 < startDate) return "planned";
+  if (today6 > endDate) return "overdue";
   return "active";
 }
 function daysBetween(startDate, endDate) {
@@ -7366,8 +7534,8 @@ var StatisticsCalendar = class {
       this.month = this.calendar.addMonths(this.month, 1);
       this.render(container);
     });
-    const today5 = header.createEl("button", { cls: "cow-calendar-today", text: "\u4ECA\u5929", attr: { type: "button" } });
-    today5.addEventListener("click", () => {
+    const today6 = header.createEl("button", { cls: "cow-calendar-today", text: "\u4ECA\u5929", attr: { type: "button" } });
+    today6.addEventListener("click", () => {
       const now = /* @__PURE__ */ new Date();
       this.month = new Date(now.getFullYear(), now.getMonth(), 1);
       this.selectedDate = this.calendar.getDateKey(now);
@@ -9064,16 +9232,16 @@ var StatisticsService = class {
     this.calendar = new CalendarService();
   }
   getFocusStats() {
-    const today5 = this.calendar.getDateKey(/* @__PURE__ */ new Date());
+    const today6 = this.calendar.getDateKey(/* @__PURE__ */ new Date());
     const weekKeys = new Set(this.store.getCurrentWeekDates());
-    const monthPrefix = today5.slice(0, 7);
+    const monthPrefix = today6.slice(0, 7);
     const records = this.store.getFocusRecords();
     return {
-      todayMinutes: records.filter((record) => record.date === today5).reduce((sum, record) => {
+      todayMinutes: records.filter((record) => record.date === today6).reduce((sum, record) => {
         var _a;
         return sum + ((_a = record.actualDurationMinutes) != null ? _a : record.duration);
       }, 0),
-      todayPomodoros: records.filter((record) => record.date === today5 && record.completed).length,
+      todayPomodoros: records.filter((record) => record.date === today6 && record.completed).length,
       weekMinutes: records.filter((record) => weekKeys.has(record.date)).reduce((sum, record) => {
         var _a;
         return sum + ((_a = record.actualDurationMinutes) != null ? _a : record.duration);
@@ -9140,11 +9308,11 @@ var StatisticsService = class {
     }));
   }
   getCurrentHabitStreak() {
-    const today5 = /* @__PURE__ */ new Date();
+    const today6 = /* @__PURE__ */ new Date();
     let streak = 0;
     for (let offset = 0; offset < 366; offset += 1) {
-      const date = new Date(today5);
-      date.setDate(today5.getDate() - offset);
+      const date = new Date(today6);
+      date.setDate(today6.getDate() - offset);
       if (!this.isAllHabitsDone(date)) break;
       streak += 1;
     }
@@ -9412,8 +9580,8 @@ var HabitOverviewSection = class {
         });
       });
     });
-    const today5 = formatDateKey(/* @__PURE__ */ new Date());
-    table.createEl("p", { text: `\u4ECA\u5929\uFF1A${today5}` });
+    const today6 = formatDateKey(/* @__PURE__ */ new Date());
+    table.createEl("p", { text: `\u4ECA\u5929\uFF1A${today6}` });
   }
 };
 
@@ -9787,8 +9955,8 @@ var MonthlyCalendarSection = class {
       this.draw(container);
     });
     header.createEl("strong", { text: this.calendar.getMonthTitle(this.displayDate) });
-    const today5 = header.createEl("button", { cls: "cow-calendar-today", text: "\u4ECA\u5929", attr: { type: "button" } });
-    today5.addEventListener("click", () => {
+    const today6 = header.createEl("button", { cls: "cow-calendar-today", text: "\u4ECA\u5929", attr: { type: "button" } });
+    today6.addEventListener("click", () => {
       this.displayDate = /* @__PURE__ */ new Date();
       this.draw(container);
     });
@@ -10597,10 +10765,10 @@ var FocusRecordsModal = class extends import_obsidian34.Modal {
   }
   getFilteredRecords() {
     const records = this.store.getFocusRecords();
-    const today5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    if (this.filter === "today") return records.filter((record) => record.date === today5);
+    const today6 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    if (this.filter === "today") return records.filter((record) => record.date === today6);
     if (this.filter === "date") return records.filter((record) => record.date === this.dateValue);
-    if (this.filter === "month") return records.filter((record) => record.date.startsWith(today5.slice(0, 7)));
+    if (this.filter === "month") return records.filter((record) => record.date.startsWith(today6.slice(0, 7)));
     if (this.filter === "week") {
       const week = new Set(this.store.getCurrentWeekDates());
       return records.filter((record) => week.has(record.date));
@@ -12186,8 +12354,8 @@ var FinanceLedgerSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    const today5 = formatDateKey(/* @__PURE__ */ new Date());
-    const todayTransactions = this.store.getTransactions().filter((item) => item.date === today5);
+    const today6 = formatDateKey(/* @__PURE__ */ new Date());
+    const todayTransactions = this.store.getTransactions().filter((item) => item.date === today6);
     const income = todayTransactions.filter((item) => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
     const expense = todayTransactions.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
     const stats = container.createDiv({ cls: "cow-reading-stat-grid cow-finance-ledger-stats" });
@@ -12288,10 +12456,10 @@ var FinanceTodosSection = class {
     this.renderCompleteAll(container);
   }
   renderCompleteAll(container) {
-    const today5 = formatDateKey(/* @__PURE__ */ new Date());
+    const today6 = formatDateKey(/* @__PURE__ */ new Date());
     const todayTodos = this.store.getFinanceTodos().filter((item) => {
       var _a;
-      return ((_a = item.date) != null ? _a : today5) === today5;
+      return ((_a = item.date) != null ? _a : today6) === today6;
     });
     const pending = todayTodos.filter((item) => !item.completed);
     const button = container.createEl("button", {
@@ -13673,9 +13841,9 @@ var GoalBreakdownSection = class {
   }
   render(container) {
     const list = container.createDiv({ cls: "cow-goal-tree-list" });
-    const today5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const today6 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     this.store.getGoals().forEach((goal) => {
-      const goalActions = this.store.getGoalActionsForGoal(goal.id).filter((action) => this.store.shouldShowActiveGoalAction(action, today5));
+      const goalActions = this.store.getGoalActionsForGoal(goal.id).filter((action) => this.store.shouldShowActiveGoalAction(action, today6));
       const rootActions = goalActions.filter((action) => !action.parentId);
       const group = list.createDiv({ cls: "cow-goal-tree-group" });
       const header = group.createDiv({ cls: "cow-goal-tree-goal" });
@@ -13823,8 +13991,8 @@ var MilestoneTimelineSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    const today5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    const milestones = this.store.getGoalActions().filter((action) => action.isMilestone && this.store.shouldShowActiveGoalAction(action, today5)).sort((left, right) => {
+    const today6 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const milestones = this.store.getGoalActions().filter((action) => action.isMilestone && this.store.shouldShowActiveGoalAction(action, today6)).sort((left, right) => {
       var _a, _b, _c, _d;
       return ((_b = (_a = left.milestoneDate) != null ? _a : left.deadline) != null ? _b : "").localeCompare((_d = (_c = right.milestoneDate) != null ? _c : right.deadline) != null ? _d : "");
     });
@@ -13870,12 +14038,12 @@ var MonthlyKeyResultsSection = class {
   }
   render(container) {
     const now = /* @__PURE__ */ new Date();
-    const today5 = now.toISOString().slice(0, 10);
+    const today6 = now.toISOString().slice(0, 10);
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
     container.createDiv({ cls: "cow-month-goal-period", text: `${currentYear}\u5E74${currentMonth}\u6708` });
     const list = container.createEl("ul", { cls: "cow-focus-list cow-month-goal-list" });
-    this.store.getKeyResults().filter((kr) => this.store.shouldShowActiveKeyResult(kr, today5) && kr.year === currentYear && kr.month === currentMonth).forEach((kr) => {
+    this.store.getKeyResults().filter((kr) => this.store.shouldShowActiveKeyResult(kr, today6) && kr.year === currentYear && kr.month === currentMonth).forEach((kr) => {
       const item = list.createEl("li", { cls: kr.completed ? "is-complete" : "" });
       const checkbox = item.createEl("input", { attr: { type: "checkbox", "aria-label": `${kr.title} \u5B8C\u6210\u72B6\u6001` } });
       checkbox.checked = kr.completed;
@@ -13920,8 +14088,8 @@ var PriorityMatrixSection = class {
   }
   render(container) {
     const grid = container.createDiv({ cls: "cow-priority-grid" });
-    const today5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    const matrixItems = this.store.getGoalActions().filter((item) => item.importance && item.urgency && this.store.shouldShowActiveGoalAction(item, today5));
+    const today6 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const matrixItems = this.store.getGoalActions().filter((item) => item.importance && item.urgency && this.store.shouldShowActiveGoalAction(item, today6));
     GOAL_QUADRANTS.forEach((quadrant) => {
       const cell = grid.createDiv({ cls: `cow-priority-cell ${quadrant.id}` });
       cell.createEl("strong", { text: quadrant.label });
@@ -13977,11 +14145,11 @@ var QuarterlyOkrSection = class {
   }
   render(container) {
     const list = container.createDiv({ cls: "cow-data-list" });
-    const today5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const today6 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     const now = /* @__PURE__ */ new Date();
     const currentYear = now.getFullYear();
     const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
-    this.store.getObjectives().filter((objective) => this.store.shouldShowActiveObjective(objective, today5) && objective.year === currentYear && objective.quarterNumber === currentQuarter).forEach((objective) => {
+    this.store.getObjectives().filter((objective) => this.store.shouldShowActiveObjective(objective, today6) && objective.year === currentYear && objective.quarterNumber === currentQuarter).forEach((objective) => {
       const completed = objective.progress >= 100;
       const row = list.createDiv({ cls: `cow-data-card cow-goal-list-card ${completed ? "is-complete" : ""}` });
       const head = row.createDiv({ cls: "cow-list-item-head" });
@@ -14291,9 +14459,9 @@ var YearlyGoalsSection = class {
   }
   render(container) {
     const list = container.createDiv({ cls: "cow-data-list" });
-    const today5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const today6 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
-    this.store.getGoals().filter((goal) => this.store.shouldShowActiveGoal(goal, today5) && ((goal.deadline || "").startsWith(String(currentYear)) || (goal.startDate || "").startsWith(String(currentYear)))).forEach((goal) => {
+    this.store.getGoals().filter((goal) => this.store.shouldShowActiveGoal(goal, today6) && ((goal.deadline || "").startsWith(String(currentYear)) || (goal.startDate || "").startsWith(String(currentYear)))).forEach((goal) => {
       const actions = this.store.getGoalActionsForGoal(goal.id);
       const milestones = actions.filter((action) => action.isMilestone);
       const completed = goal.status === "\u5DF2\u5B8C\u6210";
@@ -14380,8 +14548,8 @@ var TodayWorkoutSection = class {
   }
   render(container) {
     var _a, _b;
-    const today5 = formatDateKey(/* @__PURE__ */ new Date());
-    const workout = (_a = this.store.getWorkouts().find((item) => item.date === today5)) != null ? _a : this.store.getWorkouts()[0];
+    const today6 = formatDateKey(/* @__PURE__ */ new Date());
+    const workout = (_a = this.store.getWorkouts().find((item) => item.date === today6)) != null ? _a : this.store.getWorkouts()[0];
     const card = container.createDiv({ cls: "cow-feature-card" });
     card.createEl("strong", { text: (_b = workout == null ? void 0 : workout.note) != null ? _b : "\u4ECA\u5929\u5B89\u6392\u8F7B\u91CF\u6D3B\u52A8" });
     card.createSpan({ text: workout ? `${workout.type} \xB7 ${workout.duration} \u5206\u949F \xB7 ${workout.calories} kcal` : "\u7ED9\u8EAB\u4F53\u4E00\u70B9\u6E29\u67D4\u7684\u542F\u52A8" });
@@ -14398,8 +14566,8 @@ var WaterSleepHabitsSection = class {
   }
   render(container) {
     var _a, _b;
-    const today5 = formatDateKey(/* @__PURE__ */ new Date());
-    const record = this.store.getFitnessDailyRecord(today5);
+    const today6 = formatDateKey(/* @__PURE__ */ new Date());
+    const record = this.store.getFitnessDailyRecord(today6);
     const list = container.createDiv({ cls: "cow-data-list" });
     [
       ["\u996E\u6C34", `${record.waterCups} / ${record.waterGoal} \u676F`, (_a = record.waterNote) != null ? _a : "", record.waterGoal === 0 ? 0 : Math.round(record.waterCups / record.waterGoal * 100)],
@@ -14417,7 +14585,7 @@ var WaterSleepHabitsSection = class {
     });
     this.store.getFitnessHabitDefinitions().slice(0, 3).forEach((definition) => {
       var _a2;
-      const daily = this.store.getFitnessHabitRecords(today5).find((item) => item.habitId === definition.id);
+      const daily = this.store.getFitnessHabitRecords(today6).find((item) => item.habitId === definition.id);
       const row = list.createDiv({ cls: "cow-data-card" });
       row.createEl("strong", { text: definition.name });
       const meta = row.createDiv({ cls: "cow-fitness-metric-line" });
@@ -15062,9 +15230,9 @@ var ReadingPlanSection = class {
   }
   resolveStatus(plan) {
     if (plan.status === "completed" || plan.completedDate) return "completed";
-    const today5 = todayKey4();
-    if (today5 < plan.startDate) return "planned";
-    if (today5 > plan.endDate) return "overdue";
+    const today6 = todayKey4();
+    if (today6 < plan.startDate) return "planned";
+    if (today6 > plan.endDate) return "overdue";
     return "active";
   }
   getCoverSrc(book) {
@@ -17920,13 +18088,681 @@ var FitnessPage = class extends BaseDashboardPage {
 var FinancePage = class extends BaseDashboardPage {
 };
 
+// src/pages/TasksPage.ts
+var import_obsidian83 = require("obsidian");
+
+// src/components/tasks/TaskModals.ts
+var import_obsidian82 = require("obsidian");
+var STATUS_OPTIONS = [
+  ["inbox", "\u6536\u96C6\u7BB1"],
+  ["todo", "\u5F85\u529E"],
+  ["doing", "\u8FDB\u884C\u4E2D"],
+  ["waiting", "\u7B49\u5F85"],
+  ["done", "\u5DF2\u5B8C\u6210"],
+  ["cancelled", "\u5DF2\u53D6\u6D88"]
+];
+var PRIORITY_OPTIONS = [
+  ["none", "\u65E0"],
+  ["low", "\u4F4E"],
+  ["medium", "\u4E2D"],
+  ["high", "\u9AD8"]
+];
+var SOURCE_OPTIONS = [
+  ["general", "\u901A\u7528"],
+  ["research", "\u79D1\u7814"],
+  ["reading", "\u9605\u8BFB"],
+  ["fitness", "\u5065\u8EAB"],
+  ["finance", "\u7406\u8D22"],
+  ["goal", "\u76EE\u6807\u7BA1\u7406"]
+];
+var RECURRENCE_OPTIONS = [
+  ["none", "\u4E0D\u91CD\u590D"],
+  ["daily", "\u6BCF\u5929"],
+  ["weekly", "\u6BCF\u5468"],
+  ["monthly", "\u6BCF\u6708"],
+  ["custom", "\u81EA\u5B9A\u4E49\u5468\u671F"]
+];
+function nowIso3() {
+  return (/* @__PURE__ */ new Date()).toISOString();
+}
+function today5() {
+  return formatDateKey(/* @__PURE__ */ new Date());
+}
+function setupTaskModal(modal, className = "cute-task-edit-modal") {
+  applyResizableModal(modal, {
+    className,
+    width: "min(920px, 92vw)",
+    height: "min(760px, 86vh)",
+    maxWidth: "96vw",
+    maxHeight: "92vh",
+    minWidth: "min(420px, 92vw)",
+    minHeight: "min(360px, 86vh)"
+  });
+}
+function createField3(container, label, type, value) {
+  const row = container.createDiv({ cls: `cow-task-form-row ${type === "date" ? "is-picker" : ""}` });
+  row.createEl("label", { text: label });
+  const input = row.createEl("input", { attr: { type, value } });
+  if (type === "date") {
+    row.addEventListener("click", (event) => {
+      var _a;
+      if (event.target instanceof HTMLInputElement && event.target !== input) return;
+      input.focus();
+      try {
+        (_a = input.showPicker) == null ? void 0 : _a.call(input);
+      } catch (e) {
+        input.focus();
+      }
+    });
+  }
+  return input;
+}
+function createSelect2(container, label, options, value) {
+  const row = container.createDiv({ cls: "cow-task-form-row" });
+  row.createEl("label", { text: label });
+  const select = row.createEl("select");
+  options.forEach(([id, text]) => select.createEl("option", { value: id, text }));
+  select.value = value;
+  return select;
+}
+function createTextarea4(container, label, value) {
+  const row = container.createDiv({ cls: "cow-task-form-row" });
+  row.createEl("label", { text: label });
+  return row.createEl("textarea", { text: value });
+}
+function priorityLabel(priority) {
+  var _a, _b;
+  return (_b = (_a = PRIORITY_OPTIONS.find(([id]) => id === priority)) == null ? void 0 : _a[1]) != null ? _b : priority;
+}
+function recurrenceLabel(frequency) {
+  var _a, _b;
+  return (_b = (_a = RECURRENCE_OPTIONS.find(([id]) => id === (frequency != null ? frequency : "none"))) == null ? void 0 : _a[1]) != null ? _b : "\u4E0D\u91CD\u590D";
+}
+function taskTimeLabel(task) {
+  return task.estimatedMinutes ? `${task.estimatedMinutes}min` : "--";
+}
+function openTaskModal(app, store, onDone, task, defaults = {}) {
+  new TaskEditModal(app, store, onDone, task, defaults).open();
+}
+var TaskEditModal = class extends import_obsidian82.Modal {
+  constructor(app, store, onDone, task, defaults = {}) {
+    var _a, _b;
+    super(app);
+    this.store = store;
+    this.onDone = onDone;
+    this.task = task;
+    this.defaults = defaults;
+    this.linkedNote = "";
+    this.pendingChildren = [];
+    this.linkedNote = (_b = (_a = task == null ? void 0 : task.linkedNote) != null ? _a : defaults.linkedNote) != null ? _b : "";
+  }
+  onOpen() {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q;
+    setupTaskModal(this);
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-task-modal");
+    this.contentEl.createEl("h2", { text: this.task ? "\u7F16\u8F91\u4EFB\u52A1" : "\u65B0\u5EFA\u4EFB\u52A1" });
+    const grid = this.contentEl.createDiv({ cls: "cow-task-form-grid" });
+    const basic = grid.createDiv({ cls: "cow-task-form-section" });
+    basic.createEl("h3", { text: "\u57FA\u672C\u4FE1\u606F" });
+    const title = createField3(basic, "\u4EFB\u52A1\u540D\u79F0 *", "text", (_c = (_b = (_a = this.task) == null ? void 0 : _a.title) != null ? _b : this.defaults.title) != null ? _c : "");
+    const description = createTextarea4(basic, "\u4EFB\u52A1\u63CF\u8FF0", (_f = (_e = (_d = this.task) == null ? void 0 : _d.description) != null ? _e : this.defaults.description) != null ? _f : "");
+    const state = grid.createDiv({ cls: "cow-task-form-section" });
+    state.createEl("h3", { text: "\u72B6\u6001\u4E0E\u4F18\u5148\u7EA7" });
+    const status = createSelect2(state, "\u72B6\u6001", STATUS_OPTIONS, (_i = (_h = (_g = this.task) == null ? void 0 : _g.status) != null ? _h : this.defaults.status) != null ? _i : "inbox");
+    const priority = createSelect2(state, "\u4F18\u5148\u7EA7", PRIORITY_OPTIONS, (_l = (_k = (_j = this.task) == null ? void 0 : _j.priority) != null ? _k : this.defaults.priority) != null ? _l : "none");
+    const time = grid.createDiv({ cls: "cow-task-form-section" });
+    time.createEl("h3", { text: "\u65F6\u95F4" });
+    const plannedDate = createField3(time, "\u8BA1\u5212\u65E5\u671F", "date", (_o = (_n = (_m = this.task) == null ? void 0 : _m.plannedDate) != null ? _n : this.defaults.plannedDate) != null ? _o : "");
+    const dueDate = createField3(time, "\u622A\u6B62\u65E5\u671F", "date", (_r = (_q = (_p = this.task) == null ? void 0 : _p.dueDate) != null ? _q : this.defaults.dueDate) != null ? _r : "");
+    const estimatedMinutes = createField3(time, "\u9884\u8BA1\u65F6\u957F\uFF08\u5206\u949F\uFF09", "number", String((_u = (_t = (_s = this.task) == null ? void 0 : _s.estimatedMinutes) != null ? _t : this.defaults.estimatedMinutes) != null ? _u : ""));
+    const belong = grid.createDiv({ cls: "cow-task-form-section" });
+    belong.createEl("h3", { text: "\u5F52\u5C5E" });
+    const project = belong.createDiv({ cls: "cow-task-form-row" });
+    project.createEl("label", { text: "\u6240\u5C5E\u9879\u76EE" });
+    const projectSelect = project.createEl("select");
+    projectSelect.createEl("option", { value: "", text: "\u4E0D\u5173\u8054" });
+    this.store.getTaskProjects().forEach((item) => projectSelect.createEl("option", { value: item.id, text: item.name }));
+    projectSelect.value = (_x = (_w = (_v = this.task) == null ? void 0 : _v.projectId) != null ? _w : this.defaults.projectId) != null ? _x : "";
+    const source = createSelect2(belong, "\u6765\u6E90\u6A21\u5757", SOURCE_OPTIONS, (_A = (_z = (_y = this.task) == null ? void 0 : _y.sourceModule) != null ? _z : this.defaults.sourceModule) != null ? _A : "general");
+    const tags = createField3(belong, "\u6807\u7B7E\uFF08\u7528\u9017\u53F7\u5206\u9694\uFF09", "text", ((_D = (_C = (_B = this.task) == null ? void 0 : _B.tags) != null ? _C : this.defaults.tags) != null ? _D : []).join(", "));
+    const relate = grid.createDiv({ cls: "cow-task-form-section" });
+    relate.createEl("h3", { text: "\u5173\u8054" });
+    const parent = relate.createDiv({ cls: "cow-task-form-row" });
+    parent.createEl("label", { text: "\u7236\u4EFB\u52A1" });
+    const parentSelect = parent.createEl("select");
+    parentSelect.createEl("option", { value: "", text: "\u65E0" });
+    this.store.getTasks().filter((item) => {
+      var _a2;
+      return item.id !== ((_a2 = this.task) == null ? void 0 : _a2.id) && !item.parentTaskId;
+    }).forEach((item) => parentSelect.createEl("option", { value: item.id, text: item.title }));
+    parentSelect.value = (_G = (_F = (_E = this.task) == null ? void 0 : _E.parentTaskId) != null ? _F : this.defaults.parentTaskId) != null ? _G : "";
+    new MarkdownFilePicker(this.app, {
+      label: "\u5173\u8054 Obsidian \u7B14\u8BB0",
+      value: this.linkedNote,
+      onChange: (path) => this.linkedNote = path
+    }).render(relate);
+    const recurrence = grid.createDiv({ cls: "cow-task-form-section" });
+    recurrence.createEl("h3", { text: "\u5468\u671F" });
+    const recurrenceSelect = createSelect2(recurrence, "\u91CD\u590D", RECURRENCE_OPTIONS, (_L = (_K = (_I = (_H = this.task) == null ? void 0 : _H.recurrence) == null ? void 0 : _I.frequency) != null ? _K : (_J = this.defaults.recurrence) == null ? void 0 : _J.frequency) != null ? _L : "none");
+    const interval = createField3(recurrence, "\u81EA\u5B9A\u4E49\u95F4\u9694\uFF08\u5929\uFF09", "number", String((_Q = (_P = (_N = (_M = this.task) == null ? void 0 : _M.recurrence) == null ? void 0 : _N.interval) != null ? _P : (_O = this.defaults.recurrence) == null ? void 0 : _O.interval) != null ? _Q : 1));
+    this.renderChildren(grid);
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "\u4FDD\u5B58\u4EFB\u52A1", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
+      var _a2, _b2, _c2, _d2, _e2, _f2, _g2, _h2, _i2;
+      const name = title.value.trim();
+      if (!name) {
+        new import_obsidian82.Notice("\u4EFB\u52A1\u540D\u79F0\u4E0D\u80FD\u4E3A\u7A7A\u3002");
+        return;
+      }
+      const nextStatus = status.value;
+      const recurrenceFrequency = recurrenceSelect.value;
+      const values = {
+        id: (_b2 = (_a2 = this.task) == null ? void 0 : _a2.id) != null ? _b2 : `task-${Date.now()}`,
+        title: name,
+        description: description.value.trim(),
+        status: nextStatus,
+        priority: priority.value,
+        sourceModule: source.value,
+        projectId: projectSelect.value || void 0,
+        parentTaskId: parentSelect.value || void 0,
+        tags: tags.value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean),
+        plannedDate: plannedDate.value || void 0,
+        dueDate: dueDate.value || void 0,
+        completedDate: nextStatus === "done" ? (_d2 = (_c2 = this.task) == null ? void 0 : _c2.completedDate) != null ? _d2 : today5() : void 0,
+        estimatedMinutes: Number(estimatedMinutes.value) > 0 ? Number(estimatedMinutes.value) : void 0,
+        actualMinutes: (_e2 = this.task) == null ? void 0 : _e2.actualMinutes,
+        recurrence: recurrenceFrequency === "none" ? { frequency: "none", enabled: false } : {
+          frequency: recurrenceFrequency,
+          interval: Math.max(1, Number(interval.value) || 1),
+          enabled: true,
+          nextDate: plannedDate.value || dueDate.value || today5(),
+          lastGeneratedDate: (_g2 = (_f2 = this.task) == null ? void 0 : _f2.recurrence) == null ? void 0 : _g2.lastGeneratedDate
+        },
+        linkedNote: this.linkedNote || void 0,
+        createdAt: (_i2 = (_h2 = this.task) == null ? void 0 : _h2.createdAt) != null ? _i2 : nowIso3(),
+        updatedAt: nowIso3()
+      };
+      if (this.task) await this.store.updateTask(this.task.id, values);
+      else await this.store.addTask(values);
+      for (const childTitle of this.pendingChildren) {
+        await this.store.addTask({
+          title: childTitle,
+          status: "todo",
+          priority: "none",
+          parentTaskId: values.id,
+          sourceModule: values.sourceModule,
+          projectId: values.projectId,
+          plannedDate: values.plannedDate
+        });
+      }
+      this.onDone();
+      this.close();
+    });
+  }
+  renderChildren(container) {
+    const section = container.createDiv({ cls: "cow-task-form-section" });
+    section.createEl("h3", { text: "\u5B50\u4EFB\u52A1" });
+    const list = section.createDiv({ cls: "cow-task-subtask-list" });
+    if (this.task) {
+      this.store.getTasks().filter((item) => {
+        var _a;
+        return item.parentTaskId === ((_a = this.task) == null ? void 0 : _a.id);
+      }).forEach((child) => {
+        const row = list.createDiv({ cls: "cow-task-subtask-row" });
+        const checkbox = row.createEl("input", { attr: { type: "checkbox" } });
+        checkbox.checked = child.status === "done";
+        checkbox.addEventListener("change", async () => {
+          await this.store.updateTask(child.id, { status: checkbox.checked ? "done" : "todo" });
+          this.onDone();
+        });
+        row.createSpan({ text: child.title });
+      });
+    }
+    this.pendingChildren.forEach((title) => list.createDiv({ cls: "cow-task-subtask-row" }).createSpan({ text: title }));
+    const addRow = section.createDiv({ cls: "cow-task-inline-add" });
+    const input = addRow.createEl("input", { attr: { type: "text", placeholder: "\u6DFB\u52A0\u5B50\u4EFB\u52A1\u2026" } });
+    addRow.createEl("button", { text: "\u6DFB\u52A0", attr: { type: "button" } }).addEventListener("click", () => {
+      const value = input.value.trim();
+      if (!value) return;
+      this.pendingChildren.push(value);
+      this.onOpen();
+    });
+  }
+};
+function openTaskProjectModal(app, store, onDone, project) {
+  new TaskProjectModal(app, store, onDone, project).open();
+}
+var TaskProjectModal = class extends import_obsidian82.Modal {
+  constructor(app, store, onDone, project) {
+    super(app);
+    this.store = store;
+    this.onDone = onDone;
+    this.project = project;
+  }
+  onOpen() {
+    var _a, _b, _c, _d;
+    setupTaskModal(this, "cute-task-small-modal");
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-task-modal");
+    this.contentEl.createEl("h2", { text: this.project ? "\u7F16\u8F91\u9879\u76EE" : "\u65B0\u5EFA\u9879\u76EE" });
+    const name = createField3(this.contentEl, "\u9879\u76EE\u540D\u79F0", "text", (_b = (_a = this.project) == null ? void 0 : _a.name) != null ? _b : "");
+    const description = createTextarea4(this.contentEl, "\u9879\u76EE\u63CF\u8FF0", (_d = (_c = this.project) == null ? void 0 : _c.description) != null ? _d : "");
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "\u4FDD\u5B58", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
+      var _a2, _b2, _c2, _d2;
+      const values = { id: (_b2 = (_a2 = this.project) == null ? void 0 : _a2.id) != null ? _b2 : `task-project-${Date.now()}`, name: name.value.trim() || "\u672A\u547D\u540D\u9879\u76EE", description: description.value.trim(), createdAt: (_d2 = (_c2 = this.project) == null ? void 0 : _c2.createdAt) != null ? _d2 : nowIso3() };
+      if (this.project) await this.store.updateTaskProject(this.project.id, values);
+      else await this.store.addTaskProject(values);
+      this.onDone();
+      this.close();
+    });
+  }
+};
+function openTaskFilterModal(app, store, onDone) {
+  new TaskFilterModal(app, store, onDone).open();
+}
+var TaskFilterModal = class extends import_obsidian82.Modal {
+  constructor(app, store, onDone) {
+    super(app);
+    this.store = store;
+    this.onDone = onDone;
+  }
+  onOpen() {
+    var _a, _b, _c, _d, _e, _f;
+    setupTaskModal(this, "cute-task-small-modal");
+    const settings = this.store.getTaskSettings();
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-task-modal");
+    this.contentEl.createEl("h2", { text: "\u7B5B\u9009\u4EFB\u52A1" });
+    const form = this.contentEl.createDiv({ cls: "cow-task-form-grid" });
+    const status = createSelect2(form, "\u72B6\u6001", [["all", "\u5168\u90E8"], ...STATUS_OPTIONS], (_a = settings.filterStatus) != null ? _a : "all");
+    const priority = createSelect2(form, "\u4F18\u5148\u7EA7", [["all", "\u5168\u90E8"], ...PRIORITY_OPTIONS], (_b = settings.filterPriority) != null ? _b : "all");
+    const projectRow = form.createDiv({ cls: "cow-task-form-row" });
+    projectRow.createEl("label", { text: "\u9879\u76EE" });
+    const project = projectRow.createEl("select");
+    project.createEl("option", { value: "", text: "\u5168\u90E8\u9879\u76EE" });
+    this.store.getTaskProjects().forEach((item) => project.createEl("option", { value: item.id, text: item.name }));
+    project.value = (_c = settings.filterProjectId) != null ? _c : "";
+    const start = createField3(form, "\u5F00\u59CB\u65E5\u671F", "date", (_d = settings.filterStartDate) != null ? _d : "");
+    const end = createField3(form, "\u7ED3\u675F\u65E5\u671F", "date", (_e = settings.filterEndDate) != null ? _e : "");
+    const tag = createField3(form, "\u6807\u7B7E", "text", (_f = settings.filterTag) != null ? _f : "");
+    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u91CD\u7F6E", attr: { type: "button" } }).addEventListener("click", async () => {
+      await this.store.updateTaskSettings({ filterStatus: "all", filterPriority: "all", filterProjectId: "", filterStartDate: "", filterEndDate: "", filterTag: "" });
+      this.onDone();
+      this.close();
+    });
+    actions.createEl("button", { text: "\u5E94\u7528", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", async () => {
+      await this.store.updateTaskSettings({
+        filterStatus: status.value,
+        filterPriority: priority.value,
+        filterProjectId: project.value,
+        filterStartDate: start.value,
+        filterEndDate: end.value,
+        filterTag: tag.value.trim()
+      });
+      this.onDone();
+      this.close();
+    });
+  }
+};
+var TaskStatisticsModal = class extends import_obsidian82.Modal {
+  constructor(app, store) {
+    super(app);
+    this.store = store;
+    this.period = "week";
+  }
+  onOpen() {
+    setupTaskModal(this, "cute-task-stats-modal");
+    this.render();
+  }
+  render() {
+    const tasks = this.store.getTasks();
+    const now = /* @__PURE__ */ new Date();
+    const start = new Date(now);
+    start.setDate(now.getDate() - (this.period === "week" ? 6 : 29));
+    const startKey = formatDateKey(start);
+    const todayKey5 = today5();
+    const scoped = tasks.filter((task) => {
+      var _a, _b;
+      return ((_b = (_a = task.plannedDate) != null ? _a : task.completedDate) != null ? _b : task.createdAt.slice(0, 10)) >= startKey;
+    });
+    const done = scoped.filter((task) => task.status === "done").length;
+    const overdue = tasks.filter((task) => task.dueDate && task.dueDate < todayKey5 && task.status !== "done").length;
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-task-modal", "cow-task-stats-modal");
+    this.contentEl.createEl("h2", { text: "\u4EFB\u52A1\u7EDF\u8BA1" });
+    const filters = this.contentEl.createDiv({ cls: "cow-focus-filter-row" });
+    [["week", "\u672C\u5468"], ["month", "\u672C\u6708"]].forEach(([id, label]) => {
+      filters.createEl("button", { cls: this.period === id ? "is-active" : "", text: label, attr: { type: "button" } }).addEventListener("click", () => {
+        this.period = id;
+        this.render();
+      });
+    });
+    const cards = this.contentEl.createDiv({ cls: "cow-stats-card-grid" });
+    [
+      ["\u5B8C\u6210\u7387", `${scoped.length ? Math.round(done / scoped.length * 100) : 0}%`],
+      ["\u5EF6\u671F\u4EFB\u52A1", overdue],
+      ["\u5B8C\u6210\u6570\u91CF", done],
+      ["\u9884\u8BA1\u65F6\u95F4", `${scoped.reduce((sum, task) => {
+        var _a;
+        return sum + ((_a = task.estimatedMinutes) != null ? _a : 0);
+      }, 0)}min`]
+    ].forEach(([label, value]) => {
+      const card = cards.createDiv({ cls: "cow-stats-card" });
+      card.createEl("strong", { text: String(value) });
+      card.createSpan({ text: String(label) });
+    });
+    const chart = this.contentEl.createDiv({ cls: "cow-task-mini-chart" });
+    for (let offset = 6; offset >= 0; offset -= 1) {
+      const date = /* @__PURE__ */ new Date();
+      date.setDate(date.getDate() - offset);
+      const key = formatDateKey(date);
+      const count = tasks.filter((task) => task.completedDate === key).length;
+      const bar = chart.createDiv({ cls: "cow-task-mini-bar" });
+      bar.createDiv({ attr: { style: `height: ${Math.max(8, count * 18)}px` } });
+      bar.createSpan({ text: `${date.getMonth() + 1}/${date.getDate()}` });
+    }
+  }
+};
+
+// src/pages/TasksPage.ts
+var BOARD_COLUMNS = [
+  ["todo", "\u5F85\u529E"],
+  ["doing", "\u8FDB\u884C\u4E2D"],
+  ["waiting", "\u7B49\u5F85"],
+  ["done", "\u5DF2\u5B8C\u6210"]
+];
+var TasksPage = class {
+  constructor(app, store, page, onDataChanged) {
+    this.app = app;
+    this.store = store;
+    this.page = page;
+    this.onDataChanged = onDataChanged;
+    this.weekOffset = 0;
+  }
+  render(container) {
+    void this.store.generateDueRecurringTasks();
+    const definition = this.store.getPages().find((item) => item.id === this.page);
+    const pageEl = container.createDiv({ cls: "cow-page cow-tasks-page" });
+    this.renderHeader(pageEl, definition);
+    this.renderQuickAdd(pageEl);
+    const topGrid = pageEl.createDiv({ cls: "cow-tasks-top-grid" });
+    this.renderTodayTasks(topGrid);
+    this.renderInbox(topGrid);
+    this.renderStats(topGrid);
+    this.renderWeekPlan(pageEl);
+    this.renderBoard(pageEl);
+    const bottomGrid = pageEl.createDiv({ cls: "cow-tasks-bottom-grid" });
+    this.renderProjects(bottomGrid);
+    this.renderRecurring(bottomGrid);
+  }
+  renderHeader(container, definition) {
+    const heading = container.createDiv({ cls: "cow-page-heading cow-tasks-heading" });
+    const title = heading.createDiv();
+    title.createEl("h1", { text: definition.label });
+    title.createEl("p", { text: definition.description });
+    const actions = heading.createDiv({ cls: "cow-config-actions" });
+    this.iconButton(actions, "plus", "\u65B0\u5EFA\u4EFB\u52A1", () => openTaskModal(this.app, this.store, this.onDataChanged, void 0, { status: "inbox", sourceModule: "general" }));
+    this.iconButton(actions, "filter", "\u7B5B\u9009", () => openTaskFilterModal(this.app, this.store, this.onDataChanged));
+    this.iconButton(actions, "bar-chart-3", "\u7EDF\u8BA1", () => new TaskStatisticsModal(this.app, this.store).open());
+  }
+  renderQuickAdd(container) {
+    const card = container.createDiv({ cls: "cow-task-panel cow-task-quick-add" });
+    card.createEl("h2", { text: "\u5FEB\u901F\u6DFB\u52A0\u4EFB\u52A1" });
+    const row = card.createDiv({ cls: "cow-task-quick-row" });
+    const input = row.createEl("input", { attr: { type: "text", placeholder: "\u8F93\u5165\u4EFB\u52A1\u5185\u5BB9\uFF0C\u6309\u56DE\u8F66\u5FEB\u901F\u6DFB\u52A0\u2026" } });
+    const add = row.createEl("button", { text: "\u6DFB\u52A0", cls: "mod-cta", attr: { type: "button" } });
+    const submit = async () => {
+      const title = input.value.trim();
+      if (!title) return;
+      await this.store.addTask({ title, status: "inbox", priority: "none", sourceModule: "general" });
+      input.value = "";
+      this.onDataChanged();
+    };
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") void submit();
+    });
+    add.addEventListener("click", () => void submit());
+  }
+  renderTodayTasks(container) {
+    const today6 = formatDateKey(/* @__PURE__ */ new Date());
+    const tasks = this.filteredTasks().filter((task) => task.plannedDate === today6);
+    const open = tasks.filter((task) => task.status !== "done" && task.status !== "cancelled");
+    const done = tasks.filter((task) => task.status === "done");
+    const card = this.panel(container, `\u4ECA\u65E5\u4EFB\u52A1 ${done.length}/${tasks.length}`, "\u4ECA\u5929\u6682\u65F6\u6CA1\u6709\u4EFB\u52A1");
+    [...open, ...done].slice(0, 10).forEach((task) => this.renderTaskRow(card, task, true));
+  }
+  renderInbox(container) {
+    const tasks = this.filteredTasks().filter((task) => task.status === "inbox" && !task.parentTaskId).slice(0, 6);
+    const card = this.panel(container, "\u4EFB\u52A1\u6536\u96C6\u7BB1", "\u6536\u96C6\u7BB1\u5DF2\u7ECF\u6E05\u7A7A\u5566");
+    tasks.forEach((task) => this.renderTaskRow(card, task, true));
+    if (this.store.getTasks().filter((task) => task.status === "inbox").length > 6) {
+      card.createEl("button", { cls: "cow-task-link-button", text: "\u67E5\u770B\u5168\u90E8", attr: { type: "button" } }).addEventListener("click", () => openTaskFilterModal(this.app, this.store, this.onDataChanged));
+    }
+  }
+  renderStats(container) {
+    const tasks = this.filteredTasks();
+    const weekDates = this.getWeekDates(0).map((date) => formatDateKey(date));
+    const weekly = tasks.filter((task) => task.plannedDate && weekDates.includes(task.plannedDate) || task.completedDate && weekDates.includes(task.completedDate));
+    const done = weekly.filter((task) => task.status === "done").length;
+    const overdue = tasks.filter((task) => task.dueDate && task.dueDate < formatDateKey(/* @__PURE__ */ new Date()) && task.status !== "done").length;
+    const card = container.createDiv({ cls: "cow-task-panel cow-task-stat-panel" });
+    card.createEl("h2", { text: "\u4EFB\u52A1\u7EDF\u8BA1" });
+    const grid = card.createDiv({ cls: "cow-stats-card-grid" });
+    [
+      ["\u672C\u5468\u5B8C\u6210\u7387", `${weekly.length ? Math.round(done / weekly.length * 100) : 0}%`],
+      ["\u5EF6\u671F\u4EFB\u52A1", overdue],
+      ["\u672C\u5468\u5B8C\u6210", done],
+      ["\u9884\u8BA1\u65F6\u95F4", `${weekly.reduce((sum, task) => {
+        var _a;
+        return sum + ((_a = task.estimatedMinutes) != null ? _a : 0);
+      }, 0)}min`]
+    ].forEach(([label, value]) => {
+      const item = grid.createDiv({ cls: "cow-stats-card" });
+      item.createEl("strong", { text: String(value) });
+      item.createSpan({ text: String(label) });
+    });
+  }
+  renderWeekPlan(container) {
+    const card = container.createDiv({ cls: "cow-task-panel cow-task-week-panel" });
+    const header = card.createDiv({ cls: "cow-task-panel-header" });
+    header.createEl("h2", { text: "\u672C\u5468\u8BA1\u5212" });
+    const actions = header.createDiv({ cls: "cow-list-item-actions" });
+    actions.createEl("button", { text: "\u4E0A\u4E00\u5468", attr: { type: "button" } }).addEventListener("click", () => {
+      this.weekOffset -= 1;
+      renderWeek();
+    });
+    actions.createEl("button", { text: "\u672C\u5468", attr: { type: "button" } }).addEventListener("click", () => {
+      this.weekOffset = 0;
+      renderWeek();
+    });
+    actions.createEl("button", { text: "\u4E0B\u4E00\u5468", attr: { type: "button" } }).addEventListener("click", () => {
+      this.weekOffset += 1;
+      renderWeek();
+    });
+    const scroll = card.createDiv({ cls: "cow-task-week-scroll" });
+    const renderWeek = () => {
+      scroll.empty();
+      const grid = scroll.createDiv({ cls: "cow-task-week-grid" });
+      const dates = this.getWeekDates(this.weekOffset);
+      dates.forEach((date) => {
+        const dateKey = formatDateKey(date);
+        const day = grid.createDiv({ cls: "cow-task-week-day" });
+        day.createEl("strong", { text: `${date.getMonth() + 1}/${date.getDate()}` });
+        day.createSpan({ cls: "cow-meta-line", text: ["\u5468\u65E5", "\u5468\u4E00", "\u5468\u4E8C", "\u5468\u4E09", "\u5468\u56DB", "\u5468\u4E94", "\u5468\u516D"][date.getDay()] });
+        const tasks = this.filteredTasks().filter((task) => task.plannedDate === dateKey && !task.parentTaskId);
+        if (tasks.length === 0) {
+          day.createDiv({ cls: "cow-empty-state", text: "\u6682\u65E0" });
+          return;
+        }
+        tasks.slice(0, 5).forEach((task) => {
+          const item = day.createEl("button", { cls: "cow-task-chip", attr: { type: "button", title: task.title } });
+          item.createSpan({ text: task.title });
+          item.addEventListener("click", () => openTaskModal(this.app, this.store, this.onDataChanged, task));
+        });
+      });
+    };
+    renderWeek();
+  }
+  renderBoard(container) {
+    const card = container.createDiv({ cls: "cow-task-panel cow-task-board-panel" });
+    card.createEl("h2", { text: "\u4EFB\u52A1\u770B\u677F" });
+    const board = card.createDiv({ cls: "cow-task-board" });
+    BOARD_COLUMNS.forEach(([status, label]) => {
+      const column = board.createDiv({ cls: "cow-task-board-column" });
+      column.createEl("h3", { text: label });
+      const tasks = this.filteredTasks().filter((task) => task.status === status && !task.parentTaskId).slice(0, 8);
+      if (tasks.length === 0) {
+        column.createDiv({ cls: "cow-empty-state", text: "\u6682\u65E0\u4EFB\u52A1" });
+        return;
+      }
+      tasks.forEach((task) => this.renderBoardCard(column, task));
+    });
+  }
+  renderProjects(container) {
+    const card = this.panel(container, "\u9879\u76EE\u4E0E\u4EFB\u52A1\u7EC4", "\u8FD8\u6CA1\u6709\u9879\u76EE");
+    const add = card.createEl("button", { cls: "cow-task-add-strip", text: "+ \u65B0\u5EFA\u9879\u76EE", attr: { type: "button" } });
+    add.addEventListener("click", () => openTaskProjectModal(this.app, this.store, this.onDataChanged));
+    this.store.getTaskProjects().slice(0, 6).forEach((project) => {
+      const tasks = this.store.getTasks().filter((task) => task.projectId === project.id);
+      const done = tasks.filter((task) => task.status === "done").length;
+      const percent = tasks.length ? Math.round(done / tasks.length * 100) : 0;
+      const row = card.createDiv({ cls: "cow-data-card" });
+      row.createEl("strong", { text: project.name });
+      row.createDiv({ cls: "cow-meta-line", text: project.description || "\u6682\u65E0\u63CF\u8FF0" });
+      row.createDiv({ cls: "cow-meta-line", text: `${done} / ${tasks.length} \xB7 ${percent}%` });
+      row.createDiv({ cls: "cow-month-progress-track" }).createDiv({ cls: "cow-month-progress-fill is-pink", attr: { style: `width: ${percent}%` } });
+    });
+  }
+  renderRecurring(container) {
+    const card = this.panel(container, "\u5468\u671F\u4EFB\u52A1", "\u8FD8\u6CA1\u6709\u5468\u671F\u4EFB\u52A1");
+    this.store.getTasks().filter((task) => {
+      var _a;
+      return ((_a = task.recurrence) == null ? void 0 : _a.enabled) && task.recurrence.frequency !== "none";
+    }).slice(0, 6).forEach((task) => {
+      var _a, _b, _c, _d, _e;
+      const row = card.createDiv({ cls: "cow-data-card" });
+      const head = row.createDiv({ cls: "cow-list-item-head" });
+      const body = head.createDiv();
+      body.createEl("strong", { text: task.title });
+      body.createDiv({ cls: "cow-meta-line", text: `${recurrenceLabel((_a = task.recurrence) == null ? void 0 : _a.frequency)} \xB7 \u4E0B\u6B21 ${(_d = (_c = (_b = task.recurrence) == null ? void 0 : _b.nextDate) != null ? _c : task.plannedDate) != null ? _d : "--"}` });
+      const toggle = head.createEl("button", { text: ((_e = task.recurrence) == null ? void 0 : _e.enabled) ? "\u505C\u7528" : "\u542F\u7528", attr: { type: "button" } });
+      toggle.addEventListener("click", async () => {
+        var _a2, _b2, _c2;
+        await this.store.updateTask(task.id, { recurrence: { ...task.recurrence, frequency: (_b2 = (_a2 = task.recurrence) == null ? void 0 : _a2.frequency) != null ? _b2 : "daily", enabled: !((_c2 = task.recurrence) == null ? void 0 : _c2.enabled) } });
+        this.onDataChanged();
+      });
+    });
+  }
+  renderTaskRow(container, task, compact = false) {
+    var _a;
+    const row = container.createDiv({ cls: `cow-task-row ${task.status === "done" ? "is-done" : ""}` });
+    const checkbox = row.createEl("input", { attr: { type: "checkbox" } });
+    checkbox.checked = task.status === "done";
+    checkbox.addEventListener("change", async () => {
+      await this.store.updateTask(task.id, { status: checkbox.checked ? "done" : "todo" });
+      this.onDataChanged();
+    });
+    const body = row.createDiv({ cls: "cow-task-row-body" });
+    body.createEl("strong", { text: task.title });
+    const meta = body.createDiv({ cls: "cow-task-meta" });
+    meta.createSpan({ cls: `cow-task-priority is-${task.priority}`, text: priorityLabel(task.priority) });
+    if (task.estimatedMinutes) meta.createSpan({ text: taskTimeLabel(task) });
+    if (!compact && ((_a = task.tags) == null ? void 0 : _a.length)) task.tags.slice(0, 4).forEach((tag) => meta.createSpan({ cls: "cow-pill is-blue", text: tag }));
+    const actions = row.createDiv({ cls: "cow-list-item-actions" });
+    this.smallIcon(actions, "pencil", "\u7F16\u8F91\u4EFB\u52A1", () => openTaskModal(this.app, this.store, this.onDataChanged, task));
+    this.smallIcon(actions, "trash-2", "\u5220\u9664\u4EFB\u52A1", () => void this.confirmDeleteTask(task));
+  }
+  renderBoardCard(container, task) {
+    const card = container.createDiv({ cls: `cow-task-board-card is-${task.priority}` });
+    card.addEventListener("click", () => openTaskModal(this.app, this.store, this.onDataChanged, task));
+    card.createEl("strong", { text: task.title });
+    const meta = card.createDiv({ cls: "cow-task-meta" });
+    meta.createSpan({ cls: `cow-task-priority is-${task.priority}`, text: priorityLabel(task.priority) });
+    meta.createSpan({ text: taskTimeLabel(task) });
+    const status = card.createEl("select");
+    BOARD_COLUMNS.forEach(([id, label]) => status.createEl("option", { value: id, text: label }));
+    status.value = task.status;
+    status.addEventListener("click", (event) => event.stopPropagation());
+    status.addEventListener("change", async () => {
+      await this.store.updateTask(task.id, { status: status.value });
+      this.onDataChanged();
+    });
+  }
+  panel(container, title, empty) {
+    const card = container.createDiv({ cls: "cow-task-panel" });
+    card.createEl("h2", { text: title });
+    const marker = card.createDiv({ cls: "cow-task-empty-marker", text: empty });
+    window.requestAnimationFrame(() => {
+      if (card.querySelectorAll(".cow-task-row, .cow-data-card, .cow-task-board-card, .cow-task-chip").length > 0) marker.detach();
+    });
+    return card;
+  }
+  filteredTasks() {
+    const settings = this.store.getTaskSettings();
+    return this.store.getTasks().filter((task) => {
+      var _a, _b, _c, _d, _e;
+      if (settings.filterStatus && settings.filterStatus !== "all" && task.status !== settings.filterStatus) return false;
+      if (settings.filterPriority && settings.filterPriority !== "all" && task.priority !== settings.filterPriority) return false;
+      if (settings.filterProjectId && task.projectId !== settings.filterProjectId) return false;
+      if (settings.filterStartDate && ((_b = (_a = task.plannedDate) != null ? _a : task.dueDate) != null ? _b : "") < settings.filterStartDate) return false;
+      if (settings.filterEndDate && ((_d = (_c = task.plannedDate) != null ? _c : task.dueDate) != null ? _d : "") > settings.filterEndDate) return false;
+      if (settings.filterTag && !((_e = task.tags) != null ? _e : []).some((tag) => {
+        var _a2;
+        return tag.includes((_a2 = settings.filterTag) != null ? _a2 : "");
+      })) return false;
+      return true;
+    });
+  }
+  getWeekDates(offset) {
+    const today6 = /* @__PURE__ */ new Date();
+    const monday = new Date(today6);
+    monday.setDate(today6.getDate() - (today6.getDay() + 6) % 7 + offset * 7);
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + index);
+      return date;
+    });
+  }
+  async confirmDeleteTask(task) {
+    const children = this.store.getTasks().filter((item) => item.parentTaskId === task.id);
+    if (children.length > 0) {
+      const deleteChildren = confirm(`\u201C${task.title}\u201D\u5305\u542B ${children.length} \u4E2A\u5B50\u4EFB\u52A1\u3002
+\u786E\u5B9A\u4F1A\u540C\u65F6\u5220\u9664\u5B50\u4EFB\u52A1\uFF1B\u53D6\u6D88\u5219\u4EC5\u5220\u9664\u7236\u4EFB\u52A1\u5E76\u4FDD\u7559\u5B50\u4EFB\u52A1\u3002`);
+      await this.store.deleteTask(task.id, deleteChildren ? "delete-children" : "keep-children");
+    } else {
+      if (!confirm(`\u5220\u9664\u201C${task.title}\u201D\uFF1F`)) return;
+      await this.store.deleteTask(task.id);
+    }
+    this.onDataChanged();
+  }
+  iconButton(container, icon, label, onClick) {
+    const button = container.createEl("button", { attr: { type: "button" } });
+    (0, import_obsidian83.setIcon)(button.createSpan(), icon);
+    button.createSpan({ text: label });
+    button.addEventListener("click", onClick);
+  }
+  smallIcon(container, icon, label, onClick) {
+    const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
+    (0, import_obsidian83.setIcon)(button, icon);
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      onClick();
+    });
+  }
+};
+
 // src/pages/GoalsPage.ts
 var GoalsPage = class extends BaseDashboardPage {
 };
 
 // src/pages/ModulesPage.ts
-var import_obsidian82 = require("obsidian");
-var ResetDefaultsModal = class extends import_obsidian82.Modal {
+var import_obsidian84 = require("obsidian");
+var ResetDefaultsModal = class extends import_obsidian84.Modal {
   constructor(app, onConfirm) {
     super(app);
     this.onConfirm = onConfirm;
@@ -17966,7 +18802,7 @@ var ModulesPage = class {
     const importInput = actions.createEl("input", { type: "file", attr: { accept: "application/json" } });
     importInput.addClass("cow-hidden-input");
     const importButton = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian82.setIcon)(importButton.createSpan(), "upload");
+    (0, import_obsidian84.setIcon)(importButton.createSpan(), "upload");
     importButton.createSpan({ text: "\u5BFC\u5165\u914D\u7F6E" });
     importButton.addEventListener("click", () => importInput.click());
     importInput.addEventListener("change", () => {
@@ -17975,18 +18811,18 @@ var ModulesPage = class {
       if (!file) return;
       readJsonFile(file, async (data) => {
         await this.store.importData(data);
-        new import_obsidian82.Notice("\u914D\u7F6E\u5DF2\u5BFC\u5165\u3002");
+        new import_obsidian84.Notice("\u914D\u7F6E\u5DF2\u5BFC\u5165\u3002");
         this.onDataChanged();
       });
     });
     const exportButton = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian82.setIcon)(exportButton.createSpan(), "download");
+    (0, import_obsidian84.setIcon)(exportButton.createSpan(), "download");
     exportButton.createSpan({ text: "\u5BFC\u51FA\u914D\u7F6E" });
     exportButton.addEventListener("click", () => {
       downloadJson("cute-obsidian-workbench-config.json", this.store.exportData());
     });
     const resetButton = actions.createEl("button", { cls: "mod-warning", attr: { type: "button" } });
-    (0, import_obsidian82.setIcon)(resetButton.createSpan(), "rotate-ccw");
+    (0, import_obsidian84.setIcon)(resetButton.createSpan(), "rotate-ccw");
     resetButton.createSpan({ text: "\u6062\u590D\u9ED8\u8BA4" });
     resetButton.addEventListener("click", () => {
       new ResetDefaultsModal(this.app, async () => {
@@ -17998,8 +18834,8 @@ var ModulesPage = class {
 };
 
 // src/components/QuickCreateModal.ts
-var import_obsidian83 = require("obsidian");
-var QuickCreateModal = class extends import_obsidian83.Modal {
+var import_obsidian85 = require("obsidian");
+var QuickCreateModal = class extends import_obsidian85.Modal {
   constructor(app, store, getCurrentPage, onDataChanged) {
     super(app);
     this.store = store;
@@ -18022,12 +18858,12 @@ var QuickCreateModal = class extends import_obsidian83.Modal {
     this.renderAction(grid, "\u6DFB\u52A0\u4EFB\u52A1", "list-plus", async () => {
       await this.store.addTodayFocusTask("\u65B0\u7684\u5F85\u529E\u4EFB\u52A1");
       this.onDataChanged();
-      new import_obsidian83.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
+      new import_obsidian85.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
     });
     this.renderAction(grid, "\u6DFB\u52A0\u6253\u5361\u9879\u76EE", "badge-plus", async () => {
       await this.store.addCustomHabit("\u65B0\u7684\u6253\u5361");
       this.onDataChanged();
-      new import_obsidian83.Notice("\u5DF2\u6DFB\u52A0\u6253\u5361\u9879\u76EE\uFF0C\u53EF\u5728\u6A21\u5757\u7BA1\u7406\u4E2D\u7F16\u8F91\u3002");
+      new import_obsidian85.Notice("\u5DF2\u6DFB\u52A0\u6253\u5361\u9879\u76EE\uFF0C\u53EF\u5728\u6A21\u5757\u7BA1\u7406\u4E2D\u7F16\u8F91\u3002");
     });
     this.renderAction(grid, "\u6DFB\u52A0\u529F\u80FD\u5206\u533A", "layout-grid", async () => {
       this.close();
@@ -18036,7 +18872,7 @@ var QuickCreateModal = class extends import_obsidian83.Modal {
   }
   renderAction(container, label, icon, action, closeAfter = true) {
     const button = container.createEl("button", { cls: "cow-quick-create-card", attr: { type: "button" } });
-    (0, import_obsidian83.setIcon)(button.createSpan(), icon);
+    (0, import_obsidian85.setIcon)(button.createSpan(), icon);
     button.createSpan({ text: label });
     button.addEventListener("click", async () => {
       await action();
@@ -18053,8 +18889,8 @@ var QuickCreateModal = class extends import_obsidian83.Modal {
 };
 
 // src/components/WorkbenchCustomizeModal.ts
-var import_obsidian84 = require("obsidian");
-var WorkbenchCustomizeModal = class extends import_obsidian84.Modal {
+var import_obsidian86 = require("obsidian");
+var WorkbenchCustomizeModal = class extends import_obsidian86.Modal {
   constructor(app, store, getCurrentPage, onDataChanged) {
     var _a;
     super(app);
@@ -18081,7 +18917,7 @@ var WorkbenchCustomizeModal = class extends import_obsidian84.Modal {
         cls: this.store.getData().banner.background === background.id ? "is-active" : "",
         attr: { type: "button" }
       });
-      (0, import_obsidian84.setIcon)(button.createSpan(), "image");
+      (0, import_obsidian86.setIcon)(button.createSpan(), "image");
       button.createSpan({ text: background.label });
       button.addEventListener("click", async () => {
         await this.store.updateBanner({ background: background.id, imageDataUrl: void 0 });
@@ -18105,30 +18941,30 @@ var WorkbenchCustomizeModal = class extends import_obsidian84.Modal {
       };
       reader.readAsDataURL(file);
     });
-    new import_obsidian84.Setting(this.contentEl).setName("\u672C\u5730\u56FE\u7247").setDesc("\u4FDD\u5B58\u4E3A data URL\uFF0CBRAT \u5B89\u88C5\u540E\u4E0D\u4F9D\u8D56\u989D\u5916\u8D44\u6E90\u8DEF\u5F84\u3002").addButton((button) => button.setButtonText("\u9009\u62E9\u56FE\u7247").onClick(() => fileInput.click()));
-    new import_obsidian84.Setting(this.contentEl).setName("\u5DE6\u4FA7\u5934\u50CF").setDesc("\u9009\u62E9\u9884\u8BBE\u56FE\u6807\u6216\u4E0A\u4F20\u56FE\u7247\uFF0C\u5237\u65B0\u540E\u4ECD\u4FDD\u7559\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF").onClick(() => {
+    new import_obsidian86.Setting(this.contentEl).setName("\u672C\u5730\u56FE\u7247").setDesc("\u4FDD\u5B58\u4E3A data URL\uFF0CBRAT \u5B89\u88C5\u540E\u4E0D\u4F9D\u8D56\u989D\u5916\u8D44\u6E90\u8DEF\u5F84\u3002").addButton((button) => button.setButtonText("\u9009\u62E9\u56FE\u7247").onClick(() => fileInput.click()));
+    new import_obsidian86.Setting(this.contentEl).setName("\u5DE6\u4FA7\u5934\u50CF").setDesc("\u9009\u62E9\u9884\u8BBE\u56FE\u6807\u6216\u4E0A\u4F20\u56FE\u7247\uFF0C\u5237\u65B0\u540E\u4ECD\u4FDD\u7559\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF").onClick(() => {
       const current = this.store.getData().banner.sidebarAvatar;
       new AvatarPickerModal(this.app, "\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF", current, async (avatar) => {
         await this.store.updateSidebarAvatar(avatar);
         this.onDataChanged();
       }).open();
     }));
-    new import_obsidian84.Setting(this.contentEl).setName("Banner \u56FE\u6807").setDesc("\u9009\u62E9 Banner \u5DE6\u4FA7\u663E\u793A\u7684\u53EF\u7231\u56FE\u6807\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539 Banner \u56FE\u6807").onClick(() => {
+    new import_obsidian86.Setting(this.contentEl).setName("Banner \u56FE\u6807").setDesc("\u9009\u62E9 Banner \u5DE6\u4FA7\u663E\u793A\u7684\u53EF\u7231\u56FE\u6807\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539 Banner \u56FE\u6807").onClick(() => {
       const current = this.store.getData().banner.bannerAvatar;
       new AvatarPickerModal(this.app, "\u4FEE\u6539 Banner \u56FE\u6807", current, async (avatar) => {
         await this.store.updateBannerAvatar(avatar);
         this.onDataChanged();
       }).open();
     }));
-    new import_obsidian84.Setting(this.contentEl).setName("Banner \u4E3B\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
+    new import_obsidian86.Setting(this.contentEl).setName("Banner \u4E3B\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
       this.titleValue = value;
     }));
-    new import_obsidian84.Setting(this.contentEl).setName("Banner \u526F\u6807\u9898").addText((text) => text.setValue(this.subtitleValue).onChange((value) => {
+    new import_obsidian86.Setting(this.contentEl).setName("Banner \u526F\u6807\u9898").addText((text) => text.setValue(this.subtitleValue).onChange((value) => {
       this.subtitleValue = value;
     }));
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     const addSection = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian84.setIcon)(addSection.createSpan(), "plus");
+    (0, import_obsidian86.setIcon)(addSection.createSpan(), "plus");
     addSection.createSpan({ text: "\u6DFB\u52A0\u5F53\u524D\u9875\u9762\u529F\u80FD\u5206\u533A" });
     addSection.addEventListener("click", () => {
       this.close();
@@ -18141,7 +18977,7 @@ var WorkbenchCustomizeModal = class extends import_obsidian84.Modal {
         subtitle: this.subtitleValue.trim() || "\u628A\u60F3\u6CD5\u53D8\u6210\u884C\u52A8\uFF0C\u8BA9\u6BCF\u4E00\u5929\u90FD\u66F4\u9760\u8FD1\u7406\u60F3\u7684\u81EA\u5DF1\u3002"
       });
       this.onDataChanged();
-      new import_obsidian84.Notice("Banner \u6587\u6848\u5DF2\u4FDD\u5B58\u3002");
+      new import_obsidian86.Notice("Banner \u6587\u6848\u5DF2\u4FDD\u5B58\u3002");
       this.close();
     });
   }
@@ -18155,8 +18991,8 @@ var WorkbenchCustomizeModal = class extends import_obsidian84.Modal {
 };
 
 // src/components/DayDetailModal.ts
-var import_obsidian85 = require("obsidian");
-var DayDetailModal = class extends import_obsidian85.Modal {
+var import_obsidian87 = require("obsidian");
+var DayDetailModal = class extends import_obsidian87.Modal {
   constructor(app, store, date) {
     super(app);
     this.store = store;
@@ -18190,7 +19026,7 @@ var DayDetailModal = class extends import_obsidian85.Modal {
     const noteRow = this.contentEl.createDiv({ cls: "cow-day-note-row" });
     noteRow.createSpan({ text: dailyNote ? dailyNote.path : "\u8FD8\u6CA1\u6709\u6BCF\u65E5\u7B14\u8BB0\u3002" });
     const button = noteRow.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian85.setIcon)(button.createSpan(), dailyNote ? "file-text" : "file-plus");
+    (0, import_obsidian87.setIcon)(button.createSpan(), dailyNote ? "file-text" : "file-plus");
     button.createSpan({ text: dailyNote ? "\u6253\u5F00\u6BCF\u65E5\u7B14\u8BB0" : "\u521B\u5EFA\u6BCF\u65E5\u7B14\u8BB0" });
     button.addEventListener("click", async () => {
       await this.notes.openOrCreateDailyNote(this.date);
@@ -18200,8 +19036,8 @@ var DayDetailModal = class extends import_obsidian85.Modal {
 };
 
 // src/components/NotesManagerModal.ts
-var import_obsidian86 = require("obsidian");
-var NotesManagerModal = class extends import_obsidian86.Modal {
+var import_obsidian88 = require("obsidian");
+var NotesManagerModal = class extends import_obsidian88.Modal {
   constructor(app) {
     super(app);
     this.searchValue = "";
@@ -18253,7 +19089,7 @@ var NotesManagerModal = class extends import_obsidian86.Modal {
 
 // src/views/WorkbenchView.ts
 var WORKBENCH_VIEW_TYPE = "cute-obsidian-workbench-view";
-var WorkbenchView = class extends import_obsidian87.ItemView {
+var WorkbenchView = class extends import_obsidian89.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -18320,6 +19156,7 @@ var WorkbenchView = class extends import_obsidian87.ItemView {
       reading: new ReadingPage(this.app, this.plugin.store, "reading", refresh),
       fitness: new FitnessPage(this.app, this.plugin.store, "fitness", refresh),
       finance: new FinancePage(this.app, this.plugin.store, "finance", refresh),
+      tasks: new TasksPage(this.app, this.plugin.store, "tasks", refresh),
       goals: new GoalsPage(this.app, this.plugin.store, "goals", refresh),
       modules: new ModulesPage(this.app, this.plugin.store, "modules", refresh)
     };
@@ -18351,7 +19188,7 @@ var WorkbenchView = class extends import_obsidian87.ItemView {
     var _a;
     const didRun = (_a = this.app.commands) == null ? void 0 : _a.executeCommandById("file-explorer:open");
     if (!didRun) {
-      new import_obsidian87.Notice("\u672A\u80FD\u6FC0\u6D3B Obsidian \u6587\u4EF6\u7BA1\u7406\u5668\u3002");
+      new import_obsidian89.Notice("\u672A\u80FD\u6FC0\u6D3B Obsidian \u6587\u4EF6\u7BA1\u7406\u5668\u3002");
     }
   }
   openAvatarPicker(target) {
@@ -18373,7 +19210,7 @@ var WorkbenchView = class extends import_obsidian87.ItemView {
 };
 
 // src/main.ts
-var CuteObsidianWorkbenchPlugin = class extends import_obsidian88.Plugin {
+var CuteObsidianWorkbenchPlugin = class extends import_obsidian90.Plugin {
   async onload() {
     this.store = new DashboardStore(
       () => this.loadData(),

@@ -4,6 +4,7 @@ export type DashboardPage =
   | "reading"
   | "fitness"
   | "finance"
+  | "tasks"
   | "goals"
   | "modules";
 
@@ -400,6 +401,58 @@ export interface FinanceTodo {
   updatedAt?: string;
 }
 
+export type TaskStatus = "inbox" | "todo" | "doing" | "waiting" | "done" | "cancelled";
+export type TaskPriority = "high" | "medium" | "low" | "none";
+export type TaskSourceModule = "research" | "reading" | "fitness" | "finance" | "goal" | "general";
+export type RecurrenceFrequency = "none" | "daily" | "weekly" | "monthly" | "custom";
+
+export interface RecurrenceConfig {
+  frequency: RecurrenceFrequency;
+  interval?: number;
+  nextDate?: string;
+  enabled?: boolean;
+  lastGeneratedDate?: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  sourceModule?: TaskSourceModule;
+  projectId?: string;
+  goalId?: string;
+  parentTaskId?: string;
+  tags?: string[];
+  plannedDate?: string;
+  startDate?: string;
+  dueDate?: string;
+  completedDate?: string;
+  estimatedMinutes?: number;
+  actualMinutes?: number;
+  recurrence?: RecurrenceConfig;
+  linkedNote?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskProject {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+}
+
+export interface TaskSettings {
+  filterStatus?: TaskStatus | "all";
+  filterPriority?: TaskPriority | "all";
+  filterProjectId?: string;
+  filterStartDate?: string;
+  filterEndDate?: string;
+  filterTag?: string;
+}
+
 export interface Goal {
   id: string;
   title: string;
@@ -689,6 +742,9 @@ export interface WorkbenchData {
   savingGoals: SavingGoal[];
   bills: Bill[];
   financeTodos: FinanceTodo[];
+  tasks: Task[];
+  taskProjects: TaskProject[];
+  taskSettings: TaskSettings;
   goals: Goal[];
   goalActions: GoalAction[];
   objectives: Objective[];

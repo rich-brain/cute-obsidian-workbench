@@ -7074,6 +7074,347 @@
   }
 }
 
+.cow-tasks-page,
+.cow-tasks-page * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.cow-tasks-heading {
+  align-items: end;
+}
+
+.cow-task-panel {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  padding: var(--wb-space-4, 16px);
+  border: 1px solid rgba(255, 171, 205, 0.5);
+  border-radius: var(--cute-radius);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--cute-shadow);
+  overflow: hidden;
+}
+
+.cow-task-panel h2,
+.cow-task-panel h3 {
+  margin: 0;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.cow-task-panel h2 {
+  font-size: 17px;
+}
+
+.cow-task-panel h3 {
+  font-size: 14px;
+}
+
+.cow-task-panel-header,
+.cow-task-quick-row,
+.cow-task-row,
+.cow-task-board-card,
+.cow-task-subtask-row,
+.cow-task-inline-add {
+  display: flex;
+  align-items: center;
+  gap: var(--wb-space-2, 8px);
+  min-width: 0;
+}
+
+.cow-task-panel-header,
+.cow-task-quick-row {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.cow-task-quick-add {
+  display: grid;
+  gap: var(--wb-space-3, 12px);
+}
+
+.cow-task-quick-row input,
+.cow-task-inline-add input {
+  flex: 1 1 220px;
+  min-width: min(100%, 180px);
+}
+
+.cow-tasks-top-grid,
+.cow-tasks-bottom-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: var(--wb-space-4, 16px);
+}
+
+.cow-task-stat-panel .cow-stats-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
+}
+
+.cow-task-row {
+  margin-top: var(--wb-space-2, 8px);
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 184, 211, 0.5);
+  border-radius: 14px;
+  background: rgba(255, 250, 253, 0.78);
+}
+
+.cow-task-row.is-done {
+  opacity: 0.72;
+}
+
+.cow-task-row.is-done strong {
+  text-decoration: line-through;
+}
+
+.cow-task-row-body {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 4px;
+}
+
+.cow-task-row-body strong,
+.cow-task-board-card strong,
+.cow-data-card strong {
+  overflow-wrap: anywhere;
+}
+
+.cow-task-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-task-priority {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 184, 211, 0.55);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--cow-muted);
+  white-space: nowrap;
+}
+
+.cow-task-priority.is-high {
+  border-color: rgba(238, 111, 130, 0.45);
+  background: rgba(255, 232, 235, 0.9);
+  color: #b0475b;
+}
+
+.cow-task-priority.is-medium {
+  border-color: rgba(230, 171, 89, 0.45);
+  background: rgba(255, 245, 215, 0.92);
+  color: #a36a1a;
+}
+
+.cow-task-priority.is-low {
+  border-color: rgba(111, 185, 150, 0.45);
+  background: rgba(229, 250, 239, 0.9);
+  color: #417a5e;
+}
+
+.cow-task-link-button {
+  margin-top: var(--wb-space-2, 8px);
+  width: 100%;
+}
+
+.cow-task-week-panel,
+.cow-task-board-panel {
+  display: grid;
+  gap: var(--wb-space-3, 12px);
+}
+
+.cow-task-week-scroll,
+.cow-task-board {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.cow-task-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(132px, 1fr));
+  gap: var(--wb-space-2, 8px);
+  min-width: 760px;
+}
+
+.cow-task-week-day,
+.cow-task-board-column {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(255, 184, 211, 0.45);
+  border-radius: 16px;
+  background: rgba(255, 250, 253, 0.72);
+}
+
+.cow-task-week-day {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.cow-task-chip {
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 28px;
+  padding: 5px 8px;
+  border-radius: 12px;
+  text-align: left;
+}
+
+.cow-task-chip span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cow-task-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(190px, 1fr));
+  gap: var(--wb-space-3, 12px);
+  min-width: 780px;
+}
+
+.cow-task-board-column {
+  display: grid;
+  align-content: start;
+  gap: var(--wb-space-2, 8px);
+}
+
+.cow-task-board-card {
+  align-items: stretch;
+  flex-direction: column;
+  padding: 10px;
+  border: 1px solid rgba(255, 184, 211, 0.52);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.75);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cow-task-board-card select {
+  width: 100%;
+}
+
+.cow-task-add-strip {
+  width: 100%;
+  min-height: 38px;
+  margin: var(--wb-space-2, 8px) 0;
+  border-style: dashed;
+}
+
+.cow-task-empty-marker,
+.cow-empty-state {
+  margin-top: var(--wb-space-2, 8px);
+  color: var(--cow-muted);
+  font-size: 13px;
+}
+
+.cow-task-modal {
+  display: grid;
+  gap: var(--wb-space-4, 16px);
+}
+
+.cow-task-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: var(--wb-space-4, 16px);
+}
+
+.cow-task-form-section {
+  display: grid;
+  align-content: start;
+  gap: var(--wb-space-3, 12px);
+  padding: var(--wb-space-3, 12px);
+  border: 1px solid rgba(255, 184, 211, 0.45);
+  border-radius: 16px;
+  background: rgba(255, 250, 253, 0.72);
+}
+
+.cow-task-form-row {
+  display: grid;
+  gap: 5px;
+}
+
+.cow-task-form-row.is-picker {
+  cursor: pointer;
+}
+
+.cow-task-form-row label {
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-task-form-row input,
+.cow-task-form-row select,
+.cow-task-form-row textarea {
+  width: 100%;
+  max-width: 100%;
+}
+
+.cow-task-form-row textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+
+.cow-task-subtask-list {
+  display: grid;
+  gap: 6px;
+}
+
+.cow-task-subtask-row {
+  min-height: 28px;
+  overflow-wrap: anywhere;
+}
+
+.cow-task-mini-chart {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--wb-space-2, 8px);
+  align-items: end;
+  min-height: 140px;
+}
+
+.cow-task-mini-bar {
+  display: grid;
+  gap: 6px;
+  align-items: end;
+  text-align: center;
+  color: var(--cow-muted);
+  font-size: 11px;
+}
+
+.cow-task-mini-bar div {
+  width: 100%;
+  border-radius: 999px 999px 8px 8px;
+  background: linear-gradient(180deg, rgba(255, 152, 196, 0.82), rgba(255, 205, 222, 0.82));
+}
+
+@media (max-width: 700px) {
+  .cow-tasks-heading {
+    align-items: stretch;
+  }
+
+  .cow-task-row {
+    align-items: flex-start;
+  }
+
+  .cow-task-row .cow-list-item-actions {
+    flex: 0 0 auto;
+  }
+
+  .cow-task-panel-header .cow-list-item-actions {
+    justify-content: flex-start;
+  }
+}
+
 
 /* layout-system.css */
 /* Workbench Layout System

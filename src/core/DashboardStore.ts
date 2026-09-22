@@ -48,6 +48,11 @@ import type {
   Risk,
   SavingGoal,
   SectionLayoutConfig,
+  Task,
+  TaskPriority,
+  TaskProject,
+  TaskSettings,
+  TaskStatus,
   TodayFocusTask,
   Transaction,
   TrainingPlan,
@@ -64,6 +69,7 @@ export const DASHBOARD_PAGES: DashboardPageDefinition[] = [
   { id: "reading", label: "阅读", icon: "book-open", description: "读书队列与摘录进度" },
   { id: "fitness", label: "健身", icon: "dumbbell", description: "训练、恢复和习惯打卡" },
   { id: "finance", label: "理财", icon: "coins", description: "预算、资产和投资观察" },
+  { id: "tasks", label: "任务管理", icon: "list-todo", description: "把想做的事，变成正在发生的事" },
   { id: "goals", label: "目标管理", icon: "target", description: "长期目标与阶段计划" },
   { id: "modules", label: "模块管理", icon: "layout-grid", description: "模块启用、布局和数据绑定" }
 ];
@@ -187,12 +193,13 @@ const DEFAULT_MODULE_LAYOUTS: Record<DashboardPage, ModuleLayoutConfig> = {
   reading: { mode: "default", columns: 12, sections: {} },
   fitness: { mode: "default", columns: 12, sections: {} },
   finance: { mode: "default", columns: 12, sections: {} },
+  tasks: { mode: "default", columns: 12, sections: {} },
   goals: { mode: "default", columns: 12, sections: {} },
   modules: { mode: "default", columns: 12, sections: {} }
 };
 
 const DEFAULT_DATA: WorkbenchData = {
-  dataVersion: "0.5.5",
+  dataVersion: "0.6.0",
   currentPage: "overview",
   sections: [
     {
@@ -793,6 +800,9 @@ const DEFAULT_DATA: WorkbenchData = {
     { id: "finance-todo-bills", title: "确认账单提醒", completed: false },
     { id: "finance-todo-invest", title: "整理投资观察笔记", completed: false }
   ],
+  tasks: [],
+  taskProjects: [],
+  taskSettings: {},
   goals: [
     {
       id: "goal-research",
@@ -2549,6 +2559,105 @@ export class DashboardStore {
     await this.save();
   }
 
+  getTasks(): Task[] {
+    this.generateDueRecurringTasks(false);
+    return this.data.tasks.map((task) => this.normalizeTask(task));
+  }
+
+  async addTask(task: Partial<Task> & { title: string }): Promise<Task> {
+    const normalized = this.normalizeTask({ ...task, id: task.id ?? `task-${Date.now()}` } as Task);
+    this.data.tasks.push(normalized);
+    await this.save();
+    return normalized;
+  }
+
+  async updateTask(taskId: string, updates: Partial<Task>): Promise<void> {
+    const task = this.data.tasks.find((item) => item.id === taskId);
+    if (!task) return;
+    const nextStatus = updates.status;
+    Object.assign(task, updates, { updatedAt: nowIso() });
+    if (nextStatus === "done") task.completedDate = task.completedDate ?? todayKey();
+    if (nextStatus && nextStatus !== "done") task.completedDate = undefined;
+    Object.assign(task, this.normalizeTask(task));
+    await this.save();
+  }
+
+  async deleteTask(taskId: string, mode: "delete-children" | "keep-children" = "keep-children"): Promise<void> {
+    const childIds = this.data.tasks.filter((task) => task.parentTaskId === taskId).map((task) => task.id);
+    this.data.tasks = this.data.tasks.filter((task) => task.id !== taskId && (mode === "delete-children" ? !childIds.includes(task.id) : true));
+    if (mode === "keep-children") {
+      this.data.tasks.forEach((task) => {
+        if (task.parentTaskId === taskId) task.parentTaskId = undefined;
+      });
+    }
+    await this.save();
+  }
+
+  getTaskProjects(): TaskProject[] {
+    return this.data.taskProjects.map((project) => this.normalizeTaskProject(project));
+  }
+
+  async addTaskProject(project: Partial<TaskProject> & { name: string }): Promise<TaskProject> {
+    const normalized = this.normalizeTaskProject({ ...project, id: project.id ?? `task-project-${Date.now()}` } as TaskProject);
+    this.data.taskProjects.push(normalized);
+    await this.save();
+    return normalized;
+  }
+
+  async updateTaskProject(projectId: string, updates: Partial<TaskProject>): Promise<void> {
+    const project = this.data.taskProjects.find((item) => item.id === projectId);
+    if (!project) return;
+    Object.assign(project, updates);
+    Object.assign(project, this.normalizeTaskProject(project));
+    await this.save();
+  }
+
+  async deleteTaskProject(projectId: string): Promise<void> {
+    this.data.taskProjects = this.data.taskProjects.filter((project) => project.id !== projectId);
+    this.data.tasks.forEach((task) => {
+      if (task.projectId === projectId) task.projectId = undefined;
+    });
+    await this.save();
+  }
+
+  async updateTaskSettings(updates: Partial<TaskSettings>): Promise<void> {
+    this.data.taskSettings = { ...this.data.taskSettings, ...updates };
+    await this.save();
+  }
+
+  getTaskSettings(): TaskSettings {
+    return { ...this.data.taskSettings };
+  }
+
+  async generateDueRecurringTasks(save = true): Promise<void> {
+    const today = todayKey();
+    let changed = false;
+    this.data.tasks.forEach((task) => {
+      if (!task.recurrence?.enabled || task.recurrence.frequency === "none") return;
+      const nextDate = task.recurrence.nextDate ?? task.plannedDate;
+      if (!nextDate || nextDate > today || task.recurrence.lastGeneratedDate === nextDate) return;
+      const generatedId = `task-rec-${task.id}-${nextDate}`;
+      if (!this.data.tasks.some((item) => item.id === generatedId)) {
+        this.data.tasks.push(this.normalizeTask({
+          ...task,
+          id: generatedId,
+          status: "todo",
+          plannedDate: nextDate,
+          completedDate: undefined,
+          parentTaskId: undefined,
+          recurrence: { frequency: "none", enabled: false },
+          createdAt: nowIso(),
+          updatedAt: nowIso()
+        }));
+      }
+      task.recurrence.lastGeneratedDate = nextDate;
+      task.recurrence.nextDate = this.nextRecurrenceDate(nextDate, task.recurrence.frequency, task.recurrence.interval);
+      task.updatedAt = nowIso();
+      changed = true;
+    });
+    if (changed && save) await this.save();
+  }
+
   getGoals(): Goal[] {
     return this.data.goals;
   }
@@ -3081,7 +3190,7 @@ export class DashboardStore {
     const merged: WorkbenchData = {
       ...structuredClone(DEFAULT_DATA),
       ...partial,
-      dataVersion: "0.5.5",
+      dataVersion: "0.6.0",
       banner: {
         ...DEFAULT_DATA.banner,
         ...partial.banner
@@ -3168,6 +3277,16 @@ export class DashboardStore {
       financeTodos: Array.isArray(partial.financeTodos)
         ? partial.financeTodos.map((item) => this.normalizeFinanceTodo(item))
         : structuredClone(DEFAULT_DATA.financeTodos),
+      tasks: Array.isArray(partial.tasks)
+        ? partial.tasks.map((item) => this.normalizeTask(item))
+        : structuredClone(DEFAULT_DATA.tasks).map((item) => this.normalizeTask(item)),
+      taskProjects: Array.isArray(partial.taskProjects)
+        ? partial.taskProjects.map((item) => this.normalizeTaskProject(item))
+        : structuredClone(DEFAULT_DATA.taskProjects),
+      taskSettings: {
+        ...DEFAULT_DATA.taskSettings,
+        ...partial.taskSettings
+      },
       goals: Array.isArray(partial.goals) ? partial.goals : structuredClone(DEFAULT_DATA.goals),
       goalActions: Array.isArray(partial.goalActions)
         ? partial.goalActions.map((action) => this.normalizeGoalAction(action))
@@ -3462,6 +3581,78 @@ export class DashboardStore {
       createdAt: timestamp,
       updatedAt: todo.updatedAt ?? timestamp
     };
+  }
+
+  private normalizeTask(task: Task): Task {
+    const timestamp = task.createdAt ?? nowIso();
+    const status = this.normalizeTaskStatus(task.status);
+    const recurrence = task.recurrence && task.recurrence.frequency !== "none"
+      ? {
+        frequency: this.normalizeRecurrenceFrequency(task.recurrence.frequency),
+        interval: Math.max(1, Number(task.recurrence.interval) || 1),
+        nextDate: task.recurrence.nextDate,
+        enabled: task.recurrence.enabled ?? true,
+        lastGeneratedDate: task.recurrence.lastGeneratedDate
+      }
+      : task.recurrence?.frequency === "none"
+        ? { frequency: "none" as const, enabled: false }
+        : undefined;
+    return {
+      ...task,
+      id: task.id ?? `task-${Date.now()}`,
+      title: task.title || "未命名任务",
+      description: task.description ?? "",
+      status,
+      priority: this.normalizeTaskPriority(task.priority),
+      sourceModule: task.sourceModule ?? "general",
+      projectId: task.projectId || undefined,
+      goalId: task.goalId || undefined,
+      parentTaskId: task.parentTaskId || undefined,
+      tags: Array.isArray(task.tags) ? task.tags.filter(Boolean) : [],
+      plannedDate: task.plannedDate || undefined,
+      startDate: task.startDate || undefined,
+      dueDate: task.dueDate || undefined,
+      completedDate: status === "done" ? task.completedDate ?? todayKey() : task.completedDate,
+      estimatedMinutes: Number(task.estimatedMinutes) > 0 ? Number(task.estimatedMinutes) : undefined,
+      actualMinutes: Number(task.actualMinutes) > 0 ? Number(task.actualMinutes) : undefined,
+      recurrence,
+      linkedNote: task.linkedNote || undefined,
+      createdAt: timestamp,
+      updatedAt: task.updatedAt ?? timestamp
+    };
+  }
+
+  private normalizeTaskProject(project: TaskProject): TaskProject {
+    return {
+      id: project.id ?? `task-project-${Date.now()}`,
+      name: project.name || "未命名项目",
+      description: project.description ?? "",
+      createdAt: project.createdAt ?? nowIso()
+    };
+  }
+
+  private normalizeTaskStatus(status: TaskStatus | undefined): TaskStatus {
+    if (status === "inbox" || status === "todo" || status === "doing" || status === "waiting" || status === "done" || status === "cancelled") return status;
+    return "inbox";
+  }
+
+  private normalizeTaskPriority(priority: TaskPriority | undefined): TaskPriority {
+    if (priority === "high" || priority === "medium" || priority === "low" || priority === "none") return priority;
+    return "none";
+  }
+
+  private normalizeRecurrenceFrequency(frequency: string | undefined): "daily" | "weekly" | "monthly" | "custom" {
+    if (frequency === "daily" || frequency === "weekly" || frequency === "monthly" || frequency === "custom") return frequency;
+    return "daily";
+  }
+
+  private nextRecurrenceDate(date: string, frequency: string, interval = 1): string {
+    const next = new Date(`${date}T00:00:00`);
+    const step = Math.max(1, Number(interval) || 1);
+    if (frequency === "weekly") next.setDate(next.getDate() + 7 * step);
+    else if (frequency === "monthly") next.setMonth(next.getMonth() + step);
+    else next.setDate(next.getDate() + step);
+    return formatDateKey(next);
   }
 
   private normalizeBook(book: BookItem): BookItem {

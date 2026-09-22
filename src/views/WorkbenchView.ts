@@ -11,6 +11,7 @@ import { ResearchPage } from "../pages/ResearchPage";
 import { ReadingPage } from "../pages/ReadingPage";
 import { FitnessPage } from "../pages/FitnessPage";
 import { FinancePage } from "../pages/FinancePage";
+import { TasksPage } from "../pages/TasksPage";
 import { GoalsPage } from "../pages/GoalsPage";
 import { ModulesPage } from "../pages/ModulesPage";
 import { QuickCreateModal } from "../components/QuickCreateModal";
@@ -110,6 +111,7 @@ export class WorkbenchView extends ItemView {
       reading: new ReadingPage(this.app, this.plugin.store, "reading", refresh),
       fitness: new FitnessPage(this.app, this.plugin.store, "fitness", refresh),
       finance: new FinancePage(this.app, this.plugin.store, "finance", refresh),
+      tasks: new TasksPage(this.app, this.plugin.store, "tasks", refresh),
       goals: new GoalsPage(this.app, this.plugin.store, "goals", refresh),
       modules: new ModulesPage(this.app, this.plugin.store, "modules", refresh)
     };

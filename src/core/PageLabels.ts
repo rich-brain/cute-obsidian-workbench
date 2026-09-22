@@ -6,6 +6,7 @@ export const PAGE_LABELS: Record<DashboardPage, string> = {
   reading: "阅读",
   fitness: "健身",
   finance: "理财",
+  tasks: "任务管理",
   goals: "目标管理",
   modules: "模块管理"
 };
