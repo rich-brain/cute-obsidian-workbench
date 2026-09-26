@@ -173,14 +173,16 @@ export class DashboardSection {
 
   render(container: HTMLElement): void {
     const cardColor = typeof this.section.config?.cardColor === "string" ? this.section.config.cardColor : "default";
+    const layoutMeta = this.getLayoutMeta();
     const sectionEl = container.createDiv({
-      cls: `cow-section cow-section-${this.section.width ?? "md"} cow-section-height-${this.section.height ?? "sm"} cow-section-type-${this.section.type} cow-card-color-${cardColor}`
+      cls: `cow-section cow-section-${this.section.width ?? "md"} cow-section-height-${this.section.height ?? "sm"} cow-section-type-${this.section.type} wb-layout-${layoutMeta.role} wb-span-${layoutMeta.span} cow-card-color-${cardColor}`
     });
-    const sectionLayout = this.store.getModuleLayout(this.section.page).sections?.[this.section.id];
-    if (sectionLayout?.colSpan) {
+    const moduleLayout = this.store.getModuleLayout(this.section.page);
+    const sectionLayout = moduleLayout.sections?.[this.section.id];
+    if (moduleLayout.mode === "custom" && sectionLayout?.colSpan) {
       sectionEl.style.gridColumn = `span ${sectionLayout.colSpan}`;
     }
-    if (sectionLayout?.rowSpan) {
+    if (moduleLayout.mode === "custom" && sectionLayout?.rowSpan) {
       sectionEl.style.gridRow = `span ${sectionLayout.rowSpan}`;
     }
 
@@ -668,6 +670,94 @@ export class DashboardSection {
     if (this.section.type === "today-focus") {
       new DailyFocusStatisticsModal(this.app, this.store).open();
     }
+  }
+
+  private getLayoutMeta(): { role: "primary" | "secondary" | "compact" | "wide" | "list" | "visual"; span: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 12 } {
+    const roleByType: Record<string, { role: "primary" | "secondary" | "compact" | "wide" | "list" | "visual"; span: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 12 }> = {
+      "weekly-completion": { role: "compact", span: 3 },
+      "pending-tasks": { role: "compact", span: 3 },
+      "today-focus-stat": { role: "compact", span: 3 },
+      "checkin-streak": { role: "compact", span: 3 },
+      "today-focus": { role: "primary", span: 8 },
+      "habit-overview": { role: "primary", span: 8 },
+      "monthly-progress": { role: "secondary", span: 4 },
+      "monthly-calendar": { role: "primary", span: 7 },
+      "month-calendar": { role: "primary", span: 7 },
+      "recent-notes": { role: "secondary", span: 5 },
+      "quick-actions": { role: "compact", span: 4 },
+      "contribution-heatmap": { role: "wide", span: 12 },
+      "research-projects": { role: "secondary", span: 4 },
+      "reading-queue": { role: "primary", span: 8 },
+      "paper-field-manager": { role: "secondary", span: 4 },
+      "research-checkin": { role: "secondary", span: 4 },
+      "experiment-plan": { role: "list", span: 4 },
+      "experiment-records": { role: "list", span: 6 },
+      "data-analysis-tasks": { role: "list", span: 6 },
+      "literature-notes": { role: "list", span: 4 },
+      "research-timeline": { role: "secondary", span: 4 },
+      "research-memo": { role: "secondary", span: 4 },
+      "current-reading": { role: "primary", span: 8 },
+      bookshelf: { role: "wide", span: 12 },
+      "reading-plan": { role: "secondary", span: 4 },
+      "reading-checkin": { role: "secondary", span: 4 },
+      "reading-notes": { role: "list", span: 3 },
+      "reading-quotes": { role: "secondary", span: 3 },
+      "reading-tag-manager": { role: "secondary", span: 3 },
+      "finished-books": { role: "list", span: 4 },
+      "wishlist-books": { role: "list", span: 3 },
+      "reading-stats": { role: "secondary", span: 4 },
+      "reading-heatmap": { role: "visual", span: 8 },
+      "ai-reading-review": { role: "secondary", span: 4 },
+      "today-workout": { role: "secondary", span: 4 },
+      "workout-plan": { role: "primary", span: 7 },
+      "fitness-checkin": { role: "secondary", span: 4 },
+      "body-measurements": { role: "secondary", span: 4 },
+      "cardio-strength-plan": { role: "secondary", span: 4 },
+      "water-sleep-habits": { role: "secondary", span: 4 },
+      "fitness-stats": { role: "visual", span: 8 },
+      "workout-log": { role: "list", span: 6 },
+      "fitness-goals": { role: "primary", span: 6 },
+      "health-reminders": { role: "list", span: 3 },
+      "fitness-heatmap": { role: "visual", span: 6 },
+      "monthly-budget": { role: "primary", span: 4 },
+      "finance-ledger": { role: "primary", span: 8 },
+      "expense-categories": { role: "secondary", span: 4 },
+      "account-overview": { role: "secondary", span: 4 },
+      "saving-goals": { role: "secondary", span: 4 },
+      "bill-reminders": { role: "list", span: 4 },
+      "finance-checkin": { role: "secondary", span: 4 },
+      "income-expense-trend": { role: "visual", span: 8 },
+      "finance-todos": { role: "list", span: 4 },
+      "investment-watch": { role: "secondary", span: 5 },
+      "expense-heatmap": { role: "visual", span: 6 },
+      "yearly-goals": { role: "primary", span: 8 },
+      "quarterly-okr": { role: "primary", span: 6 },
+      "monthly-key-results": { role: "primary", span: 6 },
+      "goal-breakdown": { role: "primary", span: 8 },
+      "milestone-timeline": { role: "list", span: 4 },
+      "priority-matrix": { role: "visual", span: 8 },
+      "goals-checkin": { role: "secondary", span: 4 },
+      "review-checklist": { role: "list", span: 4 },
+      "risks-blockers": { role: "list", span: 4 },
+      "long-term-progress": { role: "visual", span: 4 },
+      "enabled-modules-overview": { role: "compact", span: 4 },
+      "home-layout-manager": { role: "primary", span: 8 },
+      "section-manager": { role: "primary", span: 8 },
+      "banner-background-settings": { role: "secondary", span: 4 },
+      "calendar-widget-settings": { role: "secondary", span: 4 },
+      "apex-habit-settings": { role: "secondary", span: 4 },
+      "quick-action-settings": { role: "secondary", span: 4 },
+      "theme-color-settings": { role: "secondary", span: 4 },
+      "data-source-status": { role: "compact", span: 4 }
+    };
+    return roleByType[this.section.type] ?? this.getFallbackLayoutMeta();
+  }
+
+  private getFallbackLayoutMeta(): { role: "primary" | "secondary" | "compact" | "wide" | "list" | "visual"; span: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 12 } {
+    if (this.section.width === "full") return { role: "wide", span: 12 };
+    if (this.section.width === "lg") return { role: "primary", span: 8 };
+    if (this.section.width === "sm") return { role: "compact", span: 3 };
+    return { role: "secondary", span: 4 };
   }
 
   private getCheckInModuleId(): DashboardSectionConfig["page"] | undefined {

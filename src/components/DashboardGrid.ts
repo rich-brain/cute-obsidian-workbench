@@ -14,7 +14,7 @@ export class DashboardGrid {
 
   render(container: HTMLElement): void {
     const layout = this.store.getModuleLayout(this.page);
-    const grid = container.createDiv({ cls: `cow-dashboard-grid cow-module-layout-${layout.mode}` });
+    const grid = container.createDiv({ cls: `cow-dashboard-grid cow-dashboard-page-${this.page} cow-module-layout-${layout.mode}` });
     grid.style.setProperty("--layout-columns", String(layout.columns ?? 12));
     const sections = this.store.getSectionsForPage(this.page);
 

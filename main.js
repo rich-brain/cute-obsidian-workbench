@@ -4851,7 +4851,10 @@ var import_obsidian9 = require("obsidian");
 
 // src/components/ResizableModal.ts
 function applyResizableModal(modal, options) {
-  modal.modalEl.addClass("cute-resizable-modal", options.className);
+  const classNames = options.className.split(/\s+/).filter(Boolean);
+  const kind = inferModalLayoutKind(classNames);
+  modal.modalEl.addClass("cute-resizable-modal", "cow-modal-layout", `cow-modal-kind-${kind}`, ...classNames);
+  modal.modalEl.setAttr("data-cow-modal-kind", kind);
   modal.modalEl.style.resize = "both";
   modal.modalEl.style.overflow = "hidden";
   modal.modalEl.style.width = options.width;
@@ -4868,6 +4871,13 @@ function applyResizableModal(modal, options) {
   if (options.minHeight) {
     modal.modalEl.style.minHeight = options.minHeight;
   }
+}
+function inferModalLayoutKind(classNames) {
+  const name = classNames.join(" ").toLowerCase();
+  if (/(manager|all-books|zotero)/.test(name)) return "manager";
+  if (/(statistics|stats|history|records)/.test(name)) return "statistics";
+  if (/detail/.test(name)) return "detail";
+  return "form";
 }
 
 // src/components/research/MarkdownFilePicker.ts
@@ -18891,14 +18901,16 @@ var DashboardSection = class {
   render(container) {
     var _a, _b, _c, _d;
     const cardColor = typeof ((_a = this.section.config) == null ? void 0 : _a.cardColor) === "string" ? this.section.config.cardColor : "default";
+    const layoutMeta = this.getLayoutMeta();
     const sectionEl = container.createDiv({
-      cls: `cow-section cow-section-${(_b = this.section.width) != null ? _b : "md"} cow-section-height-${(_c = this.section.height) != null ? _c : "sm"} cow-section-type-${this.section.type} cow-card-color-${cardColor}`
+      cls: `cow-section cow-section-${(_b = this.section.width) != null ? _b : "md"} cow-section-height-${(_c = this.section.height) != null ? _c : "sm"} cow-section-type-${this.section.type} wb-layout-${layoutMeta.role} wb-span-${layoutMeta.span} cow-card-color-${cardColor}`
     });
-    const sectionLayout = (_d = this.store.getModuleLayout(this.section.page).sections) == null ? void 0 : _d[this.section.id];
-    if (sectionLayout == null ? void 0 : sectionLayout.colSpan) {
+    const moduleLayout = this.store.getModuleLayout(this.section.page);
+    const sectionLayout = (_d = moduleLayout.sections) == null ? void 0 : _d[this.section.id];
+    if (moduleLayout.mode === "custom" && (sectionLayout == null ? void 0 : sectionLayout.colSpan)) {
       sectionEl.style.gridColumn = `span ${sectionLayout.colSpan}`;
     }
-    if (sectionLayout == null ? void 0 : sectionLayout.rowSpan) {
+    if (moduleLayout.mode === "custom" && (sectionLayout == null ? void 0 : sectionLayout.rowSpan)) {
       sectionEl.style.gridRow = `span ${sectionLayout.rowSpan}`;
     }
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
@@ -19368,6 +19380,93 @@ var DashboardSection = class {
       new DailyFocusStatisticsModal(this.app, this.store).open();
     }
   }
+  getLayoutMeta() {
+    var _a;
+    const roleByType = {
+      "weekly-completion": { role: "compact", span: 3 },
+      "pending-tasks": { role: "compact", span: 3 },
+      "today-focus-stat": { role: "compact", span: 3 },
+      "checkin-streak": { role: "compact", span: 3 },
+      "today-focus": { role: "primary", span: 8 },
+      "habit-overview": { role: "primary", span: 8 },
+      "monthly-progress": { role: "secondary", span: 4 },
+      "monthly-calendar": { role: "primary", span: 7 },
+      "month-calendar": { role: "primary", span: 7 },
+      "recent-notes": { role: "secondary", span: 5 },
+      "quick-actions": { role: "compact", span: 4 },
+      "contribution-heatmap": { role: "wide", span: 12 },
+      "research-projects": { role: "secondary", span: 4 },
+      "reading-queue": { role: "primary", span: 8 },
+      "paper-field-manager": { role: "secondary", span: 4 },
+      "research-checkin": { role: "secondary", span: 4 },
+      "experiment-plan": { role: "list", span: 4 },
+      "experiment-records": { role: "list", span: 6 },
+      "data-analysis-tasks": { role: "list", span: 6 },
+      "literature-notes": { role: "list", span: 4 },
+      "research-timeline": { role: "secondary", span: 4 },
+      "research-memo": { role: "secondary", span: 4 },
+      "current-reading": { role: "primary", span: 8 },
+      bookshelf: { role: "wide", span: 12 },
+      "reading-plan": { role: "secondary", span: 4 },
+      "reading-checkin": { role: "secondary", span: 4 },
+      "reading-notes": { role: "list", span: 3 },
+      "reading-quotes": { role: "secondary", span: 3 },
+      "reading-tag-manager": { role: "secondary", span: 3 },
+      "finished-books": { role: "list", span: 4 },
+      "wishlist-books": { role: "list", span: 3 },
+      "reading-stats": { role: "secondary", span: 4 },
+      "reading-heatmap": { role: "visual", span: 8 },
+      "ai-reading-review": { role: "secondary", span: 4 },
+      "today-workout": { role: "secondary", span: 4 },
+      "workout-plan": { role: "primary", span: 7 },
+      "fitness-checkin": { role: "secondary", span: 4 },
+      "body-measurements": { role: "secondary", span: 4 },
+      "cardio-strength-plan": { role: "secondary", span: 4 },
+      "water-sleep-habits": { role: "secondary", span: 4 },
+      "fitness-stats": { role: "visual", span: 8 },
+      "workout-log": { role: "list", span: 6 },
+      "fitness-goals": { role: "primary", span: 6 },
+      "health-reminders": { role: "list", span: 3 },
+      "fitness-heatmap": { role: "visual", span: 6 },
+      "monthly-budget": { role: "primary", span: 4 },
+      "finance-ledger": { role: "primary", span: 8 },
+      "expense-categories": { role: "secondary", span: 4 },
+      "account-overview": { role: "secondary", span: 4 },
+      "saving-goals": { role: "secondary", span: 4 },
+      "bill-reminders": { role: "list", span: 4 },
+      "finance-checkin": { role: "secondary", span: 4 },
+      "income-expense-trend": { role: "visual", span: 8 },
+      "finance-todos": { role: "list", span: 4 },
+      "investment-watch": { role: "secondary", span: 5 },
+      "expense-heatmap": { role: "visual", span: 6 },
+      "yearly-goals": { role: "primary", span: 8 },
+      "quarterly-okr": { role: "primary", span: 6 },
+      "monthly-key-results": { role: "primary", span: 6 },
+      "goal-breakdown": { role: "primary", span: 8 },
+      "milestone-timeline": { role: "list", span: 4 },
+      "priority-matrix": { role: "visual", span: 8 },
+      "goals-checkin": { role: "secondary", span: 4 },
+      "review-checklist": { role: "list", span: 4 },
+      "risks-blockers": { role: "list", span: 4 },
+      "long-term-progress": { role: "visual", span: 4 },
+      "enabled-modules-overview": { role: "compact", span: 4 },
+      "home-layout-manager": { role: "primary", span: 8 },
+      "section-manager": { role: "primary", span: 8 },
+      "banner-background-settings": { role: "secondary", span: 4 },
+      "calendar-widget-settings": { role: "secondary", span: 4 },
+      "apex-habit-settings": { role: "secondary", span: 4 },
+      "quick-action-settings": { role: "secondary", span: 4 },
+      "theme-color-settings": { role: "secondary", span: 4 },
+      "data-source-status": { role: "compact", span: 4 }
+    };
+    return (_a = roleByType[this.section.type]) != null ? _a : this.getFallbackLayoutMeta();
+  }
+  getFallbackLayoutMeta() {
+    if (this.section.width === "full") return { role: "wide", span: 12 };
+    if (this.section.width === "lg") return { role: "primary", span: 8 };
+    if (this.section.width === "sm") return { role: "compact", span: 3 };
+    return { role: "secondary", span: 4 };
+  }
   getCheckInModuleId() {
     switch (this.section.type) {
       case "habit-overview":
@@ -19572,7 +19671,7 @@ var DashboardGrid = class {
   render(container) {
     var _a;
     const layout = this.store.getModuleLayout(this.page);
-    const grid = container.createDiv({ cls: `cow-dashboard-grid cow-module-layout-${layout.mode}` });
+    const grid = container.createDiv({ cls: `cow-dashboard-grid cow-dashboard-page-${this.page} cow-module-layout-${layout.mode}` });
     grid.style.setProperty("--layout-columns", String((_a = layout.columns) != null ? _a : 12));
     const sections = this.store.getSectionsForPage(this.page);
     sections.forEach((section) => {
@@ -19598,10 +19697,11 @@ var BaseDashboardPage = class {
   }
   render(container) {
     const definition = this.store.getPages().find((item) => item.id === this.page);
-    const pageEl = container.createDiv({ cls: "cow-page" });
+    const pageEl = container.createDiv({ cls: `cow-page cow-module-page cow-page-${this.page}` });
     const heading = pageEl.createDiv({ cls: "cow-page-heading" });
-    heading.createEl("h1", { text: definition.label });
-    heading.createEl("p", { text: definition.description });
+    const title = heading.createDiv({ cls: "cow-page-title" });
+    title.createEl("h1", { text: definition.label });
+    title.createEl("p", { text: definition.description });
     new DashboardGrid(this.app, this.store, this.page, this.onDataChanged).render(pageEl);
   }
 };
@@ -19645,7 +19745,7 @@ var TasksPage = class {
   render(container) {
     void this.store.generateDueRecurringTasks();
     const definition = this.store.getPages().find((item) => item.id === this.page);
-    const pageEl = container.createDiv({ cls: "cow-page cow-tasks-page" });
+    const pageEl = container.createDiv({ cls: "cow-page cow-module-page cow-page-tasks cow-tasks-page" });
     this.renderHeader(pageEl, definition);
     this.renderQuickAdd(pageEl);
     const topGrid = pageEl.createDiv({ cls: "cow-tasks-top-grid" });
@@ -19660,10 +19760,10 @@ var TasksPage = class {
   }
   renderHeader(container, definition) {
     const heading = container.createDiv({ cls: "cow-page-heading cow-tasks-heading" });
-    const title = heading.createDiv();
+    const title = heading.createDiv({ cls: "cow-page-title" });
     title.createEl("h1", { text: definition.label });
     title.createEl("p", { text: definition.description });
-    const actions = heading.createDiv({ cls: "cow-config-actions" });
+    const actions = heading.createDiv({ cls: "cow-config-actions cow-page-actions" });
     this.iconButton(actions, "plus", "\u65B0\u5EFA\u4EFB\u52A1", () => openTaskModal(this.app, this.store, this.onDataChanged, void 0, { status: "inbox", sourceModule: "general" }));
     this.iconButton(actions, "filter", "\u7B5B\u9009", () => openTaskFilterModal(this.app, this.store, this.onDataChanged));
     this.iconButton(actions, "bar-chart-3", "\u7EDF\u8BA1", () => new TaskStatisticsModal(this.app, this.store).open());
@@ -19947,16 +20047,16 @@ var ModulesPage = class {
   }
   render(container) {
     const definition = this.store.getPages().find((item) => item.id === this.page);
-    const pageEl = container.createDiv({ cls: "cow-page" });
+    const pageEl = container.createDiv({ cls: "cow-page cow-module-page cow-page-modules" });
     const heading = pageEl.createDiv({ cls: "cow-page-heading cow-modules-heading" });
-    const title = heading.createDiv();
+    const title = heading.createDiv({ cls: "cow-page-title" });
     title.createEl("h1", { text: definition.label });
     title.createEl("p", { text: definition.description });
     this.renderActions(heading);
     new DashboardGrid(this.app, this.store, this.page, this.onDataChanged).render(pageEl);
   }
   renderActions(container) {
-    const actions = container.createDiv({ cls: "cow-config-actions" });
+    const actions = container.createDiv({ cls: "cow-config-actions cow-page-actions" });
     const importInput = actions.createEl("input", { type: "file", attr: { accept: "application/json" } });
     importInput.addClass("cow-hidden-input");
     const importButton = actions.createEl("button", { attr: { type: "button" } });

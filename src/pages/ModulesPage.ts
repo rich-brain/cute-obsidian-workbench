@@ -36,9 +36,9 @@ export class ModulesPage {
 
   render(container: HTMLElement): void {
     const definition = this.store.getPages().find((item) => item.id === this.page) as DashboardPageDefinition;
-    const pageEl = container.createDiv({ cls: "cow-page" });
+    const pageEl = container.createDiv({ cls: "cow-page cow-module-page cow-page-modules" });
     const heading = pageEl.createDiv({ cls: "cow-page-heading cow-modules-heading" });
-    const title = heading.createDiv();
+    const title = heading.createDiv({ cls: "cow-page-title" });
     title.createEl("h1", { text: definition.label });
     title.createEl("p", { text: definition.description });
     this.renderActions(heading);
@@ -46,7 +46,7 @@ export class ModulesPage {
   }
 
   private renderActions(container: HTMLElement): void {
-    const actions = container.createDiv({ cls: "cow-config-actions" });
+    const actions = container.createDiv({ cls: "cow-config-actions cow-page-actions" });
     const importInput = actions.createEl("input", { type: "file", attr: { accept: "application/json" } });
     importInput.addClass("cow-hidden-input");
 

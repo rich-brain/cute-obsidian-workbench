@@ -884,6 +884,447 @@
   min-width: 0;
 }
 
+/* 0.9.1-L1 dashboard layout language: page shell, bento grid, and detail utilities. */
+.cute-obsidian-workbench .cow-module-page {
+  display: grid;
+  gap: var(--wb-space-md);
+  min-width: 0;
+}
+
+.cute-obsidian-workbench .cow-page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wb-space-md);
+  width: 100%;
+  min-width: 0;
+  margin: 2px 0 var(--wb-space-sm);
+}
+
+.cute-obsidian-workbench .cow-page-title {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cute-obsidian-workbench .cow-page-title h1,
+.cute-obsidian-workbench .cow-page-heading h1 {
+  margin: 0;
+  color: var(--cow-ink);
+  font-size: clamp(22px, 2.4vw, 28px);
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+
+.cute-obsidian-workbench .cow-page-title p,
+.cute-obsidian-workbench .cow-page-heading p {
+  margin: 0;
+  color: var(--cow-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.cute-obsidian-workbench .cow-page-actions,
+.cute-obsidian-workbench .cow-config-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--wb-space-md);
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-3 {
+  grid-column: span 3;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-4 {
+  grid-column: span 4;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-5 {
+  grid-column: span 5;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-6 {
+  grid-column: span 6;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-7 {
+  grid-column: span 7;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-8 {
+  grid-column: span 8;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-9 {
+  grid-column: span 9;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-12 {
+  grid-column: 1 / -1;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact {
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: var(--wb-space-sm);
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-3 {
+  grid-column: span 4;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-4,
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-5 {
+  grid-column: span 5;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-6,
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-7 {
+  grid-column: span 8;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-8,
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-9 {
+  grid-column: span 10;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-12 {
+  grid-column: 1 / -1;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-minimal {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-minimal > .cow-section {
+  grid-column: 1 / -1;
+}
+
+.cute-obsidian-workbench .cow-section.wb-layout-primary {
+  --wb-card-padding: var(--wb-space-md);
+}
+
+.cute-obsidian-workbench .cow-section.wb-layout-secondary,
+.cute-obsidian-workbench .cow-section.wb-layout-compact,
+.cute-obsidian-workbench .cow-section.wb-layout-list {
+  --wb-card-padding: var(--wb-space-sm);
+}
+
+.cute-obsidian-workbench .cow-section.wb-layout-visual {
+  --wb-card-padding: var(--wb-space-md);
+}
+
+.cute-obsidian-workbench .cow-section-header {
+  min-height: 32px;
+}
+
+.cute-obsidian-workbench .cow-section-actions .cow-section-add-button:nth-of-type(n + 4) {
+  max-width: var(--wb-icon-button-size);
+  padding-inline: 0;
+}
+
+.cute-obsidian-workbench .cow-toolbar,
+.cute-obsidian-workbench .cow-filter-row,
+.cute-obsidian-workbench .cow-paper-manager-toolbar,
+.cute-obsidian-workbench .cow-zotero-toolbar,
+.cute-obsidian-workbench .cow-fitness-trend-toolbar {
+  padding: 8px;
+  border: 1px solid rgba(242, 59, 141, 0.16);
+  border-radius: var(--wb-radius-md);
+  background: rgba(255, 250, 253, 0.52);
+}
+
+.cute-obsidian-workbench .cow-master-detail,
+.cute-obsidian-workbench .cow-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 3fr) minmax(0, 6fr) minmax(220px, 3fr);
+  gap: var(--wb-space-md);
+  min-width: 0;
+}
+
+.cute-obsidian-workbench .cow-master-detail-primary,
+.cute-obsidian-workbench .cow-detail-primary {
+  min-width: 0;
+}
+
+.cute-obsidian-workbench .cow-master-detail-side,
+.cute-obsidian-workbench .cow-detail-side {
+  min-width: 0;
+}
+
+.cute-obsidian-workbench .cow-tasks-page {
+  gap: var(--wb-space-md);
+}
+
+.cute-obsidian-workbench .cow-task-quick-add {
+  grid-column: 1 / -1;
+}
+
+.cute-obsidian-workbench .cow-tasks-top-grid,
+.cute-obsidian-workbench .cow-tasks-bottom-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--wb-space-md);
+}
+
+.cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(1),
+.cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(2) {
+  grid-column: span 4;
+}
+
+.cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(3) {
+  grid-column: span 4;
+}
+
+.cute-obsidian-workbench .cow-task-week-panel,
+.cute-obsidian-workbench .cow-task-board-panel {
+  grid-column: 1 / -1;
+}
+
+.cute-obsidian-workbench .cow-tasks-bottom-grid > .cow-task-panel {
+  grid-column: span 6;
+}
+
+/* 0.9.1-L2: default module compositions. Custom layouts keep their saved order and spans. */
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-default > .cow-section {
+  order: 50;
+}
+
+/* Overview: action-oriented primary area, compact summary side panels, then calendar and lists. */
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-today-focus { order: 10; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-monthly-progress { order: 11; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-habit-overview { order: 20; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-today-focus-stat { order: 21; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-monthly-calendar { order: 30; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-recent-notes { order: 31; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-quick-actions { order: 40; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > :where(.cow-section-type-weekly-completion, .cow-section-type-pending-tasks, .cow-section-type-checkin-streak) { order: 41; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-contribution-heatmap { order: 60; }
+
+/* Research: paper queue as the master panel, projects as the side context. */
+.cute-obsidian-workbench .cow-dashboard-page-research > .cow-section-type-reading-queue { order: 10; }
+.cute-obsidian-workbench .cow-dashboard-page-research > .cow-section-type-research-projects { order: 11; }
+.cute-obsidian-workbench .cow-dashboard-page-research > :where(.cow-section-type-literature-notes, .cow-section-type-experiment-plan, .cow-section-type-research-timeline) { order: 20; }
+.cute-obsidian-workbench .cow-dashboard-page-research > :where(.cow-section-type-experiment-records, .cow-section-type-data-analysis-tasks) { order: 30; }
+.cute-obsidian-workbench .cow-dashboard-page-research > :where(.cow-section-type-research-checkin, .cow-section-type-paper-field-manager, .cow-section-type-research-memo) { order: 40; }
+
+/* Reading: current work and plan lead; the bookshelf gets the full visual runway. */
+.cute-obsidian-workbench .cow-dashboard-page-reading > .cow-section-type-current-reading { order: 10; }
+.cute-obsidian-workbench .cow-dashboard-page-reading > .cow-section-type-reading-plan { order: 11; }
+.cute-obsidian-workbench .cow-dashboard-page-reading > .cow-section-type-bookshelf { order: 20; }
+.cute-obsidian-workbench .cow-dashboard-page-reading > :where(.cow-section-type-reading-notes, .cow-section-type-reading-quotes, .cow-section-type-wishlist-books, .cow-section-type-reading-tag-manager) { order: 30; }
+.cute-obsidian-workbench .cow-dashboard-page-reading > :where(.cow-section-type-reading-checkin, .cow-section-type-finished-books, .cow-section-type-reading-stats, .cow-section-type-ai-reading-review) { order: 40; }
+.cute-obsidian-workbench .cow-dashboard-page-reading > .cow-section-type-reading-heatmap { order: 50; }
+
+/* Fitness: body data and trend first, then plans/goals and compact operational lists. */
+.cute-obsidian-workbench .cow-dashboard-page-fitness > .cow-section-type-body-measurements { order: 10; }
+.cute-obsidian-workbench .cow-dashboard-page-fitness > .cow-section-type-fitness-stats { order: 11; }
+.cute-obsidian-workbench .cow-dashboard-page-fitness > :where(.cow-section-type-fitness-goals, .cow-section-type-workout-plan) { order: 20; }
+.cute-obsidian-workbench .cow-dashboard-page-fitness > .cow-section-type-workout-log { order: 30; }
+.cute-obsidian-workbench .cow-dashboard-page-fitness > :where(.cow-section-type-water-sleep-habits, .cow-section-type-health-reminders) { order: 31; }
+.cute-obsidian-workbench .cow-dashboard-page-fitness > :where(.cow-section-type-today-workout, .cow-section-type-fitness-checkin, .cow-section-type-cardio-strength-plan, .cow-section-type-fitness-heatmap) { order: 40; }
+
+/* Finance: summaries first, trend + investment as the visual decision layer, ledger as the main work area. */
+.cute-obsidian-workbench .cow-dashboard-page-finance > :where(.cow-section-type-monthly-budget, .cow-section-type-account-overview, .cow-section-type-expense-categories) { order: 10; }
+.cute-obsidian-workbench .cow-dashboard-page-finance > :where(.cow-section-type-income-expense-trend, .cow-section-type-investment-watch) { order: 20; }
+.cute-obsidian-workbench .cow-dashboard-page-finance > :where(.cow-section-type-finance-ledger, .cow-section-type-finance-todos) { order: 30; }
+.cute-obsidian-workbench .cow-dashboard-page-finance > :where(.cow-section-type-saving-goals, .cow-section-type-bill-reminders, .cow-section-type-finance-checkin, .cow-section-type-expense-heatmap) { order: 40; }
+
+/* Goals: annual direction and long-term summary lead; actions get the broadest working surface. */
+.cute-obsidian-workbench .cow-dashboard-page-goals > .cow-section-type-yearly-goals { order: 10; }
+.cute-obsidian-workbench .cow-dashboard-page-goals > .cow-section-type-long-term-progress { order: 11; }
+.cute-obsidian-workbench .cow-dashboard-page-goals > :where(.cow-section-type-quarterly-okr, .cow-section-type-monthly-key-results) { order: 20; }
+.cute-obsidian-workbench .cow-dashboard-page-goals > :where(.cow-section-type-goal-breakdown, .cow-section-type-milestone-timeline) { order: 30; }
+.cute-obsidian-workbench .cow-dashboard-page-goals > .cow-section-type-priority-matrix { order: 40; }
+.cute-obsidian-workbench .cow-dashboard-page-goals > :where(.cow-section-type-goals-checkin, .cow-section-type-review-checklist, .cow-section-type-risks-blockers) { order: 50; }
+
+/* Module manager: one dominant configuration surface with smaller supporting settings. */
+.cute-obsidian-workbench .cow-dashboard-page-modules > .cow-section-type-section-manager { order: 10; }
+.cute-obsidian-workbench .cow-dashboard-page-modules > .cow-section-type-enabled-modules-overview { order: 11; }
+.cute-obsidian-workbench .cow-dashboard-page-modules > .cow-section-type-home-layout-manager { order: 20; }
+.cute-obsidian-workbench .cow-dashboard-page-modules > :where(.cow-section-type-banner-background-settings, .cow-section-type-calendar-widget-settings, .cow-section-type-apex-habit-settings, .cow-section-type-quick-action-settings, .cow-section-type-theme-color-settings, .cow-section-type-data-source-status) { order: 30; }
+
+/* Task management keeps its list as the master panel and stacks compact supporting context on the side. */
+.cute-obsidian-workbench .cow-tasks-top-grid {
+  grid-template-columns: minmax(0, 2fr) minmax(250px, 1fr);
+  grid-template-areas:
+    "today inbox"
+    "today stats";
+  align-items: start;
+}
+
+.cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(1) { grid-area: today; }
+.cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(2) { grid-area: inbox; }
+.cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(3) { grid-area: stats; }
+
+/* 0.9.1-L3: shared modal layout system. Modal kinds are applied by ResizableModal. */
+.modal.cow-modal-layout {
+  box-sizing: border-box;
+  max-width: 94vw !important;
+  max-height: 90vh !important;
+}
+
+.modal.cow-modal-layout .modal-content {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.modal.cow-modal-layout .cow-modal {
+  gap: var(--wb-space-md);
+  max-height: none;
+  padding-right: 0;
+}
+
+.modal.cow-modal-layout .cow-modal > h2 {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding-block: 2px var(--wb-space-xs);
+  background: inherit;
+}
+
+.modal.cow-modal-kind-form .cow-modal-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--wb-space-sm);
+  margin-top: auto;
+  padding-top: var(--wb-space-sm);
+  background: inherit;
+}
+
+.modal.cow-modal-kind-form .cow-modal-actions > :first-child.mod-warning {
+  margin-right: auto;
+}
+
+.modal.cow-modal-kind-form :is(.cow-book-form-fields, .cow-fitness-form-grid, .cow-finance-form-grid, .cow-task-form-grid) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--wb-space-md);
+}
+
+.modal.cow-modal-kind-form :is(.cow-book-form-row, .cow-fitness-form-row, .cow-finance-form-row, .cow-task-form-row) {
+  min-width: 0;
+}
+
+.modal.cow-modal-kind-form :is(.cow-book-form-row, .cow-fitness-form-row, .cow-finance-form-row, .cow-task-form-row):has(textarea),
+.modal.cow-modal-kind-form :is(.cow-book-file-field, .cow-project-description-field, .cow-paper-tag-picker, .cow-book-tag-picker-row, .cow-markdown-picker, .cow-clickable-date-row) {
+  grid-column: 1 / -1;
+}
+
+.modal.cow-modal-kind-form .cow-markdown-picker {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: var(--wb-space-sm);
+  min-width: 0;
+}
+
+.modal.cow-modal-kind-form .cow-note-picker-list {
+  max-height: min(280px, 36vh);
+  overflow: auto;
+}
+
+/* Manager modals reserve their height for a toolbar and a scrolling, compact list. */
+.modal.cow-modal-kind-manager .cow-modal,
+.modal:has(.cow-paper-manager-root) .cow-modal,
+.modal:has(.cow-all-books-modal) .cow-modal,
+.modal:has(.cow-checkin-manager-list) .cow-modal {
+  height: 100%;
+  overflow: hidden;
+}
+
+.modal.cow-modal-kind-manager :is(.cow-paper-manager-root, .cow-book-modal, .cow-checkin-modal) {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.modal.cow-modal-kind-manager .cow-paper-manager-root {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: var(--wb-space-sm);
+}
+
+.modal.cow-modal-kind-manager .cow-paper-manager-list,
+.modal.cow-modal-kind-manager .cow-zotero-list,
+.modal.cow-modal-kind-manager .cow-checkin-manager-list {
+  min-height: 0;
+  overflow: auto;
+}
+
+.modal:has(.cow-all-books-modal) .cow-all-books-modal {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.modal:has(.cow-all-books-modal) .cow-all-books-list {
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Detail views keep the primary record readable and let summary/meta blocks wrap naturally. */
+.modal.cow-modal-kind-detail .cow-modal,
+.modal:has(:is(.cow-paper-detail-grid, .cow-fitness-detail-grid, .cow-experiment-summary-grid, .cow-reading-plan-detail-modal-content)) .cow-modal {
+  min-height: 0;
+  overflow: auto;
+}
+
+.modal.cow-modal-kind-detail :is(.cow-paper-detail-grid, .cow-fitness-detail-grid, .cow-experiment-summary-grid),
+.modal:has(.cow-paper-detail-grid) .cow-paper-detail-grid,
+.modal:has(.cow-fitness-detail-grid) .cow-fitness-detail-grid,
+.modal:has(.cow-experiment-summary-grid) .cow-experiment-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--wb-space-sm);
+  width: 100%;
+}
+
+.modal.cow-modal-kind-detail :is(.cow-research-relations, .cow-paper-linked-notes, .cow-data-list) {
+  min-width: 0;
+}
+
+/* Statistics and history: filters stay compact, summary cards precede the scrolling main view. */
+.modal.cow-modal-kind-statistics .cow-modal,
+.modal:has(:is(.cow-goal-stats-modal, .cow-fitness-stats-modal, .cow-finance-stats-modal, .cow-task-stats-modal, .cow-checkin-history-header, .cow-daily-focus-stat-modal)) .cow-modal {
+  min-height: 0;
+  overflow: auto;
+}
+
+.modal.cow-modal-kind-statistics :is(.cow-checkin-history-filters, .cow-goal-stats-filters, .cow-fitness-stat-filters, .cow-finance-stat-filters, .cow-task-stat-filters),
+.modal:has(.cow-checkin-history-filters) .cow-checkin-history-filters {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: var(--wb-space-sm);
+  min-width: 0;
+}
+
+.modal.cow-modal-kind-statistics :is(.cow-stats-card-grid, .cow-goal-stat-grid) {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--wb-space-sm);
+}
+
+.modal.cow-modal-kind-statistics :is(.cow-checkin-history-calendar, .cow-stat-calendar, .cow-chart-container, .cow-task-mini-chart) {
+  min-width: 0;
+  max-width: 100%;
+}
+
 @media (max-width: 1100px) {
   .cow-shell {
     grid-template-columns: minmax(210px, 232px) minmax(0, 1fr);
@@ -893,7 +1334,37 @@
 
   .cow-dashboard-grid {
     --layout-columns: 8;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
+
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .cow-section {
+    grid-column: span 3;
+  }
+
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > :where(.wb-layout-primary, .wb-layout-visual, .wb-layout-wide, .wb-span-8, .wb-span-9, .wb-span-12) {
+    grid-column: 1 / -1;
+  }
+
+  .cute-obsidian-workbench .cow-tasks-top-grid,
+  .cute-obsidian-workbench .cow-tasks-bottom-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel,
+  .cute-obsidian-workbench .cow-tasks-bottom-grid > .cow-task-panel {
+    grid-column: span 3;
+  }
+
+  .cute-obsidian-workbench .cow-tasks-top-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "today inbox"
+      "stats stats";
+  }
+
+  .cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(1) { grid-area: today; grid-column: auto; }
+  .cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(2) { grid-area: inbox; grid-column: auto; }
+  .cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(3) { grid-area: stats; grid-column: auto; }
 }
 
 @media (max-width: 900px) {
@@ -907,6 +1378,35 @@
   .cow-main,
   .cow-page-host {
     overflow-x: hidden;
+  }
+
+  .cute-obsidian-workbench .cow-dashboard-grid,
+  .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact,
+  .cute-obsidian-workbench .cow-tasks-top-grid,
+  .cute-obsidian-workbench .cow-tasks-bottom-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cute-obsidian-workbench .cow-dashboard-grid > .cow-section,
+  .cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel,
+  .cute-obsidian-workbench .cow-tasks-bottom-grid > .cow-task-panel {
+    grid-column: 1 / -1 !important;
+  }
+
+  .cute-obsidian-workbench .cow-tasks-top-grid {
+    grid-template-areas:
+      "today"
+      "inbox"
+      "stats";
+  }
+
+  .cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(1) { grid-area: today; }
+  .cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(2) { grid-area: inbox; }
+  .cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(3) { grid-area: stats; }
+
+  .cute-obsidian-workbench .cow-master-detail,
+  .cute-obsidian-workbench .cow-detail-layout {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -940,6 +1440,19 @@
   .cow-form-grid,
   .cow-field-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .modal.cow-modal-kind-form :is(.cow-book-form-fields, .cow-fitness-form-grid, .cow-finance-form-grid, .cow-task-form-grid),
+  .modal:has(:is(.cow-paper-detail-grid, .cow-fitness-detail-grid, .cow-experiment-summary-grid)) :is(.cow-paper-detail-grid, .cow-fitness-detail-grid, .cow-experiment-summary-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .modal.cow-modal-kind-form :is(.cow-book-form-row, .cow-fitness-form-row, .cow-finance-form-row, .cow-task-form-row) {
+    grid-column: 1 / -1;
+  }
+
+  .modal.cow-modal-kind-form .cow-modal-actions {
+    align-items: stretch;
   }
 }
 
