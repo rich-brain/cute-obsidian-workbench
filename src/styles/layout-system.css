@@ -27,8 +27,23 @@
   min-width: 0;
   max-width: 100%;
   min-height: var(--wb-input-height);
+  padding: 6px 10px;
+  border: var(--wb-control-border);
   border-radius: var(--wb-radius-sm);
+  background: var(--wb-control-bg);
+  color: var(--cow-ink);
   box-sizing: border-box;
+}
+
+.cute-obsidian-workbench :where(input, textarea, select):focus,
+.cute-obsidian-workbench :where(button, .cow-icon-button):focus-visible {
+  outline: 0;
+  box-shadow: var(--wb-control-focus);
+}
+
+.cute-obsidian-workbench select {
+  width: auto;
+  max-width: min(100%, 260px);
 }
 
 .cute-obsidian-workbench textarea {
@@ -43,9 +58,57 @@
 
 .cute-obsidian-workbench button:not(.clickable-icon):not(.cow-icon-button) {
   min-height: var(--wb-button-height);
+  padding: 6px 12px;
+  border: var(--wb-control-border);
   border-radius: var(--wb-radius-sm);
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--cow-ink);
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.cute-obsidian-workbench button:not(.clickable-icon):not(.cow-icon-button):hover {
+  border-color: rgba(242, 59, 141, 0.42);
+  background: rgba(255, 246, 251, 0.9);
+}
+
+.cute-obsidian-workbench :where(.cow-section-add-button, .cow-bottom-add-button, .cow-task-add-strip) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--wb-button-height);
+  padding: 6px 12px;
+  line-height: 1.2;
+}
+
+.cute-obsidian-workbench :where(.cow-section-add-button svg, .cow-bottom-add-button svg, button svg) {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.cute-obsidian-workbench .cow-icon-button,
+.cute-obsidian-workbench .cow-list-item-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--wb-icon-button-size);
+  min-width: var(--wb-icon-button-size);
+  height: var(--wb-icon-button-size);
+  min-height: var(--wb-icon-button-size);
+  padding: 0;
+  border: var(--wb-control-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--cow-pink-strong);
+  line-height: 1;
+}
+
+.cute-obsidian-workbench .cow-icon-button:hover,
+.cute-obsidian-workbench .cow-list-item-actions button:hover {
+  border-color: rgba(242, 59, 141, 0.44);
+  background: rgba(255, 239, 247, 0.94);
 }
 
 .cow-truncate {
@@ -97,6 +160,8 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  grid-auto-rows: auto;
+  align-items: start;
 }
 
 .cow-dashboard-grid > * {
@@ -109,9 +174,20 @@
   max-width: 100%;
   min-width: 0;
   height: auto;
+  min-height: 0;
+  align-self: start;
   padding: var(--wb-card-padding);
   overflow: visible;
   box-sizing: border-box;
+}
+
+.cute-obsidian-workbench :where(.cow-section-height-sm, .cow-section-height-md, .cow-section-height-lg),
+.cute-obsidian-workbench :where(.cow-dashboard-grid.cow-module-layout-compact .cow-section) {
+  min-height: 0;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact .cow-section {
+  min-height: 0;
 }
 
 .cow-section-header,
@@ -123,11 +199,15 @@
   gap: var(--wb-space-2);
   min-width: 0;
   max-width: 100%;
+  margin-bottom: var(--wb-space-2);
 }
 
 .cow-section-title,
 .cow-card-title,
 .cow-panel-title {
+  display: flex;
+  align-items: center;
+  gap: var(--wb-space-2);
   min-width: 0;
   max-width: 100%;
   flex: 1 1 auto;
@@ -138,7 +218,9 @@
 .cow-panel-title :where(h1, h2, h3, h4, span, strong) {
   min-width: 0;
   max-width: 100%;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cow-section-actions,
@@ -150,7 +232,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--wb-space-2);
+  gap: 6px;
   min-width: 0;
   max-width: 100%;
 }
@@ -160,6 +242,7 @@
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  height: auto;
 }
 
 .cow-section-content > * {
@@ -202,6 +285,511 @@
   display: grid;
   gap: var(--wb-space-1);
   min-width: 0;
+}
+
+.cute-obsidian-workbench :where(.cow-section, .cow-data-card, .cow-task-panel, .cow-fitness-card, .cow-finance-card, .cow-goal-card, .cow-paper-card, .cow-reading-plan-card) {
+  height: auto;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.cute-obsidian-workbench :where(.cow-data-card, .cow-task-row, .cow-daily-focus-entry, .cow-checkin-item) {
+  padding: 8px 10px;
+}
+
+.cute-obsidian-workbench :where(.cow-empty-state, .cow-task-empty-marker) {
+  min-height: 0;
+  margin: var(--wb-space-2) 0 0;
+  padding: 8px 10px;
+  border-radius: var(--wb-radius-md);
+  background: rgba(255, 250, 253, 0.52);
+  color: var(--cow-muted);
+}
+
+.cute-obsidian-workbench :where(input[type="checkbox"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid rgba(242, 59, 141, 0.38);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.74);
+  color: white;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.cute-obsidian-workbench :where(input[type="checkbox"])::before {
+  content: "✓";
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  transform: scale(0);
+  transition: transform 120ms ease;
+}
+
+.cute-obsidian-workbench :where(input[type="checkbox"]:checked) {
+  border-color: var(--cow-pink-strong);
+  background: var(--cow-pink-strong);
+}
+
+.cute-obsidian-workbench :where(input[type="checkbox"]:checked)::before {
+  transform: scale(1);
+}
+
+.cute-obsidian-workbench :where(input[type="checkbox"]:hover) {
+  border-color: var(--cow-pink-strong);
+  background: rgba(255, 239, 247, 0.95);
+}
+
+.cute-obsidian-workbench :where(input[type="checkbox"]:checked:hover) {
+  background: var(--cow-pink-strong);
+}
+
+.cute-obsidian-workbench :where(input[type="checkbox"]:disabled) {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.cute-obsidian-workbench :where(.cow-progress-track, .cow-month-progress-track, .cow-stat-meter, .cow-daily-focus-stat-track) {
+  height: var(--wb-progress-height);
+  border-radius: 999px;
+  background: rgba(138, 103, 102, 0.14);
+  overflow: hidden;
+}
+
+.cute-obsidian-workbench :where(.cow-progress-fill, .cow-month-progress-fill, .cow-stat-meter div, .cow-daily-focus-stat-track div) {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--cow-pink), var(--cow-green));
+}
+
+.cute-obsidian-workbench :where(input[type="range"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-height: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cute-obsidian-workbench :where(input[type="range"]::-webkit-slider-runnable-track) {
+  height: var(--wb-progress-height);
+  border-radius: 999px;
+  background: rgba(138, 103, 102, 0.16);
+}
+
+.cute-obsidian-workbench :where(input[type="range"]::-webkit-slider-thumb) {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  margin-top: calc((var(--wb-progress-height) - 15px) / 2);
+  border: 2px solid white;
+  border-radius: 999px;
+  background: var(--cow-pink-strong);
+  box-shadow: 0 2px 6px rgba(190, 66, 120, 0.18);
+}
+
+.cute-obsidian-workbench :where(input[type="range"]::-moz-range-track) {
+  height: var(--wb-progress-height);
+  border-radius: 999px;
+  background: rgba(138, 103, 102, 0.16);
+}
+
+.cute-obsidian-workbench :where(input[type="range"]::-moz-range-thumb) {
+  width: 15px;
+  height: 15px;
+  border: 2px solid white;
+  border-radius: 999px;
+  background: var(--cow-pink-strong);
+  box-shadow: 0 2px 6px rgba(190, 66, 120, 0.18);
+}
+
+.cute-obsidian-workbench :where(.cow-progress-editor-inline, .cow-goal-progress-editor, .cow-goal-action-progress) {
+  gap: var(--wb-space-2);
+  min-width: 0;
+}
+
+.cute-obsidian-workbench :where(.cow-goal-progress-editor input[type="number"], .cow-progress-editor-inline input[type="number"]) {
+  width: 72px;
+  min-width: 64px;
+  text-align: right;
+}
+
+.cute-obsidian-workbench :where(.cow-day, .cow-calendar-day, .cow-fitness-calendar-day, .cow-finance-calendar-day, .cow-review-calendar-day) {
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.cute-obsidian-workbench :where(.cow-calendar-holiday, .cow-calendar-day-number) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.cute-obsidian-workbench :where(.cow-section-content, .cow-modal) {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242, 59, 141, 0.28) transparent;
+}
+
+.cute-obsidian-workbench :where(.cow-section-content, .cow-modal)::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.cute-obsidian-workbench :where(.cow-section-content, .cow-modal)::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(242, 59, 141, 0.24);
+}
+
+/* 0.9.0-B page-level UI pass: keep business components intact, normalize actual layouts. */
+.cute-obsidian-workbench :where(.cow-section-type-today-focus, .cow-section-type-habit-overview, .cow-section-type-monthly-progress) {
+  align-self: start;
+}
+
+.cute-obsidian-workbench .cow-section-type-habit-overview .cow-section-content {
+  max-height: 440px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact {
+  gap: 8px;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-nav {
+  gap: 6px;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-nav button {
+  min-height: 28px;
+  padding: 3px 8px;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-nav strong {
+  min-width: 120px;
+  font-size: 12px;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-module-group {
+  gap: 5px;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-module-group h4 {
+  font-size: 12px;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-table {
+  grid-template-columns: minmax(86px, 1.15fr) repeat(7, minmax(28px, 32px));
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-corner,
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-day {
+  min-height: 30px;
+  padding: 2px;
+  font-size: 10px;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-day strong {
+  font-size: 11px;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-name,
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-cell {
+  min-height: 28px;
+  border-radius: 9px;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-name {
+  padding: 4px 6px;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-cell {
+  font-size: 13px;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-summary {
+  font-size: 11px;
+}
+
+.cute-obsidian-workbench .cow-daily-focus {
+  gap: 8px;
+}
+
+.cute-obsidian-workbench .cow-daily-focus-group {
+  gap: 6px;
+}
+
+.cute-obsidian-workbench .cow-daily-focus-list {
+  gap: 6px;
+}
+
+.cute-obsidian-workbench .cow-daily-focus-entry {
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  min-height: 34px;
+  padding: 6px 8px;
+  gap: 7px;
+}
+
+.cute-obsidian-workbench .cow-daily-focus-entry > input[type="checkbox"] {
+  align-self: center;
+}
+
+.cute-obsidian-workbench .cow-daily-focus-entry .cow-list-item-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: max-content;
+}
+
+.cute-obsidian-workbench .cow-daily-focus-entry .cow-list-item-actions button {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+}
+
+.cute-obsidian-workbench .cow-daily-focus-title {
+  font-size: 13px;
+}
+
+.cute-obsidian-workbench .cow-daily-focus-body .cow-meta-line {
+  font-size: 11px;
+  color: var(--cow-muted);
+  line-height: 1.3;
+}
+
+.cute-obsidian-workbench .cow-daily-focus-date {
+  min-width: max-content;
+  font-size: 11px;
+}
+
+.cute-obsidian-workbench .cow-source-pill {
+  padding: 1px 7px;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.cute-obsidian-workbench .cow-month-progress-row {
+  grid-template-columns: 70px minmax(100px, 1fr) 42px minmax(34px, auto);
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 7px;
+}
+
+.cute-obsidian-workbench .cow-month-progress-row > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cute-obsidian-workbench .cow-month-progress-row .cow-pill {
+  justify-self: end;
+  min-width: 38px;
+  padding: 2px 6px;
+}
+
+.cute-obsidian-workbench .cow-section-type-monthly-progress .cow-section-content {
+  height: auto;
+}
+
+.cute-obsidian-workbench .cow-month-calendar-grid {
+  gap: 5px;
+}
+
+.cute-obsidian-workbench .cow-calendar-empty,
+.cute-obsidian-workbench .cow-calendar-day {
+  min-height: 50px;
+  height: 50px;
+}
+
+.cute-obsidian-workbench .cow-calendar-day {
+  display: grid;
+  grid-template-rows: 16px 15px 10px;
+  align-content: start;
+  justify-items: center;
+  gap: 2px;
+  padding: 4px 3px 3px;
+  overflow: hidden;
+}
+
+.cute-obsidian-workbench .cow-calendar-day-number {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  color: var(--cow-ink);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.cute-obsidian-workbench .cow-calendar-holiday {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  padding: 0 3px;
+  font-size: 9px;
+  line-height: 14px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cute-obsidian-workbench .cow-calendar-dots {
+  align-self: end;
+  min-height: 8px;
+  max-height: 10px;
+  overflow: hidden;
+}
+
+.cute-obsidian-workbench .cow-calendar-day.is-today {
+  border-color: var(--cow-pink-strong);
+  background: rgba(255, 239, 247, 0.86);
+}
+
+.cute-obsidian-workbench .cow-calendar-day.is-today .cow-calendar-day-number {
+  color: var(--cow-pink-strong);
+}
+
+.cute-obsidian-workbench :where(.cow-goal-list-card, .cow-goal-tree-group, .cow-goal-action-row, .cow-goal-timeline-item, .cow-priority-item, .cow-month-goal-list li) {
+  height: auto;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.cute-obsidian-workbench .cow-goal-progress-editor,
+.cute-obsidian-workbench .cow-goal-progress-editor.is-compact,
+.cute-obsidian-workbench .cow-goal-action-progress {
+  grid-template-columns: minmax(0, 1fr) minmax(52px, auto);
+  align-items: center;
+  gap: 8px;
+}
+
+.cute-obsidian-workbench .cow-goal-action-progress select {
+  max-width: 120px;
+}
+
+.cute-obsidian-workbench .cow-goal-progress-editor input[type="number"],
+.cute-obsidian-workbench .cow-progress-editor-inline input[type="number"] {
+  width: 64px;
+  min-width: 58px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.cute-obsidian-workbench .cow-month-goal-list li {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.cute-obsidian-workbench .cow-month-goal-body {
+  gap: 5px;
+}
+
+.cute-obsidian-workbench .cow-goal-action-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  min-height: 0;
+  padding: 8px 10px;
+}
+
+.cute-obsidian-workbench .cow-goal-action-row .cow-list-item-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.cute-obsidian-workbench .cow-goal-timeline {
+  gap: 7px;
+}
+
+.cute-obsidian-workbench .cow-goal-timeline::before {
+  left: 7px;
+}
+
+.cute-obsidian-workbench .cow-goal-timeline-item {
+  grid-template-columns: minmax(68px, auto) minmax(0, 1fr) auto;
+  gap: 7px;
+  margin-left: 18px;
+  padding: 8px 10px;
+}
+
+.cute-obsidian-workbench .cow-goal-timeline-item::before {
+  left: -15px;
+}
+
+.cute-obsidian-workbench .cow-priority-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+}
+
+.cute-obsidian-workbench .cow-priority-grid .cow-priority-cell,
+.cute-obsidian-workbench .cow-priority-grid > div {
+  min-height: 128px;
+  padding: 9px;
+}
+
+.cute-obsidian-workbench .cow-priority-grid .cow-empty-state,
+.cute-obsidian-workbench .cow-priority-cell > span:last-child {
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.34);
+  color: var(--cow-muted);
+  text-align: center;
+}
+
+.cute-obsidian-workbench :where(.cow-paper-card, .cow-paper-manager-item, .cow-reading-plan-card, .cow-book-card, .cow-fitness-log-card, .cow-finance-row, .cow-task-row, .cow-task-board-card) {
+  height: auto;
+  min-width: 0;
+}
+
+.cute-obsidian-workbench :where(.cow-paper-card-header, .cow-reading-plan-card, .cow-task-row, .cow-finance-row, .cow-layout-manager-header, .cow-section-manager-row) {
+  align-items: center;
+}
+
+.cute-obsidian-workbench :where(.cow-paper-title-button, .cow-book-card strong, .cow-reading-plan-card strong, .cow-task-row-body strong, .cow-finance-row strong) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cute-obsidian-workbench :where(.cow-book-card, .cow-layout-picker button, .cow-layout-template-grid button) {
+  align-content: start;
+}
+
+.cute-obsidian-workbench .cow-layout-picker button {
+  min-height: 72px;
+}
+
+.cute-obsidian-workbench .cow-layout-template-grid button {
+  min-height: 108px;
+}
+
+.cute-obsidian-workbench :where(.cow-zotero-item, .cow-paper-manager-item, .cow-section-manager-row, .cow-layout-section-row) {
+  height: auto;
 }
 
 .modal:has(.cow-modal),
@@ -338,6 +926,10 @@
   .cow-toolbar,
   .cow-action-row {
     justify-content: flex-start;
+  }
+
+  .cow-section-actions {
+    flex-shrink: 1;
   }
 
   .cow-auto-grid,

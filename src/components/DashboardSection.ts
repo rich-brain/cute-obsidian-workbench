@@ -174,7 +174,7 @@ export class DashboardSection {
   render(container: HTMLElement): void {
     const cardColor = typeof this.section.config?.cardColor === "string" ? this.section.config.cardColor : "default";
     const sectionEl = container.createDiv({
-      cls: `cow-section cow-section-${this.section.width ?? "md"} cow-section-height-${this.section.height ?? "sm"} cow-card-color-${cardColor}`
+      cls: `cow-section cow-section-${this.section.width ?? "md"} cow-section-height-${this.section.height ?? "sm"} cow-section-type-${this.section.type} cow-card-color-${cardColor}`
     });
     const sectionLayout = this.store.getModuleLayout(this.section.page).sections?.[this.section.id];
     if (sectionLayout?.colSpan) {

@@ -30,6 +30,10 @@
   --wb-space-4: 16px;
   --wb-space-5: 24px;
   --wb-space-6: 32px;
+  --wb-space-xs: var(--wb-space-1);
+  --wb-space-sm: var(--wb-space-2);
+  --wb-space-md: var(--wb-space-3);
+  --wb-space-lg: var(--wb-space-4);
   --wb-radius-sm: 10px;
   --wb-radius-md: 14px;
   --wb-radius-lg: var(--cow-radius);
@@ -38,7 +42,12 @@
   --wb-grid-gap: var(--wb-space-3);
   --wb-grid-min: 220px;
   --wb-button-height: 34px;
+  --wb-icon-button-size: 32px;
   --wb-input-height: 34px;
+  --wb-control-border: 1px solid rgba(242, 59, 141, 0.24);
+  --wb-control-bg: rgba(255, 250, 253, 0.84);
+  --wb-control-focus: 0 0 0 3px rgba(242, 59, 141, 0.14);
+  --wb-progress-height: 8px;
   --wb-modal-width-md: min(760px, 90vw);
   --wb-modal-width-lg: min(1050px, 92vw);
   --wb-modal-height: min(720px, 86vh);

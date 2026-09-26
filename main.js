@@ -9788,7 +9788,7 @@ var CheckInSection = class {
     this.service = new CheckInService(store);
   }
   render(container) {
-    const host = container.createDiv({ cls: "cow-checkin-section" });
+    const host = container.createDiv({ cls: `cow-checkin-section ${this.moduleId === "all" ? "is-overview-compact" : ""}` });
     host.addEventListener("cow-checkin-date-change", () => {
       if (this.followCurrentWeek) this.weekStart = this.getCurrentWeekStart();
       this.rerenderSection(host);
@@ -18892,7 +18892,7 @@ var DashboardSection = class {
     var _a, _b, _c, _d;
     const cardColor = typeof ((_a = this.section.config) == null ? void 0 : _a.cardColor) === "string" ? this.section.config.cardColor : "default";
     const sectionEl = container.createDiv({
-      cls: `cow-section cow-section-${(_b = this.section.width) != null ? _b : "md"} cow-section-height-${(_c = this.section.height) != null ? _c : "sm"} cow-card-color-${cardColor}`
+      cls: `cow-section cow-section-${(_b = this.section.width) != null ? _b : "md"} cow-section-height-${(_c = this.section.height) != null ? _c : "sm"} cow-section-type-${this.section.type} cow-card-color-${cardColor}`
     });
     const sectionLayout = (_d = this.store.getModuleLayout(this.section.page).sections) == null ? void 0 : _d[this.section.id];
     if (sectionLayout == null ? void 0 : sectionLayout.colSpan) {

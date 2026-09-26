@@ -13,8 +13,8 @@
   position: relative;
   box-sizing: border-box;
   height: auto;
-  align-self: stretch;
-  min-height: 150px;
+  align-self: start;
+  min-height: 0;
   min-width: 0;
   border-radius: var(--cow-radius);
   padding: 12px;
@@ -90,15 +90,15 @@
 }
 
 .cow-section-height-sm {
-  min-height: 146px;
+  min-height: 0;
 }
 
 .cow-section-height-md {
-  min-height: 230px;
+  min-height: 0;
 }
 
 .cow-section-height-lg {
-  min-height: 320px;
+  min-height: 0;
 }
 
 .cow-section-header {

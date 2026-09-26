@@ -21,7 +21,7 @@ export class CheckInSection {
   }
 
   render(container: HTMLElement): void {
-    const host = container.createDiv({ cls: "cow-checkin-section" });
+    const host = container.createDiv({ cls: `cow-checkin-section ${this.moduleId === "all" ? "is-overview-compact" : ""}` });
     host.addEventListener("cow-checkin-date-change", () => {
       if (this.followCurrentWeek) this.weekStart = this.getCurrentWeekStart();
       this.rerenderSection(host);
