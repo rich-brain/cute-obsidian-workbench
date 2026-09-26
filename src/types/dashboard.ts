@@ -62,6 +62,22 @@ export interface TodayFocusTask {
   date?: string;
 }
 
+export interface DailyFocusEntry {
+  id: string;
+  sourceModule: "overview" | "research" | "reading" | "fitness" | "finance" | "goals" | "tasks" | string;
+  sourceType: string;
+  sourceId: string;
+  title: string;
+  date?: string;
+  dueDate?: string;
+  kind: "task" | "deadline" | "schedule" | "manual";
+  status: "pending" | "completed" | "overdue";
+  priority?: string;
+  canComplete: boolean;
+  canOpenSource: boolean;
+  subtitle?: string;
+}
+
 export interface ResearchProject {
   id: string;
   title: string;

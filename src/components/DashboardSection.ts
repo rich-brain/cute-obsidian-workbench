@@ -15,9 +15,8 @@ import { MonthlyProgressSection } from "./overview/MonthlyProgressSection";
 import { OverviewStatsSection } from "./overview/OverviewStatsSection";
 import { QuickActionsSection } from "./overview/QuickActionsSection";
 import { RecentNotesSection } from "./overview/RecentNotesSection";
-import { TodayFocusSection } from "./overview/TodayFocusSection";
+import { DailyFocusStatisticsModal, TodayFocusSection } from "./overview/TodayFocusSection";
 import { FocusStatSection } from "./overview/FocusStatSection";
-import { TodoStatisticsModal } from "./overview/TodoStatisticsModal";
 import {
   ApexHabitSettingsSection,
   BannerBackgroundSettingsSection,
@@ -667,7 +666,7 @@ export class DashboardSection {
     }
 
     if (this.section.type === "today-focus") {
-      new TodoStatisticsModal(this.app, this.store, new Date(), this.onDataChanged).open();
+      new DailyFocusStatisticsModal(this.app, this.store).open();
     }
   }
 
