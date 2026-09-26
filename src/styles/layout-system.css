@@ -27,7 +27,7 @@
   min-width: 0;
   max-width: 100%;
   min-height: var(--wb-input-height);
-  padding: 6px 10px;
+  padding: var(--wb-space-2) var(--wb-space-3);
   border: var(--wb-control-border);
   border-radius: var(--wb-radius-sm);
   background: var(--wb-control-bg);
@@ -58,7 +58,7 @@
 
 .cute-obsidian-workbench button:not(.clickable-icon):not(.cow-icon-button) {
   min-height: var(--wb-button-height);
-  padding: 6px 12px;
+  padding: var(--wb-space-2) var(--wb-space-3);
   border: var(--wb-control-border);
   border-radius: var(--wb-radius-sm);
   background: rgba(255, 255, 255, 0.64);
@@ -76,10 +76,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--wb-space-2);
   min-height: var(--wb-button-height);
-  padding: 6px 12px;
-  line-height: 1.2;
+  padding: var(--wb-space-2) var(--wb-space-3);
+  line-height: 1.4;
 }
 
 .cute-obsidian-workbench :where(.cow-section-add-button svg, .cow-bottom-add-button svg, button svg) {
@@ -177,7 +177,7 @@
   min-height: 0;
   align-self: start;
   padding: var(--wb-card-padding);
-  overflow: visible;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
@@ -232,16 +232,18 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: var(--wb-space-2);
   min-width: 0;
   max-width: 100%;
 }
 
 .cow-section-content {
   display: block;
+  flex: 1 1 auto;
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  min-height: 0;
   height: auto;
 }
 
@@ -483,7 +485,7 @@
 }
 
 .cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-module-group {
-  gap: 5px;
+  gap: 8px;
 }
 
 .cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-module-group h4 {
@@ -541,7 +543,7 @@
   grid-template-columns: auto auto minmax(0, 1fr) auto auto;
   min-height: 34px;
   padding: 6px 8px;
-  gap: 7px;
+  gap: 8px;
 }
 
 .cute-obsidian-workbench .cow-daily-focus-entry > input[type="checkbox"] {
@@ -580,7 +582,7 @@
 }
 
 .cute-obsidian-workbench .cow-source-pill {
-  padding: 1px 7px;
+  padding: 4px 8px;
   font-size: 10px;
   line-height: 1.6;
 }
@@ -589,7 +591,7 @@
   grid-template-columns: 70px minmax(100px, 1fr) 42px minmax(34px, auto);
   gap: 8px;
   align-items: center;
-  margin-bottom: 7px;
+  margin-bottom: 8px;
 }
 
 .cute-obsidian-workbench .cow-month-progress-row > span:first-child {
@@ -609,7 +611,7 @@
 }
 
 .cute-obsidian-workbench .cow-month-calendar-grid {
-  gap: 5px;
+  gap: 8px;
 }
 
 .cute-obsidian-workbench .cow-calendar-empty,
@@ -720,7 +722,7 @@
 }
 
 .cute-obsidian-workbench .cow-goal-timeline {
-  gap: 7px;
+  gap: 8px;
 }
 
 .cute-obsidian-workbench .cow-goal-timeline::before {
@@ -729,7 +731,7 @@
 
 .cute-obsidian-workbench .cow-goal-timeline-item {
   grid-template-columns: minmax(68px, auto) minmax(0, 1fr) auto;
-  gap: 7px;
+  gap: 8px;
   margin-left: 18px;
   padding: 8px 10px;
 }
@@ -745,7 +747,7 @@
 .cute-obsidian-workbench .cow-priority-grid .cow-priority-cell,
 .cute-obsidian-workbench .cow-priority-grid > div {
   min-height: 128px;
-  padding: 9px;
+  padding: 8px;
 }
 
 .cute-obsidian-workbench .cow-priority-grid .cow-empty-state,
@@ -938,6 +940,10 @@
 .cute-obsidian-workbench .cow-dashboard-grid {
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: var(--wb-space-md);
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-custom {
+  grid-template-columns: repeat(var(--layout-columns, 4), minmax(0, 1fr));
 }
 
 .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-3 {
@@ -1469,4 +1475,135 @@
   .cow-modal {
     max-height: calc(100vh - 80px);
   }
+}
+
+/* 0.9.2-A: pane-aware grid sizing and bounded section bodies. */
+.cute-obsidian-workbench .cow-page-host {
+  container-type: inline-size;
+  container-name: cow-page;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid {
+  grid-auto-flow: row;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-default > .cow-section,
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact > .cow-section {
+  min-inline-size: min(100%, var(--wb-section-min, 280px));
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid > :where(.wb-layout-primary, .wb-layout-visual, .wb-layout-wide) {
+  --wb-section-min: 320px;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid > .wb-layout-compact {
+  --wb-section-min: 220px;
+}
+
+.cute-obsidian-workbench .cow-section {
+  display: flex;
+  flex-direction: column;
+  max-height: var(--wb-section-max-height, 480px);
+}
+
+.cute-obsidian-workbench .cow-section.wb-layout-compact,
+.cute-obsidian-workbench .cow-section.wb-layout-list {
+  --wb-section-max-height: 320px;
+  --wb-card-padding: var(--wb-space-3);
+}
+
+.cute-obsidian-workbench .cow-section.wb-layout-primary {
+  --wb-section-max-height: 560px;
+  --wb-card-padding: var(--wb-space-4);
+}
+
+.cute-obsidian-workbench .cow-section.wb-layout-visual,
+.cute-obsidian-workbench .cow-section.wb-layout-wide {
+  --wb-section-max-height: 640px;
+}
+
+.cute-obsidian-workbench .cow-section-header {
+  flex: 0 0 auto;
+  gap: var(--wb-space-2);
+  margin-bottom: var(--wb-space-3);
+}
+
+.cute-obsidian-workbench .cow-section-content {
+  overflow: auto;
+  padding-right: var(--wb-space-1);
+}
+
+.cute-obsidian-workbench .cow-section-type-habit-overview .cow-section-content {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+.cute-obsidian-workbench .cow-section-actions {
+  flex-wrap: wrap;
+  gap: var(--wb-space-2);
+}
+
+.cute-obsidian-workbench .cow-section-actions .cow-section-add-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.cute-obsidian-workbench :where(.cow-section-content, .cow-data-card, .cow-data-row, .cow-list-item) {
+  line-height: 1.45;
+}
+
+/* Pane width, not app-window width, determines when 12 columns must collapse. */
+@container cow-page (max-width: 1260px) {
+  .cow-dashboard-grid,
+  .cow-dashboard-grid.cow-module-layout-compact {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--wb-space-3);
+  }
+
+  .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .cow-section {
+    grid-column: span 3;
+  }
+
+  .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > :where(.wb-layout-primary, .wb-layout-visual, .wb-layout-wide, .wb-span-7, .wb-span-8, .wb-span-9, .wb-span-12) {
+    grid-column: 1 / -1;
+  }
+
+  .cow-dashboard-grid.cow-module-layout-custom > .cow-section[style*="span 7"],
+  .cow-dashboard-grid.cow-module-layout-custom > .cow-section[style*="span 8"],
+  .cow-dashboard-grid.cow-module-layout-custom > .cow-section[style*="span 9"],
+  .cow-dashboard-grid.cow-module-layout-custom > .cow-section[style*="span 10"],
+  .cow-dashboard-grid.cow-module-layout-custom > .cow-section[style*="span 11"],
+  .cow-dashboard-grid.cow-module-layout-custom > .cow-section[style*="span 12"] {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@container cow-page (max-width: 720px) {
+  .cow-dashboard-grid,
+  .cow-dashboard-grid.cow-module-layout-compact,
+  .cow-dashboard-grid.cow-module-layout-minimal {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--wb-space-3);
+  }
+
+  .cow-dashboard-grid > .cow-section {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+    min-inline-size: 0;
+    max-height: var(--wb-section-max-height, 480px);
+  }
+
+  .cow-section-header {
+    align-items: flex-start;
+  }
+}
+
+/* 0.9.2-B: keep task collections readable without growing the whole page. */
+.cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel,
+.cute-obsidian-workbench .cow-tasks-bottom-grid > .cow-task-panel {
+  min-width: 0;
+  max-width: 100%;
+  max-height: 480px;
+  overflow: auto;
 }

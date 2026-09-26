@@ -4623,7 +4623,14 @@ export class DashboardStore {
     const mode: ModuleLayoutMode = layout?.mode === "compact" || layout?.mode === "minimal" || layout?.mode === "custom"
       ? layout.mode
       : "default";
-    const columns = Math.max(1, Math.min(24, Number(layout?.columns) || this.columnsForLayoutMode(mode)));
+    const requestedColumns = Number(layout?.columns) || this.columnsForLayoutMode(mode);
+    const columns = mode === "minimal"
+      ? 1
+      : mode === "default"
+        ? 12
+        : mode === "compact"
+          ? 16
+          : Math.max(2, Math.min(12, requestedColumns));
     const sections: NonNullable<ModuleLayoutConfig["sections"]> = {};
     Object.entries(layout?.sections ?? {}).forEach(([sectionId, sectionLayout]) => {
       sections[sectionId] = {

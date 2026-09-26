@@ -28,8 +28,9 @@
   --wb-space-2: 8px;
   --wb-space-3: 12px;
   --wb-space-4: 16px;
-  --wb-space-5: 24px;
-  --wb-space-6: 32px;
+  --wb-space-5: 20px;
+  --wb-space-6: 24px;
+  --wb-space-8: 32px;
   --wb-space-xs: var(--wb-space-1);
   --wb-space-sm: var(--wb-space-2);
   --wb-space-md: var(--wb-space-3);
@@ -38,12 +39,12 @@
   --wb-radius-md: 14px;
   --wb-radius-lg: var(--cow-radius);
   --wb-border: 1px solid var(--cow-border);
-  --wb-card-padding: var(--wb-space-3);
-  --wb-grid-gap: var(--wb-space-3);
+  --wb-card-padding: var(--wb-space-4);
+  --wb-grid-gap: var(--wb-space-4);
   --wb-grid-min: 220px;
-  --wb-button-height: 34px;
+  --wb-button-height: 36px;
   --wb-icon-button-size: 32px;
-  --wb-input-height: 34px;
+  --wb-input-height: 36px;
   --wb-control-border: 1px solid rgba(242, 59, 141, 0.24);
   --wb-control-bg: rgba(255, 250, 253, 0.84);
   --wb-control-focus: 0 0 0 3px rgba(242, 59, 141, 0.14);

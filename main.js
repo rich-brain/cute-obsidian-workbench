@@ -4159,7 +4159,8 @@ var DashboardStore = class {
   normalizeModuleLayout(layout) {
     var _a;
     const mode = (layout == null ? void 0 : layout.mode) === "compact" || (layout == null ? void 0 : layout.mode) === "minimal" || (layout == null ? void 0 : layout.mode) === "custom" ? layout.mode : "default";
-    const columns = Math.max(1, Math.min(24, Number(layout == null ? void 0 : layout.columns) || this.columnsForLayoutMode(mode)));
+    const requestedColumns = Number(layout == null ? void 0 : layout.columns) || this.columnsForLayoutMode(mode);
+    const columns = mode === "minimal" ? 1 : mode === "default" ? 12 : mode === "compact" ? 16 : Math.max(2, Math.min(12, requestedColumns));
     const sections = {};
     Object.entries((_a = layout == null ? void 0 : layout.sections) != null ? _a : {}).forEach(([sectionId, sectionLayout]) => {
       sections[sectionId] = {
