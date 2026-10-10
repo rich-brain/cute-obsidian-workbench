@@ -2,7 +2,6 @@ import { App, Modal, setIcon } from "obsidian";
 import type { DashboardStore } from "../core/DashboardStore";
 import type { DashboardSectionConfig } from "../types/dashboard";
 import { SectionActionMenu } from "./SectionActionMenu";
-import { attachSectionLayoutInteractions } from "./SectionLayoutInteractions";
 import { getSectionCapabilities } from "../core/SectionCapabilities";
 import { openAddContentModal } from "./SectionContentActions";
 import { HabitStatisticsModal } from "./overview/HabitStatisticsModal";
@@ -181,11 +180,13 @@ export class DashboardSection {
     sectionEl.dataset.sectionId = this.section.id;
     const moduleLayout = this.store.getModuleLayout(this.section.page);
     const sectionLayout = moduleLayout.sections?.[this.section.id];
-    if (moduleLayout.mode === "custom" && sectionLayout?.colSpan) {
-      sectionEl.style.gridColumn = `span ${sectionLayout.colSpan}`;
-    }
-    if (moduleLayout.mode === "custom" && sectionLayout?.rowSpan) {
-      sectionEl.style.gridRow = `span ${sectionLayout.rowSpan}`;
+    if (moduleLayout.mode === "custom") {
+      const columns = moduleLayout.columns ?? 12;
+      const colSpan = Math.max(1, Math.min(columns, sectionLayout?.colSpan ?? this.defaultCustomColSpan()));
+      const rowSpan = sectionLayout?.rowSpan ?? 1;
+      sectionEl.style.gridColumn = `span ${colSpan}`;
+      sectionEl.style.gridRow = `span ${rowSpan}`;
+      sectionEl.dataset.rowSpan = String(rowSpan);
     }
 
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
@@ -227,20 +228,11 @@ export class DashboardSection {
     });
     setIcon(menuButton, "more-horizontal");
     menuButton.addEventListener("click", (event) => {
-      new SectionActionMenu(this.app, this.store, this.section, this.onRemove, this.onDataChanged).show(event);
+      new SectionActionMenu(this.app, this.store, this.section, this.onRemove, this.onDataChanged, layoutMeta.span).show(event);
     });
 
     const content = sectionEl.createDiv({ cls: "cow-section-content" });
     this.renderContent(content);
-    attachSectionLayoutInteractions({
-      store: this.store,
-      page: this.section.page,
-      section: this.section,
-      grid: container,
-      sectionEl,
-      menuButton,
-      onDataChanged: this.onDataChanged
-    });
   }
 
   private renderFitnessHeaderActions(actions: HTMLElement): void {
@@ -769,6 +761,13 @@ export class DashboardSection {
     if (this.section.width === "lg") return { role: "primary", span: 8 };
     if (this.section.width === "sm") return { role: "compact", span: 3 };
     return { role: "secondary", span: 4 };
+  }
+
+  private defaultCustomColSpan(): number {
+    if (this.section.width === "full") return 12;
+    if (this.section.width === "lg") return 8;
+    if (this.section.width === "sm") return 3;
+    return 4;
   }
 
   private getCheckInModuleId(): DashboardSectionConfig["page"] | undefined {

@@ -49,7 +49,7 @@
   --wb-grid-gap: var(--wb-space-4);
   --wb-grid-min: 220px;
   --wb-button-height: 36px;
-  --wb-icon-button-size: 36px;
+  --wb-icon-button-size: 38px;
   --wb-input-height: 36px;
   --wb-control-border: 1px solid rgba(242, 59, 141, 0.24);
   --wb-control-bg: rgba(255, 250, 253, 0.84);
@@ -9041,6 +9041,23 @@ button.cow-daily-focus-title:hover {
   grid-template-columns: repeat(var(--layout-columns, 4), minmax(0, 1fr));
 }
 
+/* Custom spans need a stable row baseline; content still expands individual tracks when necessary. */
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-custom {
+  --cow-custom-row-size: 160px;
+  grid-auto-rows: minmax(var(--cow-custom-row-size), auto);
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-custom > .cow-section[data-row-span] {
+  align-self: stretch;
+  height: 100%;
+  max-height: none;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-custom > .cow-section[data-row-span] .cow-section-content {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-3 {
   grid-column: span 3;
 }
@@ -9653,23 +9670,16 @@ button.cow-daily-focus-title:hover {
 .cute-obsidian-workbench .cow-section {
   display: flex;
   flex-direction: column;
-  max-height: var(--wb-section-max-height, 480px);
+  max-height: 75vh;
 }
 
 .cute-obsidian-workbench .cow-section.wb-layout-compact,
 .cute-obsidian-workbench .cow-section.wb-layout-list {
-  --wb-section-max-height: 320px;
   --wb-card-padding: var(--wb-space-3);
 }
 
 .cute-obsidian-workbench .cow-section.wb-layout-primary {
-  --wb-section-max-height: 560px;
   --wb-card-padding: var(--wb-space-4);
-}
-
-.cute-obsidian-workbench .cow-section.wb-layout-visual,
-.cute-obsidian-workbench .cow-section.wb-layout-wide {
-  --wb-section-max-height: 640px;
 }
 
 .cute-obsidian-workbench .cow-section-header {
@@ -9684,8 +9694,9 @@ button.cow-daily-focus-title:hover {
 }
 
 .cute-obsidian-workbench .cow-section-type-habit-overview .cow-section-content {
-  max-height: none;
-  overflow: visible;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 0;
 }
 
@@ -9851,28 +9862,12 @@ button.cow-daily-focus-title:hover {
 
 /* Long collections scroll in their body; short collections remain content-sized. */
 .cute-obsidian-workbench .cow-section {
-  max-height: min(75vh, 560px);
+  max-height: 75vh;
 }
 
-.cute-obsidian-workbench .cow-section.wb-layout-compact,
-.cute-obsidian-workbench .cow-section.wb-layout-list {
-  max-height: min(75vh, 320px);
-}
-
-.cute-obsidian-workbench .cow-section.wb-layout-primary {
-  max-height: min(75vh, 560px);
-}
-
-.cute-obsidian-workbench .cow-section.wb-layout-visual,
-.cute-obsidian-workbench .cow-section.wb-layout-wide {
-  max-height: min(75vh, 640px);
-}
-
-.cute-obsidian-workbench .cow-section-type-habit-overview .cow-section-content {
-  max-height: min(75vh, 560px);
-  overflow-y: auto;
+.cute-obsidian-workbench .cow-section-content {
+  overflow: auto;
   overflow-x: hidden;
-  padding-right: var(--wb-space-1);
 }
 
 @container cow-page (max-width: 720px) {
@@ -9960,8 +9955,41 @@ button.cow-daily-focus-title:hover {
 }
 
 .cute-obsidian-workbench :where(.cow-icon-button, .cow-list-item-actions button) svg {
+  width: 19px;
+  height: 19px;
+}
+
+.cute-obsidian-workbench :where(.cow-sidebar-action, .cow-sidebar-create-button, .cow-nav-icon) svg {
   width: 18px;
   height: 18px;
+}
+
+.cute-obsidian-workbench .cow-goal-display-progress {
+  width: 100%;
+  min-width: 0;
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(178, 140, 255, 0.24);
+  border-radius: 999px;
+  background: rgba(178, 140, 255, 0.14);
+}
+
+.cute-obsidian-workbench .cow-goal-display-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--cow-pink-strong), var(--cow-purple));
+  transition: width 180ms ease;
+}
+
+.cute-obsidian-workbench :where(.cow-goal-list-card, .cow-goal-tree-group, .cow-goal-timeline-item, .cow-month-goal-list li) strong {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.cute-obsidian-workbench :where(.cow-goal-list-card, .cow-goal-tree-group, .cow-goal-timeline-item, .cow-month-goal-list li) .cow-meta-line,
+.cute-obsidian-workbench .cow-goal-action-body p {
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .cute-obsidian-workbench .cow-daily-focus-entry .cow-list-item-actions button {
@@ -10000,65 +10028,6 @@ button.cow-daily-focus-title:hover {
   .cute-obsidian-workbench .cow-book-grid {
     gap: var(--wb-space-3);
   }
-}
-
-/* 0.9.5-B: persisted Section reorder and logical span resizing. */
-.cute-obsidian-workbench .cow-section-resize-handle {
-  position: absolute;
-  right: var(--wb-space-1);
-  bottom: var(--wb-space-1);
-  z-index: 2;
-  width: 20px;
-  height: 20px;
-  border-right: 2px solid rgba(242, 59, 141, 0.58);
-  border-bottom: 2px solid rgba(242, 59, 141, 0.58);
-  border-radius: 0 0 var(--wb-radius-sm) 0;
-  cursor: nwse-resize;
-  opacity: 0;
-  transition: opacity 160ms ease, border-color 160ms ease;
-}
-
-.cute-obsidian-workbench .cow-section:hover .cow-section-resize-handle,
-.cute-obsidian-workbench .cow-section.is-layout-resizing .cow-section-resize-handle {
-  opacity: 1;
-}
-
-.cute-obsidian-workbench .cow-section.is-layout-resizing,
-.cute-obsidian-workbench .cow-section.is-layout-drop-target {
-  outline: 2px solid rgba(242, 59, 141, 0.48);
-  outline-offset: 2px;
-}
-
-.cute-obsidian-workbench .cow-section.is-layout-resizing::after {
-  content: attr(data-layout-size);
-  position: absolute;
-  right: var(--wb-space-3);
-  bottom: var(--wb-space-3);
-  z-index: 3;
-  padding: var(--wb-space-1) var(--wb-space-2);
-  border-radius: var(--wb-radius-sm);
-  background: rgba(91, 40, 28, 0.86);
-  color: #fff;
-  font-size: 12px;
-  line-height: 1;
-  pointer-events: none;
-}
-
-.cute-obsidian-workbench .cow-section.is-layout-dragging {
-  opacity: 0.58;
-  cursor: grabbing;
-}
-
-.cute-obsidian-workbench .is-section-dragging > .cow-section {
-  transition: outline-color 160ms ease, opacity 160ms ease;
-}
-
-.cute-obsidian-workbench .cow-section.is-layout-drop-target {
-  box-shadow: 0 0 0 4px rgba(242, 59, 141, 0.12), var(--cow-shadow);
-}
-
-.cute-obsidian-workbench .cow-section.is-layout-drop-after {
-  border-bottom-color: rgba(242, 59, 141, 0.88);
 }
 
 .modal.cute-section-size-modal .cow-section-size-form {

@@ -13,7 +13,7 @@ export class ReadingTagManagerSection {
   ) {}
 
   render(container: HTMLElement): void {
-    const list = container.createDiv({ cls: "cow-data-list cow-book-tag-manager-list" });
+    const list = container.createDiv({ cls: "cow-paper-field-list cow-book-tag-manager-list" });
     const tags = this.store.getBookTags().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     if (tags.length === 0) {
       list.createDiv({ cls: "cow-empty-state", text: "暂无阅读标签。" });
@@ -21,19 +21,18 @@ export class ReadingTagManagerSection {
       tags.forEach((tag) => this.renderTag(list, tag));
     }
 
-    const add = container.createEl("button", { cls: "cow-bottom-add-button", attr: { type: "button" } });
+    const add = container.createEl("button", { cls: "cow-bottom-add", attr: { type: "button" } });
     setIcon(add.createSpan(), "plus");
-    add.createSpan({ text: "新增标签" });
-    add.addEventListener("click", () => openBookTagModal(this.app, this.store, this.onDataChanged));
+    add.createSpan({ text: "管理阅读标签" });
+    add.addEventListener("click", () => new BookTagManagerModal(this.app, this.store, this.onDataChanged).open());
   }
 
   private renderTag(container: HTMLElement, tag: BookTagDefinition): void {
-    const card = container.createDiv({ cls: "cow-data-card cow-book-tag-manager-card" });
-    card.style.setProperty("--book-tag-color", tag.color);
-    const head = card.createDiv({ cls: "cow-list-item-head" });
-    const label = head.createDiv({ cls: "cow-book-tag-preview" });
-    label.createSpan({ text: tag.name });
-    const actions = head.createDiv({ cls: "cow-list-item-actions" });
+    const card = container.createDiv({ cls: "cow-paper-field-row cow-book-tag-manager-card" });
+    card.createSpan({ cls: "cow-paper-color-dot", attr: { style: `background: ${tag.color}` } });
+    const label = card.createDiv({ cls: "cow-paper-body" });
+    label.createEl("strong", { text: tag.name });
+    const actions = card.createDiv({ cls: "cow-list-item-actions" });
     this.iconButton(actions, "pencil", "编辑标签", () => openBookTagModal(this.app, this.store, this.onDataChanged, tag));
     this.iconButton(actions, "trash-2", "删除标签", async () => {
       if (!confirm(`删除“${tag.name}”标签？会从所有书籍中移除该标签，但不会删除书籍。`)) return;
@@ -41,7 +40,7 @@ export class ReadingTagManagerSection {
       this.onDataChanged();
     });
     const count = this.store.getBooks().filter((book) => (book.tagIds ?? []).includes(tag.id)).length;
-    card.createDiv({ cls: "cow-meta-line", text: `${count} 本书使用` });
+    label.createSpan({ cls: "cow-meta-line", text: `${count} 本书使用` });
   }
 
   private iconButton(container: HTMLElement, icon: string, label: string, onClick: () => void): void {
@@ -58,6 +57,62 @@ export function openBookTagModal(
   tag?: BookTagDefinition
 ): void {
   new BookTagModal(app, store, onDataChanged, tag).open();
+}
+
+class BookTagManagerModal extends Modal {
+  constructor(
+    app: App,
+    private readonly store: DashboardStore,
+    private readonly onDone: () => void
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    applyResizableModal(this, {
+      className: "cute-book-tag-manager-modal",
+      width: "min(760px, 92vw)",
+      height: "min(640px, 84vh)",
+      maxWidth: "96vw",
+      maxHeight: "92vh",
+      minWidth: "min(440px, 92vw)",
+      minHeight: "min(360px, 76vh)"
+    });
+    this.render();
+  }
+
+  private render(): void {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-paper-modal");
+    this.contentEl.createEl("h2", { text: "阅读标签管理" });
+    this.contentEl.createEl("p", { cls: "cow-meta-line", text: "统一管理书籍标签，修改后会同步到使用该标签的书籍。" });
+    const list = this.contentEl.createDiv({ cls: "cow-paper-field-list" });
+    this.store.getBookTags().sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).forEach((tag) => {
+      const row = list.createDiv({ cls: "cow-paper-field-row" });
+      row.createSpan({ cls: "cow-paper-color-dot", attr: { style: `background: ${tag.color}` } });
+      const body = row.createDiv({ cls: "cow-paper-body" });
+      body.createEl("strong", { text: tag.name });
+      body.createSpan({ text: `${this.store.getBooks().filter((book) => (book.tagIds ?? []).includes(tag.id)).length} 本书使用` });
+      const actions = row.createDiv({ cls: "cow-list-item-actions" });
+      this.iconButton(actions, "pencil", "编辑标签", () => openBookTagModal(this.app, this.store, () => this.render(), tag));
+      this.iconButton(actions, "trash-2", "删除标签", async () => {
+        if (!confirm(`删除“${tag.name}”标签？会从所有书籍中移除该标签，但不会删除书籍。`)) return;
+        await this.store.deleteBookTag(tag.id);
+        this.onDone();
+        this.render();
+      });
+    });
+    const add = this.contentEl.createEl("button", { cls: "cow-bottom-add", attr: { type: "button" } });
+    setIcon(add.createSpan(), "plus");
+    add.createSpan({ text: "新增标签" });
+    add.addEventListener("click", () => openBookTagModal(this.app, this.store, () => this.render()));
+  }
+
+  private iconButton(container: HTMLElement, icon: string, label: string, onClick: () => void): void {
+    const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
+    setIcon(button, icon);
+    button.addEventListener("click", onClick);
+  }
 }
 
 class BookTagModal extends Modal {

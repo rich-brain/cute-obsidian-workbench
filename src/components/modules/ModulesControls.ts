@@ -148,7 +148,7 @@ export class HomeLayoutManagerSection {
   }
 
   private renderPreview(container: HTMLElement, layout: ModuleLayoutConfig): void {
-    const sections = this.getManagedSections();
+    const sections = this.getManagedSections().filter((section) => section.enabled);
     const preview = container.createDiv({ cls: "cow-layout-preview" });
     preview.style.setProperty("--preview-columns", String(layout.columns ?? 4));
     sections.forEach((section) => {
@@ -162,7 +162,7 @@ export class HomeLayoutManagerSection {
         attr: { type: "button" }
       });
       tile.style.gridColumn = `span ${this.clamp(sectionLayout.colSpan ?? 1, 1, layout.columns ?? 4)}`;
-      tile.style.gridRow = `span ${this.clamp(sectionLayout.rowSpan ?? 1, 1, 3)}`;
+      tile.style.gridRow = `span ${this.clamp(sectionLayout.rowSpan ?? 1, 1, 12)}`;
       tile.createEl("strong", { text: section.title });
       tile.createSpan({ text: `${sectionLayout.colSpan ?? 1}×${sectionLayout.rowSpan ?? 1}${section.enabled ? "" : " · 已隐藏"}` });
       tile.addEventListener("click", () => {
@@ -271,9 +271,16 @@ export class HomeLayoutManagerSection {
   private getSectionLayout(layout: ModuleLayoutConfig, section: DashboardSectionConfig): Required<SectionLayoutConfig> {
     return {
       order: layout.sections?.[section.id]?.order ?? section.order,
-      colSpan: this.clamp(layout.sections?.[section.id]?.colSpan ?? 1, 1, layout.columns ?? 4),
-      rowSpan: this.clamp(layout.sections?.[section.id]?.rowSpan ?? 1, 1, 3)
+      colSpan: this.clamp(layout.sections?.[section.id]?.colSpan ?? this.defaultColSpan(section), 1, layout.columns ?? 4),
+      rowSpan: this.clamp(layout.sections?.[section.id]?.rowSpan ?? 1, 1, 12)
     };
+  }
+
+  private defaultColSpan(section: DashboardSectionConfig): number {
+    if (section.width === "full") return 12;
+    if (section.width === "lg") return 8;
+    if (section.width === "sm") return 3;
+    return 4;
   }
 
   private clamp(value: number, min: number, max: number): number {

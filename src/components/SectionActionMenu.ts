@@ -21,7 +21,8 @@ export class SectionActionMenu {
     private readonly store: DashboardStore,
     private readonly section: DashboardSectionConfig,
     private readonly onRemove: (section: DashboardSectionConfig) => Promise<void>,
-    private readonly onDataChanged: () => void
+    private readonly onDataChanged: () => void,
+    private readonly defaultColSpan?: number
   ) {}
 
   show(event: MouseEvent): void {
@@ -48,7 +49,7 @@ export class SectionActionMenu {
     menu.addItem((item) => item
       .setTitle("修改宽高")
       .setIcon("maximize-2")
-      .onClick(() => new SectionSizeModal(this.app, this.store, this.section, this.onDataChanged).open()));
+      .onClick(() => new SectionSizeModal(this.app, this.store, this.section, this.onDataChanged, this.defaultColSpan).open()));
     menu.addSeparator();
     menu.addItem((item) => item
       .setTitle("上移")
@@ -150,7 +151,8 @@ class SectionSizeModal extends Modal {
     app: App,
     private readonly store: DashboardStore,
     private readonly section: DashboardSectionConfig,
-    private readonly onDataChanged: () => void
+    private readonly onDataChanged: () => void,
+    private readonly defaultColSpan?: number
   ) {
     super(app);
   }
@@ -173,7 +175,7 @@ class SectionSizeModal extends Modal {
     const layout = this.store.getModuleLayout(this.section.page);
     const columns = layout.mode === "custom" ? layout.columns ?? 12 : 12;
     const saved = layout.sections?.[this.section.id];
-    const defaultWidth = this.defaultWidth();
+    const defaultWidth = this.defaultColSpan ?? this.defaultWidth();
     const form = this.contentEl.createDiv({ cls: "cow-form-grid cow-section-size-form" });
     const widthField = form.createDiv({ cls: "cow-form-row" });
     widthField.createEl("label", { text: `宽度（1-${columns} 列）` });

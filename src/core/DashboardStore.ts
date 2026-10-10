@@ -1142,15 +1142,28 @@ export class DashboardStore {
   }
 
   async reorderSections(page: DashboardPage, orderedIds: string[]): Promise<void> {
-    const orderMap = new Map(orderedIds.map((id, index) => [id, (index + 1) * 10]));
-    this.data.sections.forEach((section) => {
-      const order = orderMap.get(section.id);
-      if (section.page === page && order !== undefined) {
-        section.order = order;
-        this.ensureSectionLayout(page, section.id, order);
-        const sectionLayout = this.data.moduleLayouts[page].sections?.[section.id];
-        if (sectionLayout) sectionLayout.order = order;
-      }
+    const pageSections = this.data.sections.filter((section) => section.page === page);
+    const sectionById = new Map(pageSections.map((section) => [section.id, section]));
+    const suppliedIds = [...new Set(orderedIds)].filter((id) => sectionById.has(id));
+    const layout = this.getModuleLayout(page);
+    const remainingIds = pageSections
+      .filter((section) => !suppliedIds.includes(section.id))
+      .sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout))
+      .map((section) => section.id);
+    const normalizedIds = [...suppliedIds, ...remainingIds];
+
+    if (new Set(pageSections.map((section) => this.getSectionLayoutOrder(section, layout))).size !== pageSections.length) {
+      console.warn(`[Cute Workbench] Normalizing duplicate section order values for ${page}.`);
+    }
+
+    normalizedIds.forEach((sectionId, index) => {
+      const section = sectionById.get(sectionId);
+      if (!section) return;
+      const order = (index + 1) * 10;
+      section.order = order;
+      this.ensureSectionLayout(page, section.id, order);
+      const sectionLayout = this.data.moduleLayouts[page].sections?.[section.id];
+      if (sectionLayout) sectionLayout.order = order;
     });
     await this.save();
   }
@@ -1231,18 +1244,10 @@ export class DashboardStore {
       .sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout));
     const currentIndex = pageSections.findIndex((section) => section.id === sectionId);
     const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    const target = pageSections[targetIndex];
-    const current = pageSections[currentIndex];
-    if (!current || !target) return;
-    this.ensureSectionLayout(page, current.id, current.order);
-    this.ensureSectionLayout(page, target.id, target.order);
-    const currentLayout = this.data.moduleLayouts[page].sections?.[current.id];
-    const targetLayout = this.data.moduleLayouts[page].sections?.[target.id];
-    if (!currentLayout || !targetLayout) return;
-    const currentOrder = currentLayout.order ?? current.order;
-    currentLayout.order = targetLayout.order ?? target.order;
-    targetLayout.order = currentOrder;
-    await this.save();
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= pageSections.length) return;
+    const orderedIds = pageSections.map((section) => section.id);
+    [orderedIds[currentIndex], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[currentIndex]];
+    await this.reorderSections(page, orderedIds);
   }
 
   async updateUserSettings(settings: Partial<WorkbenchData["userSettings"]>): Promise<void> {

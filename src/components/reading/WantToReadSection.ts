@@ -41,7 +41,7 @@ export class WantToReadSection {
     const head = card.createDiv({ cls: "cow-list-item-head" });
     head.createEl("strong", { text: item.title });
     const actions = head.createDiv({ cls: "cow-list-item-actions" });
-    this.textButton(actions, "加入书架", "library", () => this.addToShelf(item));
+    this.iconButton(actions, "library", "加入书架", () => this.addToShelf(item));
     this.iconButton(actions, "pencil", "编辑想读", () => openWantToReadModal(this.app, this.store, this.onDataChanged, item));
     this.iconButton(actions, "trash-2", "删除想读", async () => {
       if (!confirm(`删除“${item.title}”想读记录？不会删除任何书籍文件。`)) return;
@@ -72,12 +72,6 @@ export class WantToReadSection {
     button.addEventListener("click", onClick);
   }
 
-  private textButton(container: HTMLElement, label: string, icon: string, onClick: () => void): void {
-    const button = container.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
-    setIcon(button.createSpan(), icon);
-    button.createSpan({ text: label });
-    button.addEventListener("click", onClick);
-  }
 }
 
 export function openWantToReadModal(

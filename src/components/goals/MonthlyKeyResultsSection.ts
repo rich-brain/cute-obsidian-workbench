@@ -26,16 +26,15 @@ export class MonthlyKeyResultsSection {
       });
       const body = item.createDiv({ cls: "cow-month-goal-body" });
       body.createSpan({ cls: kr.completed ? "is-complete" : "", text: kr.completed ? `✓ ${kr.title}` : kr.title });
-      const progressRow = body.createDiv({ cls: "cow-goal-progress-editor is-compact" });
-      const range = progressRow.createEl("input", { type: "range", value: String(kr.progress), attr: { min: "0", max: "100", step: "1", "aria-label": `${kr.title} 进度` } });
+      const progressRow = body.createDiv({ cls: "cow-goal-progress-editor" });
+      const track = progressRow.createDiv({ cls: "cow-goal-display-progress", attr: { role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(kr.progress), "aria-label": `${kr.title} 进度` } });
+      const fill = track.createDiv({ cls: "cow-goal-display-progress-fill" });
+      fill.style.width = `${Math.max(0, Math.min(100, kr.progress))}%`;
       const number = progressRow.createEl("input", { type: "number", value: String(kr.progress), attr: { min: "0", max: "100", step: "1", "aria-label": `${kr.title} 进度百分比` } });
-      progressRow.createSpan({ cls: "cow-pill is-purple", text: "%" });
       const saveProgress = async (value: number): Promise<void> => {
         await this.store.updateKeyResult(kr.id, { progress: Math.max(0, Math.min(100, value)), completed: value >= 100 });
         this.onDataChanged();
       };
-      range.addEventListener("input", () => number.value = range.value);
-      range.addEventListener("change", () => saveProgress(Number(range.value)));
       number.addEventListener("change", () => saveProgress(Number(number.value)));
       const actions = item.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "编辑月度目标" } });

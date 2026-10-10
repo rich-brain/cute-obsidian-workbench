@@ -32,14 +32,14 @@ export class QuarterlyOkrSection {
       });
       row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${objective.quarter} · ${objective.progress}%` });
       const progressRow = row.createDiv({ cls: "cow-goal-progress-editor" });
-      const range = progressRow.createEl("input", { type: "range", value: String(objective.progress), attr: { min: "0", max: "100", step: "1", "aria-label": `${objective.title} 进度` } });
+      const track = progressRow.createDiv({ cls: "cow-goal-display-progress", attr: { role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(objective.progress), "aria-label": `${objective.title} 进度` } });
+      const fill = track.createDiv({ cls: "cow-goal-display-progress-fill" });
+      fill.style.width = `${Math.max(0, Math.min(100, objective.progress))}%`;
       const number = progressRow.createEl("input", { type: "number", value: String(objective.progress), attr: { min: "0", max: "100", step: "1", "aria-label": `${objective.title} 进度百分比` } });
       const saveProgress = async (value: number): Promise<void> => {
         await this.store.updateObjective(objective.id, { progress: Math.max(0, Math.min(100, value)) });
         this.onDataChanged();
       };
-      range.addEventListener("input", () => number.value = range.value);
-      range.addEventListener("change", () => saveProgress(Number(range.value)));
       number.addEventListener("change", () => saveProgress(Number(number.value)));
     });
   }

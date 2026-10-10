@@ -81,11 +81,12 @@ export class GoalBreakdownSection {
     mode.createEl("option", { value: "auto", text: "自动进度" });
     mode.createEl("option", { value: "manual", text: "手动进度" });
     mode.value = action.progressMode ?? "auto";
-    const range = row.createEl("input", { type: "range", value: String(action.progress ?? 0), attr: { min: "0", max: "100", step: "1", "aria-label": `${action.title} 进度` } });
+    const track = row.createDiv({ cls: "cow-goal-display-progress", attr: { role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(action.progress ?? 0), "aria-label": `${action.title} 进度` } });
+    const fill = track.createDiv({ cls: "cow-goal-display-progress-fill" });
+    fill.style.width = `${Math.max(0, Math.min(100, action.progress ?? 0))}%`;
     const number = row.createEl("input", { type: "number", value: String(action.progress ?? 0), attr: { min: "0", max: "100", step: "1", "aria-label": `${action.title} 进度百分比` } });
     const updateDisabled = (): void => {
       const disabled = hasChildren && mode.value !== "manual";
-      range.disabled = disabled;
       number.disabled = disabled;
     };
     updateDisabled();
@@ -93,8 +94,6 @@ export class GoalBreakdownSection {
       await this.store.updateGoalAction(action.id, { progressMode: mode.value as GoalAction["progressMode"] });
       this.onDataChanged();
     });
-    range.addEventListener("input", () => number.value = range.value);
-    range.addEventListener("change", () => this.saveProgress(action.id, Number(range.value)));
     number.addEventListener("change", () => this.saveProgress(action.id, Number(number.value)));
   }
 

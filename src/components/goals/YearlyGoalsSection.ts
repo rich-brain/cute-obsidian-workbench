@@ -34,11 +34,9 @@ export class YearlyGoalsSection {
       meta.createSpan({ cls: "cow-status is-green", text: goal.status });
       meta.createSpan({ text: `${goal.category} · ${goal.deadline} · 拆解 ${actions.length} · 里程碑 ${milestones.filter((item) => item.status === "completed").length}/${milestones.length}` });
       const progressRow = row.createDiv({ cls: "cow-goal-progress-editor" });
-      const input = progressRow.createEl("input", {
-        type: "range",
-        value: String(goal.progress),
-        attr: { min: "0", max: "100", "aria-label": `${goal.title} 进度` }
-      });
+      const track = progressRow.createDiv({ cls: "cow-goal-display-progress", attr: { role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(goal.progress), "aria-label": `${goal.title} 进度` } });
+      const fill = track.createDiv({ cls: "cow-goal-display-progress-fill" });
+      fill.style.width = `${Math.max(0, Math.min(100, goal.progress))}%`;
       const number = progressRow.createEl("input", {
         type: "number",
         value: String(goal.progress),
@@ -48,8 +46,6 @@ export class YearlyGoalsSection {
         await this.store.updateGoalProgress(goal.id, Math.max(0, Math.min(100, value)));
         this.onDataChanged();
       };
-      input.addEventListener("input", () => number.value = input.value);
-      input.addEventListener("change", () => saveProgress(Number(input.value)));
       number.addEventListener("change", () => saveProgress(Number(number.value)));
     });
   }

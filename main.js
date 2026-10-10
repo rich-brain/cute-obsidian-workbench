@@ -1064,16 +1064,24 @@ var DashboardStore = class {
     await this.save();
   }
   async reorderSections(page, orderedIds) {
-    const orderMap = new Map(orderedIds.map((id, index) => [id, (index + 1) * 10]));
-    this.data.sections.forEach((section) => {
+    const pageSections = this.data.sections.filter((section) => section.page === page);
+    const sectionById = new Map(pageSections.map((section) => [section.id, section]));
+    const suppliedIds = [...new Set(orderedIds)].filter((id) => sectionById.has(id));
+    const layout = this.getModuleLayout(page);
+    const remainingIds = pageSections.filter((section) => !suppliedIds.includes(section.id)).sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout)).map((section) => section.id);
+    const normalizedIds = [...suppliedIds, ...remainingIds];
+    if (new Set(pageSections.map((section) => this.getSectionLayoutOrder(section, layout))).size !== pageSections.length) {
+      console.warn(`[Cute Workbench] Normalizing duplicate section order values for ${page}.`);
+    }
+    normalizedIds.forEach((sectionId, index) => {
       var _a;
-      const order = orderMap.get(section.id);
-      if (section.page === page && order !== void 0) {
-        section.order = order;
-        this.ensureSectionLayout(page, section.id, order);
-        const sectionLayout = (_a = this.data.moduleLayouts[page].sections) == null ? void 0 : _a[section.id];
-        if (sectionLayout) sectionLayout.order = order;
-      }
+      const section = sectionById.get(sectionId);
+      if (!section) return;
+      const order = (index + 1) * 10;
+      section.order = order;
+      this.ensureSectionLayout(page, section.id, order);
+      const sectionLayout = (_a = this.data.moduleLayouts[page].sections) == null ? void 0 : _a[section.id];
+      if (sectionLayout) sectionLayout.order = order;
     });
     await this.save();
   }
@@ -1141,24 +1149,15 @@ var DashboardStore = class {
     await this.save();
   }
   async moveSectionLayout(page, sectionId, direction) {
-    var _a, _b, _c, _d;
     await this.ensureCustomModuleLayout(page);
     const layout = this.data.moduleLayouts[page];
     const pageSections = this.data.sections.filter((section) => section.page === page).sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout));
     const currentIndex = pageSections.findIndex((section) => section.id === sectionId);
     const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    const target = pageSections[targetIndex];
-    const current = pageSections[currentIndex];
-    if (!current || !target) return;
-    this.ensureSectionLayout(page, current.id, current.order);
-    this.ensureSectionLayout(page, target.id, target.order);
-    const currentLayout = (_a = this.data.moduleLayouts[page].sections) == null ? void 0 : _a[current.id];
-    const targetLayout = (_b = this.data.moduleLayouts[page].sections) == null ? void 0 : _b[target.id];
-    if (!currentLayout || !targetLayout) return;
-    const currentOrder = (_c = currentLayout.order) != null ? _c : current.order;
-    currentLayout.order = (_d = targetLayout.order) != null ? _d : target.order;
-    targetLayout.order = currentOrder;
-    await this.save();
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= pageSections.length) return;
+    const orderedIds = pageSections.map((section) => section.id);
+    [orderedIds[currentIndex], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[currentIndex]];
+    await this.reorderSections(page, orderedIds);
   }
   async updateUserSettings(settings) {
     this.data.userSettings = {
@@ -7527,7 +7526,7 @@ var ReadingTagManagerSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    const list = container.createDiv({ cls: "cow-data-list cow-book-tag-manager-list" });
+    const list = container.createDiv({ cls: "cow-paper-field-list cow-book-tag-manager-list" });
     const tags = this.store.getBookTags().sort((a, b) => {
       var _a, _b;
       return ((_a = a.order) != null ? _a : 0) - ((_b = b.order) != null ? _b : 0);
@@ -7537,18 +7536,17 @@ var ReadingTagManagerSection = class {
     } else {
       tags.forEach((tag) => this.renderTag(list, tag));
     }
-    const add = container.createEl("button", { cls: "cow-bottom-add-button", attr: { type: "button" } });
+    const add = container.createEl("button", { cls: "cow-bottom-add", attr: { type: "button" } });
     (0, import_obsidian20.setIcon)(add.createSpan(), "plus");
-    add.createSpan({ text: "\u65B0\u589E\u6807\u7B7E" });
-    add.addEventListener("click", () => openBookTagModal(this.app, this.store, this.onDataChanged));
+    add.createSpan({ text: "\u7BA1\u7406\u9605\u8BFB\u6807\u7B7E" });
+    add.addEventListener("click", () => new BookTagManagerModal(this.app, this.store, this.onDataChanged).open());
   }
   renderTag(container, tag) {
-    const card = container.createDiv({ cls: "cow-data-card cow-book-tag-manager-card" });
-    card.style.setProperty("--book-tag-color", tag.color);
-    const head = card.createDiv({ cls: "cow-list-item-head" });
-    const label = head.createDiv({ cls: "cow-book-tag-preview" });
-    label.createSpan({ text: tag.name });
-    const actions = head.createDiv({ cls: "cow-list-item-actions" });
+    const card = container.createDiv({ cls: "cow-paper-field-row cow-book-tag-manager-card" });
+    card.createSpan({ cls: "cow-paper-color-dot", attr: { style: `background: ${tag.color}` } });
+    const label = card.createDiv({ cls: "cow-paper-body" });
+    label.createEl("strong", { text: tag.name });
+    const actions = card.createDiv({ cls: "cow-list-item-actions" });
     this.iconButton(actions, "pencil", "\u7F16\u8F91\u6807\u7B7E", () => openBookTagModal(this.app, this.store, this.onDataChanged, tag));
     this.iconButton(actions, "trash-2", "\u5220\u9664\u6807\u7B7E", async () => {
       if (!confirm(`\u5220\u9664\u201C${tag.name}\u201D\u6807\u7B7E\uFF1F\u4F1A\u4ECE\u6240\u6709\u4E66\u7C4D\u4E2D\u79FB\u9664\u8BE5\u6807\u7B7E\uFF0C\u4F46\u4E0D\u4F1A\u5220\u9664\u4E66\u7C4D\u3002`)) return;
@@ -7559,7 +7557,7 @@ var ReadingTagManagerSection = class {
       var _a;
       return ((_a = book.tagIds) != null ? _a : []).includes(tag.id);
     }).length;
-    card.createDiv({ cls: "cow-meta-line", text: `${count} \u672C\u4E66\u4F7F\u7528` });
+    label.createSpan({ cls: "cow-meta-line", text: `${count} \u672C\u4E66\u4F7F\u7528` });
   }
   iconButton(container, icon, label, onClick) {
     const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
@@ -7570,6 +7568,62 @@ var ReadingTagManagerSection = class {
 function openBookTagModal(app, store, onDataChanged, tag) {
   new BookTagModal(app, store, onDataChanged, tag).open();
 }
+var BookTagManagerModal = class extends import_obsidian20.Modal {
+  constructor(app, store, onDone) {
+    super(app);
+    this.store = store;
+    this.onDone = onDone;
+  }
+  onOpen() {
+    applyResizableModal(this, {
+      className: "cute-book-tag-manager-modal",
+      width: "min(760px, 92vw)",
+      height: "min(640px, 84vh)",
+      maxWidth: "96vw",
+      maxHeight: "92vh",
+      minWidth: "min(440px, 92vw)",
+      minHeight: "min(360px, 76vh)"
+    });
+    this.render();
+  }
+  render() {
+    this.contentEl.empty();
+    this.contentEl.addClass("cow-modal", "cow-paper-modal");
+    this.contentEl.createEl("h2", { text: "\u9605\u8BFB\u6807\u7B7E\u7BA1\u7406" });
+    this.contentEl.createEl("p", { cls: "cow-meta-line", text: "\u7EDF\u4E00\u7BA1\u7406\u4E66\u7C4D\u6807\u7B7E\uFF0C\u4FEE\u6539\u540E\u4F1A\u540C\u6B65\u5230\u4F7F\u7528\u8BE5\u6807\u7B7E\u7684\u4E66\u7C4D\u3002" });
+    const list = this.contentEl.createDiv({ cls: "cow-paper-field-list" });
+    this.store.getBookTags().sort((a, b) => {
+      var _a, _b;
+      return ((_a = a.order) != null ? _a : 0) - ((_b = b.order) != null ? _b : 0);
+    }).forEach((tag) => {
+      const row = list.createDiv({ cls: "cow-paper-field-row" });
+      row.createSpan({ cls: "cow-paper-color-dot", attr: { style: `background: ${tag.color}` } });
+      const body = row.createDiv({ cls: "cow-paper-body" });
+      body.createEl("strong", { text: tag.name });
+      body.createSpan({ text: `${this.store.getBooks().filter((book) => {
+        var _a;
+        return ((_a = book.tagIds) != null ? _a : []).includes(tag.id);
+      }).length} \u672C\u4E66\u4F7F\u7528` });
+      const actions = row.createDiv({ cls: "cow-list-item-actions" });
+      this.iconButton(actions, "pencil", "\u7F16\u8F91\u6807\u7B7E", () => openBookTagModal(this.app, this.store, () => this.render(), tag));
+      this.iconButton(actions, "trash-2", "\u5220\u9664\u6807\u7B7E", async () => {
+        if (!confirm(`\u5220\u9664\u201C${tag.name}\u201D\u6807\u7B7E\uFF1F\u4F1A\u4ECE\u6240\u6709\u4E66\u7C4D\u4E2D\u79FB\u9664\u8BE5\u6807\u7B7E\uFF0C\u4F46\u4E0D\u4F1A\u5220\u9664\u4E66\u7C4D\u3002`)) return;
+        await this.store.deleteBookTag(tag.id);
+        this.onDone();
+        this.render();
+      });
+    });
+    const add = this.contentEl.createEl("button", { cls: "cow-bottom-add", attr: { type: "button" } });
+    (0, import_obsidian20.setIcon)(add.createSpan(), "plus");
+    add.createSpan({ text: "\u65B0\u589E\u6807\u7B7E" });
+    add.addEventListener("click", () => openBookTagModal(this.app, this.store, () => this.render()));
+  }
+  iconButton(container, icon, label, onClick) {
+    const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
+    (0, import_obsidian20.setIcon)(button, icon);
+    button.addEventListener("click", onClick);
+  }
+};
 var BookTagModal = class extends import_obsidian20.Modal {
   constructor(app, store, onDataChanged, tag) {
     var _a, _b;
@@ -7666,7 +7720,7 @@ var WantToReadSection = class {
     const head = card.createDiv({ cls: "cow-list-item-head" });
     head.createEl("strong", { text: item.title });
     const actions = head.createDiv({ cls: "cow-list-item-actions" });
-    this.textButton(actions, "\u52A0\u5165\u4E66\u67B6", "library", () => this.addToShelf(item));
+    this.iconButton(actions, "library", "\u52A0\u5165\u4E66\u67B6", () => this.addToShelf(item));
     this.iconButton(actions, "pencil", "\u7F16\u8F91\u60F3\u8BFB", () => openWantToReadModal(this.app, this.store, this.onDataChanged, item));
     this.iconButton(actions, "trash-2", "\u5220\u9664\u60F3\u8BFB", async () => {
       if (!confirm(`\u5220\u9664\u201C${item.title}\u201D\u60F3\u8BFB\u8BB0\u5F55\uFF1F\u4E0D\u4F1A\u5220\u9664\u4EFB\u4F55\u4E66\u7C4D\u6587\u4EF6\u3002`)) return;
@@ -7693,12 +7747,6 @@ var WantToReadSection = class {
   iconButton(container, icon, label, onClick) {
     const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
     (0, import_obsidian21.setIcon)(button, icon);
-    button.addEventListener("click", onClick);
-  }
-  textButton(container, label, icon, onClick) {
-    const button = container.createEl("button", { cls: "cow-section-add-button", attr: { type: "button" } });
-    (0, import_obsidian21.setIcon)(button.createSpan(), icon);
-    button.createSpan({ text: label });
     button.addEventListener("click", onClick);
   }
 };
@@ -9374,12 +9422,13 @@ var CARD_COLORS = [
   { id: "lavender", label: "\u6DE1\u7D2B" }
 ];
 var SectionActionMenu = class {
-  constructor(app, store, section, onRemove, onDataChanged) {
+  constructor(app, store, section, onRemove, onDataChanged, defaultColSpan) {
     this.app = app;
     this.store = store;
     this.section = section;
     this.onRemove = onRemove;
     this.onDataChanged = onDataChanged;
+    this.defaultColSpan = defaultColSpan;
   }
   show(event) {
     const menu = new import_obsidian25.Menu();
@@ -9391,7 +9440,7 @@ var SectionActionMenu = class {
       menu.addItem((item) => item.setTitle("\u7F16\u8F91\u6570\u636E").setIcon("pencil").onClick(() => openManageContentModal(this.app, this.store, this.section, this.onDataChanged)));
     }
     menu.addItem((item) => item.setTitle("\u4FEE\u6539\u6846\u4F53\u989C\u8272").setIcon("palette").onClick(() => new SectionColorModal(this.app, this.store, this.section, this.onDataChanged).open()));
-    menu.addItem((item) => item.setTitle("\u4FEE\u6539\u5BBD\u9AD8").setIcon("maximize-2").onClick(() => new SectionSizeModal(this.app, this.store, this.section, this.onDataChanged).open()));
+    menu.addItem((item) => item.setTitle("\u4FEE\u6539\u5BBD\u9AD8").setIcon("maximize-2").onClick(() => new SectionSizeModal(this.app, this.store, this.section, this.onDataChanged, this.defaultColSpan).open()));
     menu.addSeparator();
     menu.addItem((item) => item.setTitle("\u4E0A\u79FB").setIcon("arrow-up").onClick(() => void this.move("up")));
     menu.addItem((item) => item.setTitle("\u4E0B\u79FB").setIcon("arrow-down").onClick(() => void this.move("down")));
@@ -9461,14 +9510,15 @@ var SectionColorModal = class extends import_obsidian25.Modal {
   }
 };
 var SectionSizeModal = class extends import_obsidian25.Modal {
-  constructor(app, store, section, onDataChanged) {
+  constructor(app, store, section, onDataChanged, defaultColSpan) {
     super(app);
     this.store = store;
     this.section = section;
     this.onDataChanged = onDataChanged;
+    this.defaultColSpan = defaultColSpan;
   }
   onOpen() {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     applyResizableModal(this, {
       className: "cute-section-size-modal",
       width: "min(720px, 92vw)",
@@ -9485,14 +9535,14 @@ var SectionSizeModal = class extends import_obsidian25.Modal {
     const layout = this.store.getModuleLayout(this.section.page);
     const columns = layout.mode === "custom" ? (_a = layout.columns) != null ? _a : 12 : 12;
     const saved = (_b = layout.sections) == null ? void 0 : _b[this.section.id];
-    const defaultWidth = this.defaultWidth();
+    const defaultWidth = (_c = this.defaultColSpan) != null ? _c : this.defaultWidth();
     const form = this.contentEl.createDiv({ cls: "cow-form-grid cow-section-size-form" });
     const widthField = form.createDiv({ cls: "cow-form-row" });
     widthField.createEl("label", { text: `\u5BBD\u5EA6\uFF081-${columns} \u5217\uFF09` });
-    const widthInput = widthField.createEl("input", { type: "number", value: String((_c = saved == null ? void 0 : saved.colSpan) != null ? _c : defaultWidth), attr: { min: "1", max: String(columns), step: "1" } });
+    const widthInput = widthField.createEl("input", { type: "number", value: String((_d = saved == null ? void 0 : saved.colSpan) != null ? _d : defaultWidth), attr: { min: "1", max: String(columns), step: "1" } });
     const heightField = form.createDiv({ cls: "cow-form-row" });
     heightField.createEl("label", { text: "\u9AD8\u5EA6\uFF081-12 \u884C\uFF09" });
-    const heightInput = heightField.createEl("input", { type: "number", value: String((_d = saved == null ? void 0 : saved.rowSpan) != null ? _d : 1), attr: { min: "1", max: "12", step: "1" } });
+    const heightInput = heightField.createEl("input", { type: "number", value: String((_e = saved == null ? void 0 : saved.rowSpan) != null ? _e : 1), attr: { min: "1", max: "12", step: "1" } });
     const presetToggle = this.contentEl.createEl("label", { cls: "cow-section-size-preset-toggle" });
     const savePreset = presetToggle.createEl("input", { type: "checkbox" });
     presetToggle.createSpan({ text: "\u5C06\u8FD9\u7EC4\u5C3A\u5BF8\u4FDD\u5B58\u4E3A\u6807\u51C6" });
@@ -9557,200 +9607,6 @@ var SectionSizeModal = class extends import_obsidian25.Modal {
     return 4;
   }
 };
-
-// src/components/SectionLayoutInteractions.ts
-var LONG_PRESS_DELAY = 420;
-var MOVE_TOLERANCE = 8;
-function attachSectionLayoutInteractions(options) {
-  attachLongPressDrag(options);
-  attachResizeHandle(options);
-}
-function attachLongPressDrag(options) {
-  const { grid, menuButton, sectionEl } = options;
-  let timer;
-  let pointerId;
-  let startX = 0;
-  let startY = 0;
-  let dragging = false;
-  let target;
-  let insertAfter = false;
-  let suppressClick = false;
-  const clearTimer = () => {
-    if (timer !== void 0) {
-      window.clearTimeout(timer);
-      timer = void 0;
-    }
-  };
-  const clearVisuals = () => {
-    sectionEl.removeClass("is-layout-dragging");
-    grid.removeClass("is-section-dragging");
-    target == null ? void 0 : target.removeClass("is-layout-drop-target", "is-layout-drop-after");
-    target = void 0;
-  };
-  const finish = async () => {
-    clearTimer();
-    if (!dragging) return;
-    dragging = false;
-    suppressClick = true;
-    const dropTarget = target;
-    const shouldInsertAfter = insertAfter;
-    clearVisuals();
-    if (!dropTarget || dropTarget === sectionEl) return;
-    const orderedIds = Array.from(grid.querySelectorAll(":scope > .cow-section")).sort((left, right) => {
-      const leftRect = left.getBoundingClientRect();
-      const rightRect = right.getBoundingClientRect();
-      if (Math.abs(leftRect.top - rightRect.top) > 8) return leftRect.top - rightRect.top;
-      return leftRect.left - rightRect.left;
-    }).map((element) => element.dataset.sectionId).filter((id) => Boolean(id));
-    const sourceIndex = orderedIds.indexOf(options.section.id);
-    const targetId = dropTarget.dataset.sectionId;
-    if (sourceIndex < 0 || !targetId) return;
-    orderedIds.splice(sourceIndex, 1);
-    const targetIndex = orderedIds.indexOf(targetId);
-    if (targetIndex < 0) return;
-    orderedIds.splice(targetIndex + (shouldInsertAfter ? 1 : 0), 0, options.section.id);
-    await options.store.reorderSectionLayout(options.page, orderedIds);
-    options.onDataChanged();
-  };
-  const onMove = (event) => {
-    var _a;
-    if (pointerId !== event.pointerId) return;
-    if (!dragging) {
-      if (Math.hypot(event.clientX - startX, event.clientY - startY) > MOVE_TOLERANCE) clearTimer();
-      return;
-    }
-    const next = (_a = document.elementFromPoint(event.clientX, event.clientY)) == null ? void 0 : _a.closest(".cow-section");
-    if (!next || next.parentElement !== grid || next === sectionEl) {
-      target == null ? void 0 : target.removeClass("is-layout-drop-target", "is-layout-drop-after");
-      target = void 0;
-      return;
-    }
-    if (target !== next) {
-      target == null ? void 0 : target.removeClass("is-layout-drop-target", "is-layout-drop-after");
-      target = next;
-      target.addClass("is-layout-drop-target");
-    }
-    insertAfter = event.clientY > next.getBoundingClientRect().top + next.getBoundingClientRect().height / 2;
-    target.toggleClass("is-layout-drop-after", insertAfter);
-  };
-  const onUp = (event) => {
-    if (pointerId !== event.pointerId) return;
-    pointerId = void 0;
-    window.removeEventListener("pointermove", onMove);
-    window.removeEventListener("pointerup", onUp);
-    window.removeEventListener("pointercancel", onCancel);
-    void finish();
-  };
-  const onCancel = (event) => {
-    if (pointerId !== event.pointerId) return;
-    pointerId = void 0;
-    clearTimer();
-    dragging = false;
-    clearVisuals();
-    window.removeEventListener("pointermove", onMove);
-    window.removeEventListener("pointerup", onUp);
-    window.removeEventListener("pointercancel", onCancel);
-  };
-  menuButton.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
-    pointerId = event.pointerId;
-    startX = event.clientX;
-    startY = event.clientY;
-    timer = window.setTimeout(() => {
-      dragging = true;
-      timer = void 0;
-      sectionEl.addClass("is-layout-dragging");
-      grid.addClass("is-section-dragging");
-      menuButton.setAttr("aria-label", `\u6B63\u5728\u62D6\u52A8${options.section.title}`);
-    }, LONG_PRESS_DELAY);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onCancel);
-  });
-  menuButton.addEventListener("click", (event) => {
-    if (!suppressClick) return;
-    suppressClick = false;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-  }, true);
-}
-function attachResizeHandle(options) {
-  const handle = options.sectionEl.createDiv({
-    cls: "cow-section-resize-handle",
-    attr: { role: "button", tabindex: "0", "aria-label": `\u8C03\u6574${options.section.title}\u5927\u5C0F`, title: "\u62D6\u52A8\u8C03\u6574\u5BBD\u9AD8" }
-  });
-  let pointerId;
-  let startX = 0;
-  let startY = 0;
-  let startCol = 1;
-  let startRow = 1;
-  let nextCol = 1;
-  let nextRow = 1;
-  const getSpan = (axis) => {
-    var _a, _b;
-    const layout = options.store.getModuleLayout(options.page);
-    const saved = (_a = layout.sections) == null ? void 0 : _a[options.section.id];
-    if (axis === "row") return (_b = saved == null ? void 0 : saved.rowSpan) != null ? _b : 1;
-    if (saved == null ? void 0 : saved.colSpan) return saved.colSpan;
-    const className = Array.from(options.sectionEl.classList).find((name) => name.startsWith("wb-span-"));
-    return Number(className == null ? void 0 : className.replace("wb-span-", "")) || 4;
-  };
-  const clear = () => {
-    options.sectionEl.removeClass("is-layout-resizing");
-    options.sectionEl.removeAttribute("data-layout-size");
-  };
-  const onMove = (event) => {
-    var _a;
-    if (pointerId !== event.pointerId) return;
-    const layout = options.store.getModuleLayout(options.page);
-    const columns = layout.mode === "custom" ? (_a = layout.columns) != null ? _a : 12 : 12;
-    const styles = window.getComputedStyle(options.grid);
-    const gap = Number.parseFloat(styles.columnGap) || 0;
-    const columnSize = Math.max(1, (options.grid.getBoundingClientRect().width - gap * (columns - 1)) / columns);
-    const rowSize = Math.max(96, options.sectionEl.getBoundingClientRect().height / Math.max(1, startRow));
-    nextCol = Math.max(1, Math.min(columns, startCol + Math.round((event.clientX - startX) / (columnSize + gap))));
-    nextRow = Math.max(1, Math.min(12, startRow + Math.round((event.clientY - startY) / rowSize)));
-    options.sectionEl.style.gridColumn = `span ${nextCol}`;
-    options.sectionEl.style.gridRow = `span ${nextRow}`;
-    options.sectionEl.dataset.layoutSize = `${nextCol} \xD7 ${nextRow}`;
-  };
-  const onUp = (event) => {
-    if (pointerId !== event.pointerId) return;
-    pointerId = void 0;
-    window.removeEventListener("pointermove", onMove);
-    window.removeEventListener("pointerup", onUp);
-    window.removeEventListener("pointercancel", onCancel);
-    clear();
-    void options.store.applySectionSize(options.page, options.section.id, nextCol, nextRow).then(options.onDataChanged);
-  };
-  const onCancel = (event) => {
-    if (pointerId !== event.pointerId) return;
-    pointerId = void 0;
-    window.removeEventListener("pointermove", onMove);
-    window.removeEventListener("pointerup", onUp);
-    window.removeEventListener("pointercancel", onCancel);
-    options.sectionEl.style.removeProperty("grid-column");
-    options.sectionEl.style.removeProperty("grid-row");
-    clear();
-  };
-  handle.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    pointerId = event.pointerId;
-    startX = event.clientX;
-    startY = event.clientY;
-    startCol = getSpan("col");
-    startRow = getSpan("row");
-    nextCol = startCol;
-    nextRow = startRow;
-    options.sectionEl.addClass("is-layout-resizing");
-    options.sectionEl.dataset.layoutSize = `${startCol} \xD7 ${startRow}`;
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onCancel);
-  });
-}
 
 // src/components/overview/HabitStatisticsModal.ts
 var import_obsidian26 = require("obsidian");
@@ -14396,7 +14252,7 @@ var HomeLayoutManagerSection = class {
   }
   renderPreview(container, layout) {
     var _a;
-    const sections = this.getManagedSections();
+    const sections = this.getManagedSections().filter((section) => section.enabled);
     const preview = container.createDiv({ cls: "cow-layout-preview" });
     preview.style.setProperty("--preview-columns", String((_a = layout.columns) != null ? _a : 4));
     sections.forEach((section) => {
@@ -14411,7 +14267,7 @@ var HomeLayoutManagerSection = class {
         attr: { type: "button" }
       });
       tile.style.gridColumn = `span ${this.clamp((_a2 = sectionLayout.colSpan) != null ? _a2 : 1, 1, (_b = layout.columns) != null ? _b : 4)}`;
-      tile.style.gridRow = `span ${this.clamp((_c = sectionLayout.rowSpan) != null ? _c : 1, 1, 3)}`;
+      tile.style.gridRow = `span ${this.clamp((_c = sectionLayout.rowSpan) != null ? _c : 1, 1, 12)}`;
       tile.createEl("strong", { text: section.title });
       tile.createSpan({ text: `${(_d = sectionLayout.colSpan) != null ? _d : 1}\xD7${(_e = sectionLayout.rowSpan) != null ? _e : 1}${section.enabled ? "" : " \xB7 \u5DF2\u9690\u85CF"}` });
       tile.addEventListener("click", () => {
@@ -14513,9 +14369,15 @@ var HomeLayoutManagerSection = class {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
     return {
       order: (_c = (_b = (_a = layout.sections) == null ? void 0 : _a[section.id]) == null ? void 0 : _b.order) != null ? _c : section.order,
-      colSpan: this.clamp((_f = (_e = (_d = layout.sections) == null ? void 0 : _d[section.id]) == null ? void 0 : _e.colSpan) != null ? _f : 1, 1, (_g = layout.columns) != null ? _g : 4),
-      rowSpan: this.clamp((_j = (_i = (_h = layout.sections) == null ? void 0 : _h[section.id]) == null ? void 0 : _i.rowSpan) != null ? _j : 1, 1, 3)
+      colSpan: this.clamp((_f = (_e = (_d = layout.sections) == null ? void 0 : _d[section.id]) == null ? void 0 : _e.colSpan) != null ? _f : this.defaultColSpan(section), 1, (_g = layout.columns) != null ? _g : 4),
+      rowSpan: this.clamp((_j = (_i = (_h = layout.sections) == null ? void 0 : _h[section.id]) == null ? void 0 : _i.rowSpan) != null ? _j : 1, 1, 12)
     };
+  }
+  defaultColSpan(section) {
+    if (section.width === "full") return 12;
+    if (section.width === "lg") return 8;
+    if (section.width === "sm") return 3;
+    return 4;
   }
   clamp(value, min, max) {
     return Math.max(min, Math.min(max, Number(value) || min));
@@ -15830,17 +15692,18 @@ var GoalBreakdownSection = class {
     }
   }
   renderProgressEditor(container, action, hasChildren) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     const row = container.createDiv({ cls: "cow-goal-progress-editor cow-goal-action-progress" });
     const mode = row.createEl("select", { attr: { "aria-label": `${action.title} \u8FDB\u5EA6\u6A21\u5F0F` } });
     mode.createEl("option", { value: "auto", text: "\u81EA\u52A8\u8FDB\u5EA6" });
     mode.createEl("option", { value: "manual", text: "\u624B\u52A8\u8FDB\u5EA6" });
     mode.value = (_a = action.progressMode) != null ? _a : "auto";
-    const range = row.createEl("input", { type: "range", value: String((_b = action.progress) != null ? _b : 0), attr: { min: "0", max: "100", step: "1", "aria-label": `${action.title} \u8FDB\u5EA6` } });
-    const number = row.createEl("input", { type: "number", value: String((_c = action.progress) != null ? _c : 0), attr: { min: "0", max: "100", step: "1", "aria-label": `${action.title} \u8FDB\u5EA6\u767E\u5206\u6BD4` } });
+    const track = row.createDiv({ cls: "cow-goal-display-progress", attr: { role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String((_b = action.progress) != null ? _b : 0), "aria-label": `${action.title} \u8FDB\u5EA6` } });
+    const fill = track.createDiv({ cls: "cow-goal-display-progress-fill" });
+    fill.style.width = `${Math.max(0, Math.min(100, (_c = action.progress) != null ? _c : 0))}%`;
+    const number = row.createEl("input", { type: "number", value: String((_d = action.progress) != null ? _d : 0), attr: { min: "0", max: "100", step: "1", "aria-label": `${action.title} \u8FDB\u5EA6\u767E\u5206\u6BD4` } });
     const updateDisabled = () => {
       const disabled = hasChildren && mode.value !== "manual";
-      range.disabled = disabled;
       number.disabled = disabled;
     };
     updateDisabled();
@@ -15848,8 +15711,6 @@ var GoalBreakdownSection = class {
       await this.store.updateGoalAction(action.id, { progressMode: mode.value });
       this.onDataChanged();
     });
-    range.addEventListener("input", () => number.value = range.value);
-    range.addEventListener("change", () => this.saveProgress(action.id, Number(range.value)));
     number.addEventListener("change", () => this.saveProgress(action.id, Number(number.value)));
   }
   async saveProgress(actionId, value) {
@@ -15956,16 +15817,15 @@ var MonthlyKeyResultsSection = class {
       });
       const body = item.createDiv({ cls: "cow-month-goal-body" });
       body.createSpan({ cls: kr.completed ? "is-complete" : "", text: kr.completed ? `\u2713 ${kr.title}` : kr.title });
-      const progressRow = body.createDiv({ cls: "cow-goal-progress-editor is-compact" });
-      const range = progressRow.createEl("input", { type: "range", value: String(kr.progress), attr: { min: "0", max: "100", step: "1", "aria-label": `${kr.title} \u8FDB\u5EA6` } });
+      const progressRow = body.createDiv({ cls: "cow-goal-progress-editor" });
+      const track = progressRow.createDiv({ cls: "cow-goal-display-progress", attr: { role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(kr.progress), "aria-label": `${kr.title} \u8FDB\u5EA6` } });
+      const fill = track.createDiv({ cls: "cow-goal-display-progress-fill" });
+      fill.style.width = `${Math.max(0, Math.min(100, kr.progress))}%`;
       const number = progressRow.createEl("input", { type: "number", value: String(kr.progress), attr: { min: "0", max: "100", step: "1", "aria-label": `${kr.title} \u8FDB\u5EA6\u767E\u5206\u6BD4` } });
-      progressRow.createSpan({ cls: "cow-pill is-purple", text: "%" });
       const saveProgress = async (value) => {
         await this.store.updateKeyResult(kr.id, { progress: Math.max(0, Math.min(100, value)), completed: value >= 100 });
         this.onDataChanged();
       };
-      range.addEventListener("input", () => number.value = range.value);
-      range.addEventListener("change", () => saveProgress(Number(range.value)));
       number.addEventListener("change", () => saveProgress(Number(number.value)));
       const actions = item.createDiv({ cls: "cow-list-item-actions" });
       const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u7F16\u8F91\u6708\u5EA6\u76EE\u6807" } });
@@ -16069,14 +15929,14 @@ var QuarterlyOkrSection = class {
       });
       row.createDiv({ cls: "cow-meta-line" }).createSpan({ text: `${objective.quarter} \xB7 ${objective.progress}%` });
       const progressRow = row.createDiv({ cls: "cow-goal-progress-editor" });
-      const range = progressRow.createEl("input", { type: "range", value: String(objective.progress), attr: { min: "0", max: "100", step: "1", "aria-label": `${objective.title} \u8FDB\u5EA6` } });
+      const track = progressRow.createDiv({ cls: "cow-goal-display-progress", attr: { role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(objective.progress), "aria-label": `${objective.title} \u8FDB\u5EA6` } });
+      const fill = track.createDiv({ cls: "cow-goal-display-progress-fill" });
+      fill.style.width = `${Math.max(0, Math.min(100, objective.progress))}%`;
       const number = progressRow.createEl("input", { type: "number", value: String(objective.progress), attr: { min: "0", max: "100", step: "1", "aria-label": `${objective.title} \u8FDB\u5EA6\u767E\u5206\u6BD4` } });
       const saveProgress = async (value) => {
         await this.store.updateObjective(objective.id, { progress: Math.max(0, Math.min(100, value)) });
         this.onDataChanged();
       };
-      range.addEventListener("input", () => number.value = range.value);
-      range.addEventListener("change", () => saveProgress(Number(range.value)));
       number.addEventListener("change", () => saveProgress(Number(number.value)));
     });
   }
@@ -16385,11 +16245,9 @@ var YearlyGoalsSection = class {
       meta.createSpan({ cls: "cow-status is-green", text: goal.status });
       meta.createSpan({ text: `${goal.category} \xB7 ${goal.deadline} \xB7 \u62C6\u89E3 ${actions.length} \xB7 \u91CC\u7A0B\u7891 ${milestones.filter((item) => item.status === "completed").length}/${milestones.length}` });
       const progressRow = row.createDiv({ cls: "cow-goal-progress-editor" });
-      const input = progressRow.createEl("input", {
-        type: "range",
-        value: String(goal.progress),
-        attr: { min: "0", max: "100", "aria-label": `${goal.title} \u8FDB\u5EA6` }
-      });
+      const track = progressRow.createDiv({ cls: "cow-goal-display-progress", attr: { role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(goal.progress), "aria-label": `${goal.title} \u8FDB\u5EA6` } });
+      const fill = track.createDiv({ cls: "cow-goal-display-progress-fill" });
+      fill.style.width = `${Math.max(0, Math.min(100, goal.progress))}%`;
       const number = progressRow.createEl("input", {
         type: "number",
         value: String(goal.progress),
@@ -16399,8 +16257,6 @@ var YearlyGoalsSection = class {
         await this.store.updateGoalProgress(goal.id, Math.max(0, Math.min(100, value)));
         this.onDataChanged();
       };
-      input.addEventListener("input", () => number.value = input.value);
-      input.addEventListener("change", () => saveProgress(Number(input.value)));
       number.addEventListener("change", () => saveProgress(Number(number.value)));
     });
   }
@@ -19229,7 +19085,7 @@ var DashboardSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f, _g;
     const cardColor = typeof ((_a = this.section.config) == null ? void 0 : _a.cardColor) === "string" ? this.section.config.cardColor : "default";
     const layoutMeta = this.getLayoutMeta();
     const sectionEl = container.createDiv({
@@ -19238,11 +19094,13 @@ var DashboardSection = class {
     sectionEl.dataset.sectionId = this.section.id;
     const moduleLayout = this.store.getModuleLayout(this.section.page);
     const sectionLayout = (_d = moduleLayout.sections) == null ? void 0 : _d[this.section.id];
-    if (moduleLayout.mode === "custom" && (sectionLayout == null ? void 0 : sectionLayout.colSpan)) {
-      sectionEl.style.gridColumn = `span ${sectionLayout.colSpan}`;
-    }
-    if (moduleLayout.mode === "custom" && (sectionLayout == null ? void 0 : sectionLayout.rowSpan)) {
-      sectionEl.style.gridRow = `span ${sectionLayout.rowSpan}`;
+    if (moduleLayout.mode === "custom") {
+      const columns = (_e = moduleLayout.columns) != null ? _e : 12;
+      const colSpan = Math.max(1, Math.min(columns, (_f = sectionLayout == null ? void 0 : sectionLayout.colSpan) != null ? _f : this.defaultCustomColSpan()));
+      const rowSpan = (_g = sectionLayout == null ? void 0 : sectionLayout.rowSpan) != null ? _g : 1;
+      sectionEl.style.gridColumn = `span ${colSpan}`;
+      sectionEl.style.gridRow = `span ${rowSpan}`;
+      sectionEl.dataset.rowSpan = String(rowSpan);
     }
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
     const title = header.createDiv({ cls: "cow-section-title" });
@@ -19281,19 +19139,10 @@ var DashboardSection = class {
     });
     (0, import_obsidian77.setIcon)(menuButton, "more-horizontal");
     menuButton.addEventListener("click", (event) => {
-      new SectionActionMenu(this.app, this.store, this.section, this.onRemove, this.onDataChanged).show(event);
+      new SectionActionMenu(this.app, this.store, this.section, this.onRemove, this.onDataChanged, layoutMeta.span).show(event);
     });
     const content = sectionEl.createDiv({ cls: "cow-section-content" });
     this.renderContent(content);
-    attachSectionLayoutInteractions({
-      store: this.store,
-      page: this.section.page,
-      section: this.section,
-      grid: container,
-      sectionEl,
-      menuButton,
-      onDataChanged: this.onDataChanged
-    });
   }
   renderFitnessHeaderActions(actions) {
     const addAction = (label, icon, onClick) => {
@@ -19806,6 +19655,12 @@ var DashboardSection = class {
     if (this.section.width === "lg") return { role: "primary", span: 8 };
     if (this.section.width === "sm") return { role: "compact", span: 3 };
     return { role: "secondary", span: 4 };
+  }
+  defaultCustomColSpan() {
+    if (this.section.width === "full") return 12;
+    if (this.section.width === "lg") return 8;
+    if (this.section.width === "sm") return 3;
+    return 4;
   }
   getCheckInModuleId() {
     switch (this.section.type) {
