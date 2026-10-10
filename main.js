@@ -4810,6 +4810,33 @@ var TopNavigation = class {
 // src/components/DashboardSection.ts
 var import_obsidian77 = require("obsidian");
 
+// src/core/SectionLayoutResolver.ts
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, Number(value) || min));
+}
+function defaultColSpan(section) {
+  if (section.width === "full") return 12;
+  if (section.width === "lg") return 8;
+  if (section.width === "sm") return 3;
+  return 4;
+}
+function resolveSectionLayout(section, layout) {
+  var _a, _b, _c, _d;
+  const columns = Math.max(1, Number(layout.columns) || 12);
+  const config = (_a = layout.sections) == null ? void 0 : _a[section.id];
+  const colSpan = clamp((_b = config == null ? void 0 : config.colSpan) != null ? _b : defaultColSpan(section), 1, columns);
+  const rowSpan = clamp((_c = config == null ? void 0 : config.rowSpan) != null ? _c : 1, 1, 12);
+  const order = Number((_d = config == null ? void 0 : config.order) != null ? _d : section.order) || section.order;
+  return {
+    order,
+    colSpan,
+    rowSpan,
+    columns,
+    gridColumn: `span ${colSpan}`,
+    gridRow: `span ${rowSpan}`
+  };
+}
+
 // src/components/SectionActionMenu.ts
 var import_obsidian25 = require("obsidian");
 
@@ -9422,13 +9449,13 @@ var CARD_COLORS = [
   { id: "lavender", label: "\u6DE1\u7D2B" }
 ];
 var SectionActionMenu = class {
-  constructor(app, store, section, onRemove, onDataChanged, defaultColSpan) {
+  constructor(app, store, section, onRemove, onDataChanged, defaultColSpan2) {
     this.app = app;
     this.store = store;
     this.section = section;
     this.onRemove = onRemove;
     this.onDataChanged = onDataChanged;
-    this.defaultColSpan = defaultColSpan;
+    this.defaultColSpan = defaultColSpan2;
   }
   show(event) {
     const menu = new import_obsidian25.Menu();
@@ -9510,12 +9537,12 @@ var SectionColorModal = class extends import_obsidian25.Modal {
   }
 };
 var SectionSizeModal = class extends import_obsidian25.Modal {
-  constructor(app, store, section, onDataChanged, defaultColSpan) {
+  constructor(app, store, section, onDataChanged, defaultColSpan2) {
     super(app);
     this.store = store;
     this.section = section;
     this.onDataChanged = onDataChanged;
-    this.defaultColSpan = defaultColSpan;
+    this.defaultColSpan = defaultColSpan2;
   }
   onOpen() {
     var _a, _b, _c, _d, _e;
@@ -14254,9 +14281,8 @@ var HomeLayoutManagerSection = class {
     var _a;
     const sections = this.getManagedSections().filter((section) => section.enabled);
     const preview = container.createDiv({ cls: "cow-layout-preview" });
-    preview.style.setProperty("--preview-columns", String((_a = layout.columns) != null ? _a : 4));
+    preview.style.setProperty("--preview-columns", String((_a = layout.columns) != null ? _a : 12));
     sections.forEach((section) => {
-      var _a2, _b, _c, _d, _e;
       const sectionLayout = this.getSectionLayout(layout, section);
       const tile = preview.createEl("button", {
         cls: [
@@ -14266,10 +14292,10 @@ var HomeLayoutManagerSection = class {
         ].filter(Boolean).join(" "),
         attr: { type: "button" }
       });
-      tile.style.gridColumn = `span ${this.clamp((_a2 = sectionLayout.colSpan) != null ? _a2 : 1, 1, (_b = layout.columns) != null ? _b : 4)}`;
-      tile.style.gridRow = `span ${this.clamp((_c = sectionLayout.rowSpan) != null ? _c : 1, 1, 12)}`;
+      tile.style.gridColumn = sectionLayout.gridColumn;
+      tile.style.gridRow = sectionLayout.gridRow;
       tile.createEl("strong", { text: section.title });
-      tile.createSpan({ text: `${(_d = sectionLayout.colSpan) != null ? _d : 1}\xD7${(_e = sectionLayout.rowSpan) != null ? _e : 1}${section.enabled ? "" : " \xB7 \u5DF2\u9690\u85CF"}` });
+      tile.createSpan({ text: `${sectionLayout.colSpan}\xD7${sectionLayout.rowSpan}${section.enabled ? "" : " \xB7 \u5DF2\u9690\u85CF"}` });
       tile.addEventListener("click", () => {
         this.selectedSectionId = section.id;
         this.rerender();
@@ -14366,18 +14392,7 @@ var HomeLayoutManagerSection = class {
     return this.store.getAllSections().filter((section) => section.page === this.selectedPage).sort((left, right) => this.getSectionLayout(layout, left).order - this.getSectionLayout(layout, right).order);
   }
   getSectionLayout(layout, section) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
-    return {
-      order: (_c = (_b = (_a = layout.sections) == null ? void 0 : _a[section.id]) == null ? void 0 : _b.order) != null ? _c : section.order,
-      colSpan: this.clamp((_f = (_e = (_d = layout.sections) == null ? void 0 : _d[section.id]) == null ? void 0 : _e.colSpan) != null ? _f : this.defaultColSpan(section), 1, (_g = layout.columns) != null ? _g : 4),
-      rowSpan: this.clamp((_j = (_i = (_h = layout.sections) == null ? void 0 : _h[section.id]) == null ? void 0 : _i.rowSpan) != null ? _j : 1, 1, 12)
-    };
-  }
-  defaultColSpan(section) {
-    if (section.width === "full") return 12;
-    if (section.width === "lg") return 8;
-    if (section.width === "sm") return 3;
-    return 4;
+    return resolveSectionLayout(section, layout);
   }
   clamp(value, min, max) {
     return Math.max(min, Math.min(max, Number(value) || min));
@@ -19085,7 +19100,7 @@ var DashboardSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c;
     const cardColor = typeof ((_a = this.section.config) == null ? void 0 : _a.cardColor) === "string" ? this.section.config.cardColor : "default";
     const layoutMeta = this.getLayoutMeta();
     const sectionEl = container.createDiv({
@@ -19093,14 +19108,11 @@ var DashboardSection = class {
     });
     sectionEl.dataset.sectionId = this.section.id;
     const moduleLayout = this.store.getModuleLayout(this.section.page);
-    const sectionLayout = (_d = moduleLayout.sections) == null ? void 0 : _d[this.section.id];
     if (moduleLayout.mode === "custom") {
-      const columns = (_e = moduleLayout.columns) != null ? _e : 12;
-      const colSpan = Math.max(1, Math.min(columns, (_f = sectionLayout == null ? void 0 : sectionLayout.colSpan) != null ? _f : this.defaultCustomColSpan()));
-      const rowSpan = (_g = sectionLayout == null ? void 0 : sectionLayout.rowSpan) != null ? _g : 1;
-      sectionEl.style.gridColumn = `span ${colSpan}`;
-      sectionEl.style.gridRow = `span ${rowSpan}`;
-      sectionEl.dataset.rowSpan = String(rowSpan);
+      const layout = resolveSectionLayout(this.section, moduleLayout);
+      sectionEl.style.gridColumn = layout.gridColumn;
+      sectionEl.style.gridRow = layout.gridRow;
+      sectionEl.dataset.rowSpan = String(layout.rowSpan);
     }
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
     const title = header.createDiv({ cls: "cow-section-title" });
@@ -19655,12 +19667,6 @@ var DashboardSection = class {
     if (this.section.width === "lg") return { role: "primary", span: 8 };
     if (this.section.width === "sm") return { role: "compact", span: 3 };
     return { role: "secondary", span: 4 };
-  }
-  defaultCustomColSpan() {
-    if (this.section.width === "full") return 12;
-    if (this.section.width === "lg") return 8;
-    if (this.section.width === "sm") return 3;
-    return 4;
   }
   getCheckInModuleId() {
     switch (this.section.type) {
@@ -20568,21 +20574,25 @@ var WorkbenchView = class extends import_obsidian85.ItemView {
     this.render();
   }
   async onClose() {
-    var _a;
+    var _a, _b;
     if (this.dateWatcher) {
       window.clearInterval(this.dateWatcher);
       this.dateWatcher = void 0;
     }
-    (_a = this.sidebar) == null ? void 0 : _a.destroy();
+    (_a = this.sectionHeightObserver) == null ? void 0 : _a.disconnect();
+    this.sectionHeightObserver = void 0;
+    (_b = this.sidebar) == null ? void 0 : _b.destroy();
     this.eventBus.clear();
   }
   render() {
-    var _a;
+    var _a, _b;
     const container = this.containerEl.children[1];
+    (_a = this.sectionHeightObserver) == null ? void 0 : _a.disconnect();
+    this.sectionHeightObserver = void 0;
     container.empty();
     container.addClass("cute-obsidian-workbench");
     this.applyTheme(container);
-    (_a = this.sidebar) == null ? void 0 : _a.destroy();
+    (_b = this.sidebar) == null ? void 0 : _b.destroy();
     const shell = container.createDiv({ cls: "cow-shell" });
     this.sidebar = new Sidebar(this.app, this.router.getCurrentPage(), [
       { label: "\u5DE5\u4F5C\u53F0", icon: "home", onClick: () => this.router.navigate("overview") },
@@ -20606,6 +20616,17 @@ var WorkbenchView = class extends import_obsidian85.ItemView {
     const pageHost = main.createDiv({ cls: "cow-page-host" });
     this.pageHost = pageHost;
     this.renderPage(pageHost, this.router.getCurrentPage());
+    this.observeSectionHeight(container, pageHost);
+  }
+  observeSectionHeight(root, pageHost) {
+    const update = () => {
+      const visibleHeight = Math.max(1, pageHost.clientHeight);
+      root.style.setProperty("--wb-section-max-height", `${Math.floor(visibleHeight * 2 / 3)}px`);
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    this.sectionHeightObserver = new ResizeObserver(update);
+    this.sectionHeightObserver.observe(pageHost);
   }
   renderPage(container, page) {
     const refresh = () => this.renderPreservingScroll();

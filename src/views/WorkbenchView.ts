@@ -34,6 +34,7 @@ export class WorkbenchView extends ItemView {
   private readonly router: DashboardRouter;
   private sidebar?: Sidebar;
   private pageHost?: HTMLElement;
+  private sectionHeightObserver?: ResizeObserver;
   private dateWatcher?: number;
   private lastDateKey = this.getDateKey(new Date());
 
@@ -71,12 +72,16 @@ export class WorkbenchView extends ItemView {
       window.clearInterval(this.dateWatcher);
       this.dateWatcher = undefined;
     }
+    this.sectionHeightObserver?.disconnect();
+    this.sectionHeightObserver = undefined;
     this.sidebar?.destroy();
     this.eventBus.clear();
   }
 
   private render(): void {
     const container = this.containerEl.children[1] as HTMLElement;
+    this.sectionHeightObserver?.disconnect();
+    this.sectionHeightObserver = undefined;
     container.empty();
     container.addClass("cute-obsidian-workbench");
     this.applyTheme(container);
@@ -108,6 +113,18 @@ export class WorkbenchView extends ItemView {
     const pageHost = main.createDiv({ cls: "cow-page-host" });
     this.pageHost = pageHost;
     this.renderPage(pageHost, this.router.getCurrentPage());
+    this.observeSectionHeight(container, pageHost);
+  }
+
+  private observeSectionHeight(root: HTMLElement, pageHost: HTMLElement): void {
+    const update = () => {
+      const visibleHeight = Math.max(1, pageHost.clientHeight);
+      root.style.setProperty("--wb-section-max-height", `${Math.floor(visibleHeight * 2 / 3)}px`);
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    this.sectionHeightObserver = new ResizeObserver(update);
+    this.sectionHeightObserver.observe(pageHost);
   }
 
   private renderPage(container: HTMLElement, page: DashboardPage): void {

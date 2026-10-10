@@ -943,19 +943,19 @@
 }
 
 .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-custom {
-  grid-template-columns: repeat(var(--layout-columns, 4), minmax(0, 1fr));
+  grid-template-columns: repeat(var(--layout-columns, 12), minmax(0, 1fr));
 }
 
-/* Custom spans need a stable row baseline; content still expands individual tracks when necessary. */
+/* Custom spans control placement only; Section height remains content-driven. */
 .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-custom {
-  --cow-custom-row-size: 160px;
-  grid-auto-rows: minmax(var(--cow-custom-row-size), auto);
+  grid-auto-rows: auto;
 }
 
 .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-custom > .cow-section[data-row-span] {
-  align-self: stretch;
-  height: 100%;
-  max-height: none;
+  align-self: start;
+  height: auto;
+  min-height: 0;
+  max-height: var(--wb-section-max-height, 66.6667vh);
 }
 
 .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-custom > .cow-section[data-row-span] .cow-section-content {
@@ -1410,7 +1410,7 @@
     padding: var(--wb-space-2);
   }
 
-  .cow-dashboard-grid {
+  .cow-dashboard-grid:not(.cow-module-layout-custom) {
     --layout-columns: 8;
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
@@ -1458,14 +1458,14 @@
     overflow-x: hidden;
   }
 
-  .cute-obsidian-workbench .cow-dashboard-grid,
-  .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact,
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom),
+  .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom),
   .cute-obsidian-workbench .cow-tasks-top-grid,
   .cute-obsidian-workbench .cow-tasks-bottom-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .cute-obsidian-workbench .cow-dashboard-grid > .cow-section,
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom) > .cow-section,
   .cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel,
   .cute-obsidian-workbench .cow-tasks-bottom-grid > .cow-task-panel {
     grid-column: 1 / -1 !important;
@@ -1575,7 +1575,7 @@
 .cute-obsidian-workbench .cow-section {
   display: flex;
   flex-direction: column;
-  max-height: 75vh;
+  max-height: var(--wb-section-max-height, 66.6667vh);
 }
 
 .cute-obsidian-workbench .cow-section.wb-layout-compact,
@@ -1621,8 +1621,8 @@
 
 /* Pane width, not app-window width, determines when 12 columns must collapse. */
 @container cow-page (max-width: 1260px) {
-  .cow-dashboard-grid,
-  .cow-dashboard-grid.cow-module-layout-compact {
+  .cow-dashboard-grid:not(.cow-module-layout-custom),
+  .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom) {
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: var(--wb-space-3);
   }
@@ -1635,29 +1635,21 @@
     grid-column: 1 / -1;
   }
 
-  .cow-dashboard-grid.cow-module-layout-custom > .cow-section[style*="span 7"],
-  .cow-dashboard-grid.cow-module-layout-custom > .cow-section[style*="span 8"],
-  .cow-dashboard-grid.cow-module-layout-custom > .cow-section[style*="span 9"],
-  .cow-dashboard-grid.cow-module-layout-custom > .cow-section[style*="span 10"],
-  .cow-dashboard-grid.cow-module-layout-custom > .cow-section[style*="span 11"],
-  .cow-dashboard-grid.cow-module-layout-custom > .cow-section[style*="span 12"] {
-    grid-column: 1 / -1 !important;
-  }
 }
 
 @container cow-page (max-width: 720px) {
-  .cow-dashboard-grid,
-  .cow-dashboard-grid.cow-module-layout-compact,
-  .cow-dashboard-grid.cow-module-layout-minimal {
+  .cow-dashboard-grid:not(.cow-module-layout-custom),
+  .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom),
+  .cow-dashboard-grid.cow-module-layout-minimal:not(.cow-module-layout-custom) {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--wb-space-3);
   }
 
-  .cow-dashboard-grid > .cow-section {
+  .cow-dashboard-grid:not(.cow-module-layout-custom) > .cow-section {
     grid-column: 1 / -1 !important;
     grid-row: auto !important;
     min-inline-size: 0;
-    max-height: var(--wb-section-max-height, 480px);
+    max-height: var(--wb-section-max-height, 66.6667vh);
   }
 
   .cow-section-header {
@@ -1682,7 +1674,8 @@
   .cow-section-type-checkin-streak
 ) {
   order: 5;
-  align-self: stretch;
+  align-self: start;
+  height: auto;
   min-height: 144px;
 }
 
@@ -1767,7 +1760,7 @@
 
 /* Long collections scroll in their body; short collections remain content-sized. */
 .cute-obsidian-workbench .cow-section {
-  max-height: 75vh;
+  max-height: var(--wb-section-max-height, 66.6667vh);
 }
 
 .cute-obsidian-workbench .cow-section-content {

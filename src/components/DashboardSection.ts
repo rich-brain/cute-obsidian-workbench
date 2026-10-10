@@ -1,6 +1,7 @@
 import { App, Modal, setIcon } from "obsidian";
 import type { DashboardStore } from "../core/DashboardStore";
 import type { DashboardSectionConfig } from "../types/dashboard";
+import { resolveSectionLayout } from "../core/SectionLayoutResolver";
 import { SectionActionMenu } from "./SectionActionMenu";
 import { getSectionCapabilities } from "../core/SectionCapabilities";
 import { openAddContentModal } from "./SectionContentActions";
@@ -179,14 +180,11 @@ export class DashboardSection {
     });
     sectionEl.dataset.sectionId = this.section.id;
     const moduleLayout = this.store.getModuleLayout(this.section.page);
-    const sectionLayout = moduleLayout.sections?.[this.section.id];
     if (moduleLayout.mode === "custom") {
-      const columns = moduleLayout.columns ?? 12;
-      const colSpan = Math.max(1, Math.min(columns, sectionLayout?.colSpan ?? this.defaultCustomColSpan()));
-      const rowSpan = sectionLayout?.rowSpan ?? 1;
-      sectionEl.style.gridColumn = `span ${colSpan}`;
-      sectionEl.style.gridRow = `span ${rowSpan}`;
-      sectionEl.dataset.rowSpan = String(rowSpan);
+      const layout = resolveSectionLayout(this.section, moduleLayout);
+      sectionEl.style.gridColumn = layout.gridColumn;
+      sectionEl.style.gridRow = layout.gridRow;
+      sectionEl.dataset.rowSpan = String(layout.rowSpan);
     }
 
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
@@ -761,13 +759,6 @@ export class DashboardSection {
     if (this.section.width === "lg") return { role: "primary", span: 8 };
     if (this.section.width === "sm") return { role: "compact", span: 3 };
     return { role: "secondary", span: 4 };
-  }
-
-  private defaultCustomColSpan(): number {
-    if (this.section.width === "full") return 12;
-    if (this.section.width === "lg") return 8;
-    if (this.section.width === "sm") return 3;
-    return 4;
   }
 
   private getCheckInModuleId(): DashboardSectionConfig["page"] | undefined {
