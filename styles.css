@@ -8800,7 +8800,7 @@ button.cow-daily-focus-title:hover {
 }
 
 .cute-obsidian-workbench .cow-month-goal-body {
-  gap: 5px;
+  gap: var(--wb-space-2);
 }
 
 .cute-obsidian-workbench .cow-goal-action-row {
@@ -9028,7 +9028,7 @@ button.cow-daily-focus-title:hover {
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: var(--wb-space-2);
   min-width: 0;
 }
 
@@ -9265,6 +9265,61 @@ button.cow-daily-focus-title:hover {
 .cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(1) { grid-area: today; }
 .cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(2) { grid-area: inbox; }
 .cute-obsidian-workbench .cow-tasks-top-grid > .cow-task-panel:nth-child(3) { grid-area: stats; }
+
+/* 0.9.3: align page hierarchy and medium-pane spans with the shared rhythm. */
+.cute-obsidian-workbench .cow-module-page {
+  gap: var(--wb-space-6);
+  align-content: start;
+}
+
+.cute-obsidian-workbench .cow-page-heading {
+  margin: 0;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid {
+  gap: var(--wb-space-4);
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact {
+  gap: var(--wb-space-3);
+}
+
+@container cow-page (max-width: 1260px) {
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-3,
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-4,
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-5,
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-6 {
+    grid-column: span 3 !important;
+  }
+
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-7,
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-8,
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-9,
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-12,
+  .cute-obsidian-workbench .cow-dashboard-grid:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > :where(.wb-layout-primary, .wb-layout-visual, .wb-layout-wide) {
+    grid-column: 1 / -1 !important;
+  }
+
+  .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-3,
+  .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-4,
+  .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-5 {
+    grid-column: span 2 !important;
+  }
+
+  .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-6,
+  .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-7 {
+    grid-column: span 3 !important;
+  }
+
+  .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-8,
+  .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-9 {
+    grid-column: span 4 !important;
+  }
+
+  .cute-obsidian-workbench .cow-dashboard-grid.cow-module-layout-compact:not(.cow-module-layout-custom):not(.cow-module-layout-minimal) > .wb-span-12 {
+    grid-column: 1 / -1 !important;
+  }
+}
 
 /* 0.9.1-L3: shared modal layout system. Modal kinds are applied by ResizableModal. */
 .modal.cow-modal-layout {
