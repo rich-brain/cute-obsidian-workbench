@@ -7553,43 +7553,23 @@ var ReadingTagManagerSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    const list = container.createDiv({ cls: "cow-paper-field-list cow-book-tag-manager-list" });
+    const shell = container.createDiv({ cls: "cow-paper-field-summary" });
+    const group = shell.createDiv({ cls: "cow-paper-field-group" });
+    group.createEl("strong", { text: "\u5F53\u524D\u6807\u7B7E" });
+    const chips = group.createDiv({ cls: "cow-paper-tags" });
     const tags = this.store.getBookTags().sort((a, b) => {
       var _a, _b;
       return ((_a = a.order) != null ? _a : 0) - ((_b = b.order) != null ? _b : 0);
     });
     if (tags.length === 0) {
-      list.createDiv({ cls: "cow-empty-state", text: "\u6682\u65E0\u9605\u8BFB\u6807\u7B7E\u3002" });
+      chips.createSpan({ cls: "cow-meta-line", text: "\u6682\u65E0\u9605\u8BFB\u6807\u7B7E" });
     } else {
-      tags.forEach((tag) => this.renderTag(list, tag));
+      tags.forEach((tag) => chips.createSpan({ text: tag.name, attr: { style: `--paper-color: ${tag.color}` } }));
     }
-    const add = container.createEl("button", { cls: "cow-bottom-add", attr: { type: "button" } });
-    (0, import_obsidian20.setIcon)(add.createSpan(), "plus");
-    add.createSpan({ text: "\u7BA1\u7406\u9605\u8BFB\u6807\u7B7E" });
-    add.addEventListener("click", () => new BookTagManagerModal(this.app, this.store, this.onDataChanged).open());
-  }
-  renderTag(container, tag) {
-    const card = container.createDiv({ cls: "cow-paper-field-row cow-book-tag-manager-card" });
-    card.createSpan({ cls: "cow-paper-color-dot", attr: { style: `background: ${tag.color}` } });
-    const label = card.createDiv({ cls: "cow-paper-body" });
-    label.createEl("strong", { text: tag.name });
-    const actions = card.createDiv({ cls: "cow-list-item-actions" });
-    this.iconButton(actions, "pencil", "\u7F16\u8F91\u6807\u7B7E", () => openBookTagModal(this.app, this.store, this.onDataChanged, tag));
-    this.iconButton(actions, "trash-2", "\u5220\u9664\u6807\u7B7E", async () => {
-      if (!confirm(`\u5220\u9664\u201C${tag.name}\u201D\u6807\u7B7E\uFF1F\u4F1A\u4ECE\u6240\u6709\u4E66\u7C4D\u4E2D\u79FB\u9664\u8BE5\u6807\u7B7E\uFF0C\u4F46\u4E0D\u4F1A\u5220\u9664\u4E66\u7C4D\u3002`)) return;
-      await this.store.deleteBookTag(tag.id);
-      this.onDataChanged();
-    });
-    const count = this.store.getBooks().filter((book) => {
-      var _a;
-      return ((_a = book.tagIds) != null ? _a : []).includes(tag.id);
-    }).length;
-    label.createSpan({ cls: "cow-meta-line", text: `${count} \u672C\u4E66\u4F7F\u7528` });
-  }
-  iconButton(container, icon, label, onClick) {
-    const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
-    (0, import_obsidian20.setIcon)(button, icon);
-    button.addEventListener("click", onClick);
+    const edit = shell.createEl("button", { cls: "cow-bottom-add", attr: { type: "button" } });
+    (0, import_obsidian20.setIcon)(edit.createSpan(), "pencil");
+    edit.createSpan({ text: "\u7F16\u8F91\u6807\u7B7E" });
+    edit.addEventListener("click", () => new BookTagManagerModal(this.app, this.store, this.onDataChanged).open());
   }
 };
 function openBookTagModal(app, store, onDataChanged, tag) {
@@ -16240,16 +16220,17 @@ var YearlyGoalsSection = class {
     const today6 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
     this.store.getGoals().filter((goal) => this.store.shouldShowActiveGoal(goal, today6) && ((goal.deadline || "").startsWith(String(currentYear)) || (goal.startDate || "").startsWith(String(currentYear)))).forEach((goal) => {
-      const actions = this.store.getGoalActionsForGoal(goal.id);
-      const milestones = actions.filter((action) => action.isMilestone);
+      const goalActions = this.store.getGoalActionsForGoal(goal.id);
+      const milestones = goalActions.filter((action) => action.isMilestone);
       const completed = goal.status === "\u5DF2\u5B8C\u6210";
       const row = list.createDiv({ cls: `cow-data-card cow-goal-list-card ${completed ? "is-complete" : ""}` });
-      const title = row.createDiv({ cls: "cow-inline-title" });
+      const title = row.createDiv({ cls: "cow-list-item-head cow-goal-card-header" });
       title.createEl("strong", { text: completed ? `\u2713 ${goal.title}` : goal.title });
-      const edit = title.createEl("button", { attr: { type: "button", "aria-label": "\u4FEE\u6539\u76EE\u6807" } });
+      const actions = title.createDiv({ cls: "cow-list-item-actions" });
+      const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "\u4FEE\u6539\u76EE\u6807" } });
       (0, import_obsidian58.setIcon)(edit, "pencil");
       edit.addEventListener("click", () => openAnnualGoalModal(this.app, this.store, this.onDataChanged, goal));
-      const remove = title.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u76EE\u6807" } });
+      const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "\u5220\u9664\u76EE\u6807" } });
       (0, import_obsidian58.setIcon)(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteGoal(goal.id);
@@ -16258,7 +16239,7 @@ var YearlyGoalsSection = class {
       row.createEl("p", { text: goal.description });
       const meta = row.createDiv({ cls: "cow-meta-line" });
       meta.createSpan({ cls: "cow-status is-green", text: goal.status });
-      meta.createSpan({ text: `${goal.category} \xB7 ${goal.deadline} \xB7 \u62C6\u89E3 ${actions.length} \xB7 \u91CC\u7A0B\u7891 ${milestones.filter((item) => item.status === "completed").length}/${milestones.length}` });
+      meta.createSpan({ text: `${goal.category} \xB7 ${goal.deadline} \xB7 \u62C6\u89E3 ${goalActions.length} \xB7 \u91CC\u7A0B\u7891 ${milestones.filter((item) => item.status === "completed").length}/${milestones.length}` });
       const progressRow = row.createDiv({ cls: "cow-goal-progress-editor" });
       const track = progressRow.createDiv({ cls: "cow-goal-display-progress", attr: { role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(goal.progress), "aria-label": `${goal.title} \u8FDB\u5EA6` } });
       const fill = track.createDiv({ cls: "cow-goal-display-progress-fill" });

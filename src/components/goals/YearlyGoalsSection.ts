@@ -14,16 +14,17 @@ export class YearlyGoalsSection {
     const today = new Date().toISOString().slice(0, 10);
     const currentYear = new Date().getFullYear();
     this.store.getGoals().filter((goal) => this.store.shouldShowActiveGoal(goal, today) && ((goal.deadline || "").startsWith(String(currentYear)) || (goal.startDate || "").startsWith(String(currentYear)))).forEach((goal) => {
-      const actions = this.store.getGoalActionsForGoal(goal.id);
-      const milestones = actions.filter((action) => action.isMilestone);
+      const goalActions = this.store.getGoalActionsForGoal(goal.id);
+      const milestones = goalActions.filter((action) => action.isMilestone);
       const completed = goal.status === "已完成";
       const row = list.createDiv({ cls: `cow-data-card cow-goal-list-card ${completed ? "is-complete" : ""}` });
-      const title = row.createDiv({ cls: "cow-inline-title" });
+      const title = row.createDiv({ cls: "cow-list-item-head cow-goal-card-header" });
       title.createEl("strong", { text: completed ? `✓ ${goal.title}` : goal.title });
-      const edit = title.createEl("button", { attr: { type: "button", "aria-label": "修改目标" } });
+      const actions = title.createDiv({ cls: "cow-list-item-actions" });
+      const edit = actions.createEl("button", { attr: { type: "button", "aria-label": "修改目标" } });
       setIcon(edit, "pencil");
       edit.addEventListener("click", () => openAnnualGoalModal(this.app, this.store, this.onDataChanged, goal));
-      const remove = title.createEl("button", { attr: { type: "button", "aria-label": "删除目标" } });
+      const remove = actions.createEl("button", { attr: { type: "button", "aria-label": "删除目标" } });
       setIcon(remove, "trash-2");
       remove.addEventListener("click", async () => {
         await this.store.deleteGoal(goal.id);
@@ -32,7 +33,7 @@ export class YearlyGoalsSection {
       row.createEl("p", { text: goal.description });
       const meta = row.createDiv({ cls: "cow-meta-line" });
       meta.createSpan({ cls: "cow-status is-green", text: goal.status });
-      meta.createSpan({ text: `${goal.category} · ${goal.deadline} · 拆解 ${actions.length} · 里程碑 ${milestones.filter((item) => item.status === "completed").length}/${milestones.length}` });
+      meta.createSpan({ text: `${goal.category} · ${goal.deadline} · 拆解 ${goalActions.length} · 里程碑 ${milestones.filter((item) => item.status === "completed").length}/${milestones.length}` });
       const progressRow = row.createDiv({ cls: "cow-goal-progress-editor" });
       const track = progressRow.createDiv({ cls: "cow-goal-display-progress", attr: { role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(goal.progress), "aria-label": `${goal.title} 进度` } });
       const fill = track.createDiv({ cls: "cow-goal-display-progress-fill" });
