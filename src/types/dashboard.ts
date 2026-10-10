@@ -39,11 +39,20 @@ export interface SectionLayoutConfig {
   rowSpan?: number;
 }
 
+export interface SectionSizePreset {
+  id: string;
+  name: string;
+  colSpan: number;
+  rowSpan: number;
+  createdAt: string;
+}
+
 export interface ModuleLayoutConfig {
   mode: ModuleLayoutMode;
   columns?: number;
   templateId?: string;
   sections?: Record<string, SectionLayoutConfig>;
+  sizePresets?: SectionSizePreset[];
 }
 
 export interface WorkbenchSettings {

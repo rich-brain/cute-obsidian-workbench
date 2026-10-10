@@ -2,6 +2,7 @@ import { App, Modal, setIcon } from "obsidian";
 import type { DashboardStore } from "../core/DashboardStore";
 import type { DashboardSectionConfig } from "../types/dashboard";
 import { SectionActionMenu } from "./SectionActionMenu";
+import { attachSectionLayoutInteractions } from "./SectionLayoutInteractions";
 import { getSectionCapabilities } from "../core/SectionCapabilities";
 import { openAddContentModal } from "./SectionContentActions";
 import { HabitStatisticsModal } from "./overview/HabitStatisticsModal";
@@ -177,6 +178,7 @@ export class DashboardSection {
     const sectionEl = container.createDiv({
       cls: `cow-section cow-section-${this.section.width ?? "md"} cow-section-height-${this.section.height ?? "sm"} cow-section-type-${this.section.type} wb-layout-${layoutMeta.role} wb-span-${layoutMeta.span} cow-card-color-${cardColor}`
     });
+    sectionEl.dataset.sectionId = this.section.id;
     const moduleLayout = this.store.getModuleLayout(this.section.page);
     const sectionLayout = moduleLayout.sections?.[this.section.id];
     if (moduleLayout.mode === "custom" && sectionLayout?.colSpan) {
@@ -230,6 +232,15 @@ export class DashboardSection {
 
     const content = sectionEl.createDiv({ cls: "cow-section-content" });
     this.renderContent(content);
+    attachSectionLayoutInteractions({
+      store: this.store,
+      page: this.section.page,
+      section: this.section,
+      grid: container,
+      sectionEl,
+      menuButton,
+      onDataChanged: this.onDataChanged
+    });
   }
 
   private renderFitnessHeaderActions(actions: HTMLElement): void {

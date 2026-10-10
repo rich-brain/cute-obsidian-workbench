@@ -61,28 +61,29 @@ export class FocusStatSection {
     const state = this.store.getFocusState();
     const root = container.createDiv({ cls: "cow-focus-summary-card" });
 
-    const header = root.createDiv({ cls: "cow-focus-summary-header" });
-    const art = header.createDiv({ cls: "cow-stat-art is-blue" });
+    const body = root.createDiv({ cls: "cow-focus-summary-body" });
+    const iconArea = body.createDiv({ cls: "cow-focus-summary-icon-area" });
+    const art = iconArea.createDiv({ cls: "cow-stat-art is-blue" });
     setIcon(art.createSpan(), "headphones");
-    header.createEl("strong", { cls: "cow-focus-summary-label", text: "今日专注" });
+    const content = body.createDiv({ cls: "cow-focus-summary-content" });
 
-    const main = root.createDiv({ cls: "cow-focus-summary-main" });
+    const main = content.createDiv({ cls: "cow-focus-summary-main" });
     main.createEl("strong", { cls: "cow-focus-summary-value", text: String(stats.todayMinutes) });
     main.createSpan({ cls: "cow-focus-summary-unit", text: "min" });
 
-    root.createDiv({
+    content.createDiv({
       cls: "cow-focus-summary-meta",
       text: `今日 ${stats.todayPomodoros} 个番茄 · 本周 ${this.formatMinutes(stats.weekMinutes)}`
     });
 
     if (state.isRunning) {
-      root.createDiv({
+      content.createDiv({
         cls: "cow-focus-summary-status",
         text: `专注中${state.currentTask ? `：${state.currentTask}` : ""}`
       });
     }
 
-    const actions = root.createDiv({ cls: "cow-focus-summary-actions" });
+    const actions = content.createDiv({ cls: "cow-focus-summary-actions" });
     const primary = actions.createEl("button", { cls: "mod-cta", attr: { type: "button" } });
     setIcon(primary.createSpan(), state.isRunning ? "maximize-2" : "play");
     primary.createSpan({ text: state.isRunning ? "返回专注" : "开始专注" });

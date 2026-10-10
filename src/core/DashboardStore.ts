@@ -50,6 +50,7 @@ import type {
   Risk,
   SavingGoal,
   SectionLayoutConfig,
+  SectionSizePreset,
   Task,
   TaskPriority,
   TaskProject,
@@ -1191,7 +1192,39 @@ export class DashboardStore {
     await this.save();
   }
 
+  async applySectionSize(page: DashboardPage, sectionId: string, colSpan: number, rowSpan: number): Promise<void> {
+    await this.ensureCustomModuleLayout(page);
+    await this.updateSectionLayout(page, sectionId, { colSpan, rowSpan });
+  }
+
+  async reorderSectionLayout(page: DashboardPage, orderedIds: string[]): Promise<void> {
+    await this.ensureCustomModuleLayout(page);
+    await this.reorderSections(page, orderedIds);
+  }
+
+  getSectionSizePresets(page: DashboardPage): SectionSizePreset[] {
+    return [...(this.getModuleLayout(page).sizePresets ?? [])];
+  }
+
+  async saveSectionSizePreset(page: DashboardPage, preset: Omit<SectionSizePreset, "id" | "createdAt">): Promise<void> {
+    const layout = this.getModuleLayout(page);
+    const columns = layout.mode === "custom" ? layout.columns ?? 12 : 12;
+    const nextPreset: SectionSizePreset = {
+      id: `size-${Date.now()}`,
+      name: preset.name.trim(),
+      colSpan: Math.max(1, Math.min(columns, Math.round(preset.colSpan))),
+      rowSpan: Math.max(1, Math.min(12, Math.round(preset.rowSpan))),
+      createdAt: new Date().toISOString()
+    };
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({
+      ...layout,
+      sizePresets: [...(layout.sizePresets ?? []), nextPreset]
+    });
+    await this.save();
+  }
+
   async moveSectionLayout(page: DashboardPage, sectionId: string, direction: "up" | "down"): Promise<void> {
+    await this.ensureCustomModuleLayout(page);
     const layout = this.data.moduleLayouts[page];
     const pageSections = this.data.sections
       .filter((section) => section.page === page)
@@ -4639,12 +4672,54 @@ export class DashboardStore {
         rowSpan: sectionLayout.rowSpan === undefined ? undefined : Math.max(1, Math.min(12, Number(sectionLayout.rowSpan) || 1))
       };
     });
+    const sizePresets = (layout?.sizePresets ?? [])
+      .filter((preset): preset is SectionSizePreset => Boolean(preset && typeof preset.name === "string" && preset.name.trim()))
+      .map((preset) => ({
+        id: typeof preset.id === "string" && preset.id ? preset.id : `size-${Date.now()}`,
+        name: preset.name.trim().slice(0, 48),
+        colSpan: Math.max(1, Math.min(columns, Number(preset.colSpan) || 1)),
+        rowSpan: Math.max(1, Math.min(12, Number(preset.rowSpan) || 1)),
+        createdAt: typeof preset.createdAt === "string" ? preset.createdAt : new Date().toISOString()
+      }));
     return {
       mode,
       columns,
       templateId: typeof layout?.templateId === "string" ? layout.templateId : undefined,
-      sections
+      sections,
+      sizePresets
     };
+  }
+
+  private async ensureCustomModuleLayout(page: DashboardPage): Promise<void> {
+    const current = this.getModuleLayout(page);
+    if (current.mode === "custom") return;
+
+    const sections: NonNullable<ModuleLayoutConfig["sections"]> = {};
+    this.data.sections
+      .filter((section) => section.page === page)
+      .forEach((section) => {
+        const saved = current.sections?.[section.id];
+        sections[section.id] = {
+          order: saved?.order ?? section.order,
+          colSpan: saved?.colSpan ?? this.defaultColSpan(section),
+          rowSpan: saved?.rowSpan ?? 1
+        };
+      });
+
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({
+      ...current,
+      mode: "custom",
+      columns: 12,
+      sections
+    });
+    await this.save();
+  }
+
+  private defaultColSpan(section: DashboardSectionConfig): number {
+    if (section.width === "full") return 12;
+    if (section.width === "lg") return 8;
+    if (section.width === "sm") return 3;
+    return 4;
   }
 
   private ensureSectionLayout(page: DashboardPage, sectionId: string, fallbackOrder: number): void {
