@@ -13422,12 +13422,17 @@ var FocusStatSection = class {
     const stats = new StatisticsService(this.store).getFocusStats();
     const state = this.store.getFocusState();
     const root = container.createDiv({ cls: "cow-focus-summary-card" });
-    const top = root.createDiv({ cls: "cow-focus-summary-top" });
-    const art = top.createDiv({ cls: "cow-stat-art is-blue" });
+    const header = root.createDiv({ cls: "cow-focus-summary-header" });
+    const art = header.createDiv({ cls: "cow-stat-art is-blue" });
     (0, import_obsidian38.setIcon)(art.createSpan(), "headphones");
-    const summary = top.createDiv({ cls: "cow-focus-summary-copy" });
-    summary.createEl("strong", { text: this.formatMinutes(stats.todayMinutes) });
-    summary.createSpan({ text: `\u4ECA\u65E5 ${stats.todayPomodoros} \u4E2A\u756A\u8304 \xB7 \u672C\u5468 ${this.formatMinutes(stats.weekMinutes)}` });
+    header.createEl("strong", { cls: "cow-focus-summary-label", text: "\u4ECA\u65E5\u4E13\u6CE8" });
+    const main = root.createDiv({ cls: "cow-focus-summary-main" });
+    main.createEl("strong", { cls: "cow-focus-summary-value", text: String(stats.todayMinutes) });
+    main.createSpan({ cls: "cow-focus-summary-unit", text: "min" });
+    root.createDiv({
+      cls: "cow-focus-summary-meta",
+      text: `\u4ECA\u65E5 ${stats.todayPomodoros} \u4E2A\u756A\u8304 \xB7 \u672C\u5468 ${this.formatMinutes(stats.weekMinutes)}`
+    });
     if (state.isRunning) {
       root.createDiv({
         cls: "cow-focus-summary-status",

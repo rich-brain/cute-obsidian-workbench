@@ -9757,3 +9757,126 @@ button.cow-daily-focus-title:hover {
   max-height: 480px;
   overflow: auto;
 }
+
+/* 0.9.4: restore a regular overview summary row and content-led sections. */
+.cute-obsidian-workbench .cow-dashboard-page-overview > :where(
+  .cow-section-type-weekly-completion,
+  .cow-section-type-pending-tasks,
+  .cow-section-type-today-focus-stat,
+  .cow-section-type-checkin-streak
+) {
+  order: 5;
+  align-self: stretch;
+  min-height: 144px;
+}
+
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-today-focus { order: 10; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-monthly-progress { order: 20; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-habit-overview { order: 30; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-monthly-calendar { order: 40; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-recent-notes { order: 41; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-quick-actions { order: 50; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-contribution-heatmap { order: 60; }
+
+.cute-obsidian-workbench .cow-dashboard-page-overview > :where(
+  .cow-section-type-weekly-completion,
+  .cow-section-type-pending-tasks,
+  .cow-section-type-today-focus-stat,
+  .cow-section-type-checkin-streak
+) .cow-section-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.cute-obsidian-workbench .cow-focus-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-space-2);
+  min-width: 0;
+  min-height: 100%;
+}
+
+.cute-obsidian-workbench .cow-focus-summary-header {
+  display: flex;
+  align-items: center;
+  gap: var(--wb-space-2);
+  min-width: 0;
+}
+
+.cute-obsidian-workbench .cow-focus-summary-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cute-obsidian-workbench .cow-focus-summary-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--wb-space-1);
+  min-width: 0;
+}
+
+.cute-obsidian-workbench .cow-focus-summary-value {
+  min-width: 0;
+  font-size: clamp(24px, 3vw, 32px);
+  line-height: 1;
+}
+
+.cute-obsidian-workbench .cow-focus-summary-unit {
+  color: var(--cow-muted);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.cute-obsidian-workbench .cow-focus-summary-meta {
+  min-width: 0;
+  color: var(--cow-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.cute-obsidian-workbench .cow-focus-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wb-space-2);
+  margin-top: auto;
+}
+
+.cute-obsidian-workbench .cow-focus-summary-actions button {
+  flex: 1 1 120px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* Long collections scroll in their body; short collections remain content-sized. */
+.cute-obsidian-workbench .cow-section {
+  max-height: min(75vh, 560px);
+}
+
+.cute-obsidian-workbench .cow-section.wb-layout-compact,
+.cute-obsidian-workbench .cow-section.wb-layout-list {
+  max-height: min(75vh, 320px);
+}
+
+.cute-obsidian-workbench .cow-section.wb-layout-primary {
+  max-height: min(75vh, 560px);
+}
+
+.cute-obsidian-workbench .cow-section.wb-layout-visual,
+.cute-obsidian-workbench .cow-section.wb-layout-wide {
+  max-height: min(75vh, 640px);
+}
+
+.cute-obsidian-workbench .cow-section-type-habit-overview .cow-section-content {
+  max-height: min(75vh, 560px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: var(--wb-space-1);
+}
+
+@container cow-page (max-width: 720px) {
+  .cute-obsidian-workbench .cow-focus-summary-actions button {
+    flex-basis: auto;
+  }
+}
