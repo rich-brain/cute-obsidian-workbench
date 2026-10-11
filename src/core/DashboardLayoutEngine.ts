@@ -33,10 +33,10 @@ const DEFAULT_GEOMETRY: Partial<Record<DashboardPage, Record<string, Geometry>>>
   overview: {
     "weekly-completion": [0, 0, 3, 4], "pending-tasks": [3, 0, 3, 4],
     "today-focus-stat": [6, 0, 3, 4], "checkin-streak": [9, 0, 3, 4],
-    "monthly-calendar": [0, 4, 6, 10], "today-focus": [6, 4, 3, 10],
-    "monthly-progress": [9, 4, 3, 10],
-    "habit-overview": [0, 14, 8, 9], "recent-notes": [8, 14, 4, 9],
-    "quick-actions": [0, 23, 4, 7], "contribution-heatmap": [4, 23, 8, 7]
+    "monthly-calendar": [0, 4, 6, 10], "today-focus": [6, 4, 6, 10],
+    "habit-overview": [0, 14, 6, 10], "recent-notes": [6, 14, 6, 5],
+    "monthly-progress": [6, 19, 6, 5],
+    "quick-actions": [0, 24, 4, 7], "contribution-heatmap": [4, 24, 8, 7]
   },
   research: {
     "reading-queue": [0, 0, 8, 11], "research-projects": [8, 0, 4, 11],
@@ -171,12 +171,9 @@ export function collides(a: SectionLayoutItem, b: SectionLayoutItem): boolean {
 
 function findSpace(item: SectionLayoutItem, placed: SectionLayoutItem[], columns: number): SectionLayoutItem {
   for (let y = Math.max(0, item.y); y < 10000; y += 1) {
-    const starts = y === item.y ? [item.x, ...Array.from({ length: columns - item.w + 1 }, (_, x) => x)] : Array.from({ length: columns - item.w + 1 }, (_, x) => x);
-    for (const x of starts) {
-      if (x + item.w > columns) continue;
-      const candidate = { ...item, x, y };
-      if (placed.every((other) => !collides(candidate, other))) return candidate;
-    }
+    if (item.x + item.w > columns) break;
+    const candidate = { ...item, y };
+    if (placed.every((other) => !collides(candidate, other))) return candidate;
   }
   return { ...item, x: 0, y: placed.reduce((bottom, other) => Math.max(bottom, other.y + other.h), 0) };
 }

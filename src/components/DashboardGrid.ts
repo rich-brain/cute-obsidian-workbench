@@ -77,7 +77,9 @@ export class DashboardGrid {
           this.onDataChanged();
         }, this.onDataChanged).render(grid);
       sectionEl.dataset.sectionId = section.id;
-      sectionEl.addClass(`cow-density-${sectionDensity(section.type)}`);
+      const density = sectionDensity(section.type);
+      sectionEl.addClass(`cow-density-${density}`);
+      sectionEl.dataset.autoHeight = density === "summary" || density === "visual" || density === "calendar" ? "false" : "true";
       elements.set(section.id, sectionEl);
       if (editing) this.decorateEditableSection(grid, sectionEl, section, sections, elements);
     });
@@ -102,6 +104,24 @@ export class DashboardGrid {
     };
     this.paint = apply;
     apply();
+    let reflowFrame = 0;
+    const scheduleReflow = () => {
+      if (editing || reflowFrame || !grid.isConnected) return;
+      reflowFrame = window.requestAnimationFrame(() => {
+        reflowFrame = 0;
+        this.fitNaturalHeights(grid, sections, elements);
+      });
+    };
+    const contentResizeObserver = !editing && typeof ResizeObserver !== "undefined" ? new ResizeObserver(scheduleReflow) : undefined;
+    const contentMutationObserver = !editing && typeof MutationObserver !== "undefined" ? new MutationObserver(scheduleReflow) : undefined;
+    if (contentResizeObserver || contentMutationObserver) {
+      for (const element of elements.values()) {
+        if (element.dataset.autoHeight !== "true") continue;
+        const content = element.querySelector<HTMLElement>(".cow-section-content") ?? element;
+        contentResizeObserver?.observe(content);
+        contentMutationObserver?.observe(content, { childList: true, subtree: true, characterData: true });
+      }
+    }
     let lastWidth = grid.clientWidth;
     const pageHost = grid.closest<HTMLElement>(".cow-page-host");
     let lastHeight = pageHost?.clientHeight;
@@ -110,12 +130,17 @@ export class DashboardGrid {
       lastWidth = grid.clientWidth;
       lastHeight = pageHost?.clientHeight;
       apply();
-      if (!editing) window.requestAnimationFrame(() => this.fitNaturalHeights(grid, sections, elements));
+      scheduleReflow();
     });
     observer.observe(grid.parentElement ?? grid);
     if (pageHost) observer.observe(pageHost);
-    grid.addEventListener("cow-layout-destroy", () => observer.disconnect(), { once: true });
-    if (!editing) window.requestAnimationFrame(() => this.fitNaturalHeights(grid, sections, elements));
+    grid.addEventListener("cow-layout-destroy", () => {
+      observer.disconnect();
+      contentResizeObserver?.disconnect();
+      contentMutationObserver?.disconnect();
+      window.cancelAnimationFrame(reflowFrame);
+    }, { once: true });
+    scheduleReflow();
 
     if (!editing && !this.renderCustomSection) new AddSectionButton(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
       await this.store.addSection(this.page, moduleType);
@@ -135,8 +160,9 @@ export class DashboardGrid {
       const header = element.querySelector<HTMLElement>(".cow-section-header");
       const body = element.querySelector<HTMLElement>(".cow-section-content");
       const style = getComputedStyle(element);
-      const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
-      const natural = body ? (header?.offsetHeight ?? 0) + Number.parseFloat(getComputedStyle(header ?? element).marginBottom) + body.scrollHeight + padding : element.scrollHeight;
+      const inset = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom)
+        + Number.parseFloat(style.borderTopWidth) + Number.parseFloat(style.borderBottomWidth);
+      const natural = body ? (header?.offsetHeight ?? 0) + Number.parseFloat(getComputedStyle(header ?? element).marginBottom) + body.scrollHeight + inset : element.scrollHeight;
       const minimum = Number.parseFloat(style.minHeight) || 0;
       const maximum = Number.parseFloat(style.maxHeight) || natural;
       const height = Math.min(maximum, Math.max(minimum, natural));
@@ -146,10 +172,11 @@ export class DashboardGrid {
     const placed = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth, undefined, naturalRows).items;
     for (const item of placed) {
       const element = elements.get(item.sectionId);
-      if (element) {
-        element.style.gridColumn = `${item.x + 1} / span ${item.w}`;
-        element.style.gridRow = `${item.y + 1} / span ${item.h}`;
-      }
+      if (!element) continue;
+      const column = `${item.x + 1} / span ${item.w}`;
+      const row = `${item.y + 1} / span ${item.h}`;
+      if (element.style.gridColumn !== column) element.style.gridColumn = column;
+      if (element.style.gridRow !== row) element.style.gridRow = row;
     }
   }
 

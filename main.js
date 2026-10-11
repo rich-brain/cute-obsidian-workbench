@@ -56,12 +56,12 @@ var DEFAULT_GEOMETRY = {
     "today-focus-stat": [6, 0, 3, 4],
     "checkin-streak": [9, 0, 3, 4],
     "monthly-calendar": [0, 4, 6, 10],
-    "today-focus": [6, 4, 3, 10],
-    "monthly-progress": [9, 4, 3, 10],
-    "habit-overview": [0, 14, 8, 9],
-    "recent-notes": [8, 14, 4, 9],
-    "quick-actions": [0, 23, 4, 7],
-    "contribution-heatmap": [4, 23, 8, 7]
+    "today-focus": [6, 4, 6, 10],
+    "habit-overview": [0, 14, 6, 10],
+    "recent-notes": [6, 14, 6, 5],
+    "monthly-progress": [6, 19, 6, 5],
+    "quick-actions": [0, 24, 4, 7],
+    "contribution-heatmap": [4, 24, 8, 7]
   },
   research: {
     "reading-queue": [0, 0, 8, 11],
@@ -243,12 +243,9 @@ function collides(a, b) {
 }
 function findSpace(item, placed, columns) {
   for (let y = Math.max(0, item.y); y < 1e4; y += 1) {
-    const starts = y === item.y ? [item.x, ...Array.from({ length: columns - item.w + 1 }, (_, x) => x)] : Array.from({ length: columns - item.w + 1 }, (_, x) => x);
-    for (const x of starts) {
-      if (x + item.w > columns) continue;
-      const candidate = { ...item, x, y };
-      if (placed.every((other) => !collides(candidate, other))) return candidate;
-    }
+    if (item.x + item.w > columns) break;
+    const candidate = { ...item, y };
+    if (placed.every((other) => !collides(candidate, other))) return candidate;
   }
   return { ...item, x: 0, y: placed.reduce((bottom, other) => Math.max(bottom, other.y + other.h), 0) };
 }
@@ -20278,7 +20275,7 @@ var DashboardGrid = class {
     this.renderCustomSection = renderCustomSection;
   }
   render(container) {
-    var _a;
+    var _a, _b;
     const layout = this.store.getModuleLayout(this.page);
     const sections = [...this.renderCustomSection ? this.store.getLayoutSections(this.page) : this.store.getSectionsForPage(this.page), ...getDraftSections(this.page)];
     const editing = isLayoutEditing(this.page);
@@ -20288,7 +20285,7 @@ var DashboardGrid = class {
       toolbar.createEl("span", { text: "\u62D6\u52A8\u6807\u9898\u79FB\u52A8\u677F\u5757\uFF0C\u62D6\u52A8\u53F3\u4E0B\u89D2\u8C03\u6574\u5C3A\u5BF8\u3002" });
       if (!this.renderCustomSection) toolbar.createEl("button", { text: "\u6DFB\u52A0\u677F\u5757", attr: { type: "button" } }).addEventListener("click", () => {
         new AddSectionModal(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
-          var _a2, _b, _c;
+          var _a2, _b2, _c;
           const definition = this.store.getAvailableModules(this.page).find((item) => item.type === moduleType);
           const order = Math.max(0, ...this.store.getAllSections().filter((item) => item.page === this.page).map((item) => item.order)) + 10;
           addDraftSection(this.page, {
@@ -20298,7 +20295,7 @@ var DashboardGrid = class {
             title: (_a2 = definition == null ? void 0 : definition.title) != null ? _a2 : moduleType,
             order,
             enabled: true,
-            width: (_b = definition == null ? void 0 : definition.defaultWidth) != null ? _b : "md",
+            width: (_b2 = definition == null ? void 0 : definition.defaultWidth) != null ? _b2 : "md",
             height: (_c = definition == null ? void 0 : definition.defaultHeight) != null ? _c : "sm",
             config: {}
           });
@@ -20322,7 +20319,9 @@ var DashboardGrid = class {
         this.onDataChanged();
       }, this.onDataChanged).render(grid);
       sectionEl.dataset.sectionId = section.id;
-      sectionEl.addClass(`cow-density-${sectionDensity(section.type)}`);
+      const density = sectionDensity(section.type);
+      sectionEl.addClass(`cow-density-${density}`);
+      sectionEl.dataset.autoHeight = density === "summary" || density === "visual" || density === "calendar" ? "false" : "true";
       elements.set(section.id, sectionEl);
       if (editing) this.decorateEditableSection(grid, sectionEl, section, sections, elements);
     });
@@ -20344,6 +20343,24 @@ var DashboardGrid = class {
     };
     this.paint = apply;
     apply();
+    let reflowFrame = 0;
+    const scheduleReflow = () => {
+      if (editing || reflowFrame || !grid.isConnected) return;
+      reflowFrame = window.requestAnimationFrame(() => {
+        reflowFrame = 0;
+        this.fitNaturalHeights(grid, sections, elements);
+      });
+    };
+    const contentResizeObserver = !editing && typeof ResizeObserver !== "undefined" ? new ResizeObserver(scheduleReflow) : void 0;
+    const contentMutationObserver = !editing && typeof MutationObserver !== "undefined" ? new MutationObserver(scheduleReflow) : void 0;
+    if (contentResizeObserver || contentMutationObserver) {
+      for (const element of elements.values()) {
+        if (element.dataset.autoHeight !== "true") continue;
+        const content = (_a = element.querySelector(".cow-section-content")) != null ? _a : element;
+        contentResizeObserver == null ? void 0 : contentResizeObserver.observe(content);
+        contentMutationObserver == null ? void 0 : contentMutationObserver.observe(content, { childList: true, subtree: true, characterData: true });
+      }
+    }
     let lastWidth = grid.clientWidth;
     const pageHost = grid.closest(".cow-page-host");
     let lastHeight = pageHost == null ? void 0 : pageHost.clientHeight;
@@ -20352,12 +20369,17 @@ var DashboardGrid = class {
       lastWidth = grid.clientWidth;
       lastHeight = pageHost == null ? void 0 : pageHost.clientHeight;
       apply();
-      if (!editing) window.requestAnimationFrame(() => this.fitNaturalHeights(grid, sections, elements));
+      scheduleReflow();
     });
-    observer.observe((_a = grid.parentElement) != null ? _a : grid);
+    observer.observe((_b = grid.parentElement) != null ? _b : grid);
     if (pageHost) observer.observe(pageHost);
-    grid.addEventListener("cow-layout-destroy", () => observer.disconnect(), { once: true });
-    if (!editing) window.requestAnimationFrame(() => this.fitNaturalHeights(grid, sections, elements));
+    grid.addEventListener("cow-layout-destroy", () => {
+      observer.disconnect();
+      contentResizeObserver == null ? void 0 : contentResizeObserver.disconnect();
+      contentMutationObserver == null ? void 0 : contentMutationObserver.disconnect();
+      window.cancelAnimationFrame(reflowFrame);
+    }, { once: true });
+    scheduleReflow();
     if (!editing && !this.renderCustomSection) new AddSectionButton(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
       await this.store.addSection(this.page, moduleType);
       this.onDataChanged();
@@ -20374,8 +20396,8 @@ var DashboardGrid = class {
       const header = element.querySelector(".cow-section-header");
       const body = element.querySelector(".cow-section-content");
       const style = getComputedStyle(element);
-      const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
-      const natural = body ? ((_a = header == null ? void 0 : header.offsetHeight) != null ? _a : 0) + Number.parseFloat(getComputedStyle(header != null ? header : element).marginBottom) + body.scrollHeight + padding : element.scrollHeight;
+      const inset = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom) + Number.parseFloat(style.borderTopWidth) + Number.parseFloat(style.borderBottomWidth);
+      const natural = body ? ((_a = header == null ? void 0 : header.offsetHeight) != null ? _a : 0) + Number.parseFloat(getComputedStyle(header != null ? header : element).marginBottom) + body.scrollHeight + inset : element.scrollHeight;
       const minimum = Number.parseFloat(style.minHeight) || 0;
       const maximum = Number.parseFloat(style.maxHeight) || natural;
       const height = Math.min(maximum, Math.max(minimum, natural));
@@ -20385,10 +20407,11 @@ var DashboardGrid = class {
     const placed = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth, void 0, naturalRows).items;
     for (const item of placed) {
       const element = elements.get(item.sectionId);
-      if (element) {
-        element.style.gridColumn = `${item.x + 1} / span ${item.w}`;
-        element.style.gridRow = `${item.y + 1} / span ${item.h}`;
-      }
+      if (!element) continue;
+      const column = `${item.x + 1} / span ${item.w}`;
+      const row = `${item.y + 1} / span ${item.h}`;
+      if (element.style.gridColumn !== column) element.style.gridColumn = column;
+      if (element.style.gridRow !== row) element.style.gridRow = row;
     }
   }
   async finish() {
