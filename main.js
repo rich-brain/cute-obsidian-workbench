@@ -51,34 +51,34 @@ var WIDE_TYPES = /* @__PURE__ */ new Set(["monthly-calendar", "month-calendar", 
 var FULL_TYPES = /* @__PURE__ */ new Set(["contribution-heatmap"]);
 var DEFAULT_GEOMETRY = {
   overview: {
-    "weekly-completion": [0, 0, 3, 5],
-    "pending-tasks": [3, 0, 3, 5],
-    "today-focus-stat": [6, 0, 3, 5],
-    "checkin-streak": [9, 0, 3, 5],
-    "monthly-calendar": [0, 5, 6, 10],
-    "today-focus": [6, 5, 6, 10],
-    "habit-overview": [0, 15, 6, 10],
-    "monthly-progress": [6, 15, 6, 10],
-    "recent-notes": [0, 25, 6, 8],
-    "quick-actions": [6, 25, 6, 8],
-    "contribution-heatmap": [0, 33, 12, 6]
+    "weekly-completion": [0, 0, 3, 4],
+    "pending-tasks": [3, 0, 3, 4],
+    "today-focus-stat": [6, 0, 3, 4],
+    "checkin-streak": [9, 0, 3, 4],
+    "monthly-calendar": [0, 4, 6, 10],
+    "today-focus": [6, 4, 3, 10],
+    "monthly-progress": [9, 4, 3, 10],
+    "habit-overview": [0, 14, 8, 9],
+    "recent-notes": [8, 14, 4, 9],
+    "quick-actions": [0, 23, 4, 7],
+    "contribution-heatmap": [4, 23, 8, 7]
   },
   research: {
-    "reading-queue": [0, 0, 8, 12],
-    "research-projects": [8, 0, 4, 12],
-    "paper-field-manager": [0, 12, 6, 8],
-    "research-checkin": [6, 12, 6, 8],
-    "experiment-plan": [0, 20, 4, 10],
-    "experiment-records": [4, 20, 4, 10],
-    "literature-notes": [8, 20, 4, 10],
-    "research-timeline": [0, 30, 6, 10],
-    "data-analysis-tasks": [6, 30, 6, 10],
-    "research-memo": [0, 40, 12, 7]
+    "reading-queue": [0, 0, 8, 11],
+    "research-projects": [8, 0, 4, 11],
+    "experiment-plan": [0, 11, 4, 9],
+    "literature-notes": [4, 11, 4, 9],
+    "experiment-records": [8, 11, 4, 9],
+    "research-timeline": [0, 20, 6, 9],
+    "data-analysis-tasks": [6, 20, 6, 9],
+    "paper-field-manager": [0, 29, 6, 9],
+    "research-memo": [6, 29, 6, 9],
+    "research-checkin": [0, 38, 12, 9]
   },
   reading: {
-    "bookshelf": [0, 0, 12, 10],
-    "current-reading": [0, 10, 6, 9],
-    "reading-plan": [6, 10, 6, 9],
+    "current-reading": [0, 0, 6, 9],
+    "reading-plan": [6, 0, 6, 9],
+    "bookshelf": [0, 9, 12, 10],
     "reading-notes": [0, 19, 6, 9],
     "reading-quotes": [6, 19, 6, 9],
     "wishlist-books": [0, 28, 6, 8],
@@ -95,11 +95,11 @@ var DEFAULT_GEOMETRY = {
     "fitness-goals": [0, 9, 6, 9],
     "workout-plan": [6, 9, 6, 9],
     "workout-log": [0, 18, 8, 10],
-    "today-workout": [8, 18, 4, 10],
-    "fitness-checkin": [0, 28, 6, 8],
-    "water-sleep-habits": [6, 28, 6, 8],
-    "cardio-strength-plan": [0, 36, 6, 8],
-    "health-reminders": [6, 36, 6, 8],
+    "water-sleep-habits": [8, 18, 4, 10],
+    "today-workout": [0, 28, 4, 8],
+    "fitness-checkin": [4, 28, 4, 8],
+    "health-reminders": [8, 28, 4, 8],
+    "cardio-strength-plan": [0, 36, 12, 8],
     "fitness-heatmap": [0, 44, 12, 8]
   },
   finance: {
@@ -117,13 +117,13 @@ var DEFAULT_GEOMETRY = {
   },
   tasks: {
     "task-quick-add": [0, 0, 12, 4],
-    "task-today": [0, 4, 6, 9],
-    "task-inbox": [6, 4, 3, 9],
-    "task-stats": [9, 4, 3, 9],
-    "task-week": [0, 13, 12, 9],
-    "task-board": [0, 22, 12, 10],
-    "task-projects": [0, 32, 6, 9],
-    "task-recurring": [6, 32, 6, 9]
+    "task-today": [0, 4, 8, 10],
+    "task-stats": [8, 4, 4, 5],
+    "task-inbox": [8, 9, 4, 5],
+    "task-week": [0, 14, 12, 9],
+    "task-board": [0, 23, 12, 10],
+    "task-projects": [0, 33, 6, 9],
+    "task-recurring": [6, 33, 6, 9]
   },
   goals: {
     "yearly-goals": [0, 0, 8, 10],
@@ -132,21 +132,21 @@ var DEFAULT_GEOMETRY = {
     "monthly-key-results": [6, 10, 6, 9],
     "goal-breakdown": [0, 19, 8, 11],
     "milestone-timeline": [8, 19, 4, 11],
-    "priority-matrix": [0, 30, 8, 10],
-    "goals-checkin": [8, 30, 4, 10],
-    "review-checklist": [0, 40, 6, 8],
-    "risks-blockers": [6, 40, 6, 8]
+    "priority-matrix": [0, 30, 12, 10],
+    "review-checklist": [0, 40, 4, 8],
+    "risks-blockers": [4, 40, 4, 8],
+    "goals-checkin": [8, 40, 4, 8]
   },
   modules: {
-    "enabled-modules-overview": [0, 0, 4, 8],
-    "home-layout-manager": [4, 0, 8, 8],
-    "section-manager": [0, 8, 8, 11],
-    "banner-background-settings": [8, 8, 4, 11],
-    "calendar-widget-settings": [0, 19, 6, 8],
-    "apex-habit-settings": [6, 19, 6, 8],
-    "quick-action-settings": [0, 27, 6, 8],
-    "theme-color-settings": [6, 27, 6, 8],
-    "data-source-status": [0, 35, 12, 7]
+    "section-manager": [0, 0, 6, 10],
+    "home-layout-manager": [6, 0, 6, 10],
+    "enabled-modules-overview": [0, 10, 4, 8],
+    "banner-background-settings": [4, 10, 4, 8],
+    "calendar-widget-settings": [8, 10, 4, 8],
+    "apex-habit-settings": [0, 18, 4, 8],
+    "quick-action-settings": [4, 18, 4, 8],
+    "theme-color-settings": [8, 18, 4, 8],
+    "data-source-status": [0, 26, 12, 7]
   }
 };
 var SECTION_MINIMUMS = {
@@ -181,6 +181,7 @@ var SECTION_MINIMUMS = {
   "milestone-timeline": { w: 4, h: 6 },
   "priority-matrix": { w: 6, h: 6 },
   "goals-checkin": { w: 4, h: 5 },
+  "fitness-checkin": { w: 4, h: 5 },
   "home-layout-manager": { w: 6, h: 6 },
   "section-manager": { w: 6, h: 6 },
   "task-quick-add": { w: 6, h: 3 },
@@ -189,8 +190,9 @@ var SECTION_MINIMUMS = {
   "task-board": { w: 8, h: 6 },
   "task-projects": { w: 6, h: 5 },
   "task-recurring": { w: 6, h: 5 },
-  "today-focus": { w: 6, h: 5 },
-  "monthly-progress": { w: 6, h: 5 }
+  "today-focus": { w: 3, h: 4 },
+  "monthly-progress": { w: 3, h: 4 },
+  "monthly-calendar": { w: 6, h: 8 }
 };
 function sectionMinimum(section) {
   if (SECTION_MINIMUMS[section.type]) return SECTION_MINIMUMS[section.type];
@@ -20253,6 +20255,20 @@ var AddSectionButton = class {
 };
 
 // src/components/DashboardGrid.ts
+var SUMMARY_SECTIONS = /* @__PURE__ */ new Set(["weekly-completion", "pending-tasks", "today-focus-stat", "checkin-streak", "task-stats"]);
+var COMPACT_SECTIONS = /* @__PURE__ */ new Set(["quick-actions", "research-memo", "health-reminders", "finance-todos", "task-quick-add", "task-inbox", "data-source-status"]);
+var PRIMARY_SECTIONS = /* @__PURE__ */ new Set(["reading-queue", "bookshelf", "finance-ledger", "workout-log", "goal-breakdown", "yearly-goals", "task-today", "task-board"]);
+var VISUAL_SECTIONS = /* @__PURE__ */ new Set(["contribution-heatmap", "fitness-stats", "income-expense-trend", "reading-stats", "reading-heatmap", "fitness-heatmap", "expense-heatmap", "task-week"]);
+var MANAGER_SECTIONS = /* @__PURE__ */ new Set(["home-layout-manager", "section-manager", "paper-field-manager", "reading-tag-manager"]);
+function sectionDensity(type) {
+  if (type === "monthly-calendar" || type === "month-calendar") return "calendar";
+  if (SUMMARY_SECTIONS.has(type)) return "summary";
+  if (COMPACT_SECTIONS.has(type)) return "compact";
+  if (PRIMARY_SECTIONS.has(type)) return "primary";
+  if (VISUAL_SECTIONS.has(type)) return "visual";
+  if (MANAGER_SECTIONS.has(type) || type.endsWith("-settings")) return "manager";
+  return "list";
+}
 var DashboardGrid = class {
   constructor(app, store, page, onDataChanged, renderCustomSection) {
     this.app = app;
@@ -20306,6 +20322,7 @@ var DashboardGrid = class {
         this.onDataChanged();
       }, this.onDataChanged).render(grid);
       sectionEl.dataset.sectionId = section.id;
+      sectionEl.addClass(`cow-density-${sectionDensity(section.type)}`);
       elements.set(section.id, sectionEl);
       if (editing) this.decorateEditableSection(grid, sectionEl, section, sections, elements);
     });
@@ -20322,19 +20339,23 @@ var DashboardGrid = class {
         element.style.gridRow = `${item.y + 1} / span ${item.h}`;
         element.style.order = "0";
         const height = item.h * GRID_CONFIG.rowHeight + (item.h - 1) * GRID_CONFIG.gap;
-        element.style.maxHeight = `min(${height}px, var(--wb-section-max-height, 66.6667vh))`;
+        element.style.maxHeight = editing ? `min(${height}px, var(--wb-section-max-height, 66.6667vh))` : `min(${height}px, var(--wb-density-max, 440px), var(--wb-section-max-height, 66.6667vh))`;
       }
     };
     this.paint = apply;
     apply();
     let lastWidth = grid.clientWidth;
+    const pageHost = grid.closest(".cow-page-host");
+    let lastHeight = pageHost == null ? void 0 : pageHost.clientHeight;
     const observer = new ResizeObserver(() => {
-      if (!grid.isConnected || grid.clientWidth === lastWidth) return;
+      if (!grid.isConnected || grid.clientWidth === lastWidth && (pageHost == null ? void 0 : pageHost.clientHeight) === lastHeight) return;
       lastWidth = grid.clientWidth;
+      lastHeight = pageHost == null ? void 0 : pageHost.clientHeight;
       apply();
       if (!editing) window.requestAnimationFrame(() => this.fitNaturalHeights(grid, sections, elements));
     });
     observer.observe((_a = grid.parentElement) != null ? _a : grid);
+    if (pageHost) observer.observe(pageHost);
     grid.addEventListener("cow-layout-destroy", () => observer.disconnect(), { once: true });
     if (!editing) window.requestAnimationFrame(() => this.fitNaturalHeights(grid, sections, elements));
     if (!editing && !this.renderCustomSection) new AddSectionButton(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
@@ -20352,8 +20373,13 @@ var DashboardGrid = class {
       if (!element) return;
       const header = element.querySelector(".cow-section-header");
       const body = element.querySelector(".cow-section-content");
-      const natural = body ? ((_a = header == null ? void 0 : header.offsetHeight) != null ? _a : 0) + body.scrollHeight + 48 : element.scrollHeight;
-      const rows = Math.max(1, Math.ceil((natural + GRID_CONFIG.gap) / (GRID_CONFIG.rowHeight + GRID_CONFIG.gap)));
+      const style = getComputedStyle(element);
+      const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
+      const natural = body ? ((_a = header == null ? void 0 : header.offsetHeight) != null ? _a : 0) + Number.parseFloat(getComputedStyle(header != null ? header : element).marginBottom) + body.scrollHeight + padding : element.scrollHeight;
+      const minimum = Number.parseFloat(style.minHeight) || 0;
+      const maximum = Number.parseFloat(style.maxHeight) || natural;
+      const height = Math.min(maximum, Math.max(minimum, natural));
+      const rows = Math.max(1, Math.ceil((height + GRID_CONFIG.gap) / (GRID_CONFIG.rowHeight + GRID_CONFIG.gap)));
       naturalRows.set(item.sectionId, rows);
     });
     const placed = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth, void 0, naturalRows).items;

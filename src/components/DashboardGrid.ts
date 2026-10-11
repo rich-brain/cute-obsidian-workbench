@@ -6,6 +6,22 @@ import type { DashboardStore } from "../core/DashboardStore";
 import { addDraftSection, getDraftLayout, getDraftSections, isLayoutEditing, removeDraftSection, resetDraftLayout, stopLayoutEditing, updateDraftLayout } from "../core/LayoutEditState";
 import { createDefaultLayout, GRID_CONFIG, moveLayoutItem, resolveModuleLayout, resizeLayoutItem, sectionMinimum } from "../core/DashboardLayoutEngine";
 
+const SUMMARY_SECTIONS = new Set(["weekly-completion", "pending-tasks", "today-focus-stat", "checkin-streak", "task-stats"]);
+const COMPACT_SECTIONS = new Set(["quick-actions", "research-memo", "health-reminders", "finance-todos", "task-quick-add", "task-inbox", "data-source-status"]);
+const PRIMARY_SECTIONS = new Set(["reading-queue", "bookshelf", "finance-ledger", "workout-log", "goal-breakdown", "yearly-goals", "task-today", "task-board"]);
+const VISUAL_SECTIONS = new Set(["contribution-heatmap", "fitness-stats", "income-expense-trend", "reading-stats", "reading-heatmap", "fitness-heatmap", "expense-heatmap", "task-week"]);
+const MANAGER_SECTIONS = new Set(["home-layout-manager", "section-manager", "paper-field-manager", "reading-tag-manager"]);
+
+function sectionDensity(type: string): string {
+  if (type === "monthly-calendar" || type === "month-calendar") return "calendar";
+  if (SUMMARY_SECTIONS.has(type)) return "summary";
+  if (COMPACT_SECTIONS.has(type)) return "compact";
+  if (PRIMARY_SECTIONS.has(type)) return "primary";
+  if (VISUAL_SECTIONS.has(type)) return "visual";
+  if (MANAGER_SECTIONS.has(type) || type.endsWith("-settings")) return "manager";
+  return "list";
+}
+
 export class DashboardGrid {
   constructor(
     private readonly app: App,
@@ -61,6 +77,7 @@ export class DashboardGrid {
           this.onDataChanged();
         }, this.onDataChanged).render(grid);
       sectionEl.dataset.sectionId = section.id;
+      sectionEl.addClass(`cow-density-${sectionDensity(section.type)}`);
       elements.set(section.id, sectionEl);
       if (editing) this.decorateEditableSection(grid, sectionEl, section, sections, elements);
     });
@@ -78,19 +95,25 @@ export class DashboardGrid {
         element.style.gridRow = `${item.y + 1} / span ${item.h}`;
         element.style.order = "0";
         const height = item.h * GRID_CONFIG.rowHeight + (item.h - 1) * GRID_CONFIG.gap;
-        element.style.maxHeight = `min(${height}px, var(--wb-section-max-height, 66.6667vh))`;
+        element.style.maxHeight = editing
+          ? `min(${height}px, var(--wb-section-max-height, 66.6667vh))`
+          : `min(${height}px, var(--wb-density-max, 440px), var(--wb-section-max-height, 66.6667vh))`;
       }
     };
     this.paint = apply;
     apply();
     let lastWidth = grid.clientWidth;
+    const pageHost = grid.closest<HTMLElement>(".cow-page-host");
+    let lastHeight = pageHost?.clientHeight;
     const observer = new ResizeObserver(() => {
-      if (!grid.isConnected || grid.clientWidth === lastWidth) return;
+      if (!grid.isConnected || (grid.clientWidth === lastWidth && pageHost?.clientHeight === lastHeight)) return;
       lastWidth = grid.clientWidth;
+      lastHeight = pageHost?.clientHeight;
       apply();
       if (!editing) window.requestAnimationFrame(() => this.fitNaturalHeights(grid, sections, elements));
     });
     observer.observe(grid.parentElement ?? grid);
+    if (pageHost) observer.observe(pageHost);
     grid.addEventListener("cow-layout-destroy", () => observer.disconnect(), { once: true });
     if (!editing) window.requestAnimationFrame(() => this.fitNaturalHeights(grid, sections, elements));
 
@@ -111,8 +134,13 @@ export class DashboardGrid {
       if (!element) return;
       const header = element.querySelector<HTMLElement>(".cow-section-header");
       const body = element.querySelector<HTMLElement>(".cow-section-content");
-      const natural = body ? (header?.offsetHeight ?? 0) + body.scrollHeight + 48 : element.scrollHeight;
-      const rows = Math.max(1, Math.ceil((natural + GRID_CONFIG.gap) / (GRID_CONFIG.rowHeight + GRID_CONFIG.gap)));
+      const style = getComputedStyle(element);
+      const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
+      const natural = body ? (header?.offsetHeight ?? 0) + Number.parseFloat(getComputedStyle(header ?? element).marginBottom) + body.scrollHeight + padding : element.scrollHeight;
+      const minimum = Number.parseFloat(style.minHeight) || 0;
+      const maximum = Number.parseFloat(style.maxHeight) || natural;
+      const height = Math.min(maximum, Math.max(minimum, natural));
+      const rows = Math.max(1, Math.ceil((height + GRID_CONFIG.gap) / (GRID_CONFIG.rowHeight + GRID_CONFIG.gap)));
       naturalRows.set(item.sectionId, rows);
     });
     const placed = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth, undefined, naturalRows).items;

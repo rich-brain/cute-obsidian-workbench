@@ -10372,3 +10372,76 @@ button.cow-daily-focus-title:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Content-led widget footprints; the pane's two-thirds height remains a ceiling. */
+.cute-obsidian-workbench .cow-page-header,
+.cute-obsidian-workbench .cow-page-content {
+  width: 100%;
+  max-width: 1400px;
+  margin-inline: auto;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-layout-engine > .cow-section {
+  --wb-density-min: 144px;
+  --wb-density-max: 440px;
+  min-height: min(var(--wb-density-min), var(--wb-section-max-height, 66.6667vh));
+  max-height: min(var(--wb-density-max), var(--wb-section-max-height, 66.6667vh));
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-layout-engine > .cow-density-summary {
+  --wb-density-min: 144px;
+  --wb-density-max: 200px;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-layout-engine > .cow-density-compact {
+  --wb-density-min: 120px;
+  --wb-density-max: 320px;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-layout-engine > .cow-density-primary {
+  --wb-density-min: 160px;
+  --wb-density-max: 560px;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-layout-engine > .cow-density-manager {
+  --wb-density-min: 180px;
+  --wb-density-max: 520px;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-layout-engine > .cow-density-visual {
+  --wb-density-min: 280px;
+  --wb-density-max: 520px;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-layout-engine > .cow-density-calendar {
+  --wb-density-min: 380px;
+  --wb-density-max: 520px;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-layout-engine > .cow-section .cow-section-header {
+  margin-bottom: var(--wb-space-2);
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-layout-engine > .cow-section .cow-section-content {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.cute-obsidian-workbench .cow-dashboard-grid.cow-layout-engine > .cow-density-calendar .cow-section-content {
+  overflow: visible;
+}
+
+.cute-obsidian-workbench .cow-density-calendar .cow-month-calendar-grid {
+  gap: var(--wb-space-1);
+}
+
+.cute-obsidian-workbench .cow-density-calendar :where(.cow-calendar-empty, .cow-calendar-day) {
+  min-height: clamp(30px, calc((var(--wb-section-max-height, 600px) - 160px) / 6), 52px);
+}
+
+.cute-obsidian-workbench .cow-density-calendar .cow-calendar-day {
+  grid-template-rows: auto minmax(0, auto) minmax(0, auto);
+  gap: 1px;
+  padding: 3px 2px;
+}
