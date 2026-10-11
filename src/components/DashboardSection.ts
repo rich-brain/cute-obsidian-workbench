@@ -24,7 +24,6 @@ import {
   DataSourceStatusSection,
   EnabledModulesOverviewSection,
   FunctionalSectionManagerSection,
-  HomeLayoutManagerSection,
   QuickActionSettingsSection,
   ThemeColorSettingsSection
 } from "./modules/ModulesControls";
@@ -175,7 +174,7 @@ export class DashboardSection {
     const cardColor = typeof this.section.config?.cardColor === "string" ? this.section.config.cardColor : "default";
     const layoutMeta = this.getLayoutMeta();
     const sectionEl = container.createDiv({
-      cls: `cow-section cow-section-height-${this.section.height ?? "sm"} cow-section-type-${this.section.type} wb-layout-${layoutMeta.role} cow-card-color-${cardColor}`
+      cls: `cow-section cow-section-type-${this.section.type} wb-layout-${layoutMeta.role} cow-card-color-${cardColor}`
     });
     sectionEl.dataset.sectionId = this.section.id;
 
@@ -218,7 +217,7 @@ export class DashboardSection {
     });
     setIcon(menuButton, "more-horizontal");
     menuButton.addEventListener("click", (event) => {
-      new SectionActionMenu(this.app, this.store, this.section, this.onRemove, this.onDataChanged, layoutMeta.span).show(event);
+      new SectionActionMenu(this.app, this.store, this.section, this.onRemove, this.onDataChanged).show(event);
     });
 
     const content = sectionEl.createDiv({ cls: "cow-section-content" });
@@ -618,9 +617,6 @@ export class DashboardSection {
       case "section-manager":
         new FunctionalSectionManagerSection(this.app, this.store, this.onDataChanged).render(container);
         break;
-      case "home-layout-manager":
-        new HomeLayoutManagerSection(this.store, this.onDataChanged).render(container);
-        break;
       case "banner-background-settings":
         new BannerBackgroundSettingsSection(this.store, this.onDataChanged).render(container);
         break;
@@ -735,7 +731,6 @@ export class DashboardSection {
       "risks-blockers": { role: "list", span: 4 },
       "long-term-progress": { role: "visual", span: 4 },
       "enabled-modules-overview": { role: "compact", span: 4 },
-      "home-layout-manager": { role: "primary", span: 8 },
       "section-manager": { role: "primary", span: 8 },
       "banner-background-settings": { role: "secondary", span: 4 },
       "calendar-widget-settings": { role: "secondary", span: 4 },
@@ -748,9 +743,6 @@ export class DashboardSection {
   }
 
   private getFallbackLayoutMeta(): { role: "primary" | "secondary" | "compact" | "wide" | "list" | "visual"; span: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 12 } {
-    if (this.section.width === "full") return { role: "wide", span: 12 };
-    if (this.section.width === "lg") return { role: "primary", span: 8 };
-    if (this.section.width === "sm") return { role: "compact", span: 3 };
     return { role: "secondary", span: 4 };
   }
 
@@ -885,7 +877,6 @@ export class DashboardSection {
       "long-term-progress": "trending-up",
       "enabled-modules-overview": "panel-top",
       "section-manager": "rows-3",
-      "home-layout-manager": "layout-template",
       "banner-background-settings": "image",
       "calendar-widget-settings": "calendar-days",
       "apex-habit-settings": "calendar-check",

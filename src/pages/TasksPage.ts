@@ -2,7 +2,6 @@ import { App, setIcon } from "obsidian";
 import { formatDateKey, type DashboardStore } from "../core/DashboardStore";
 import type { DashboardPage, DashboardPageDefinition, DashboardSectionConfig, Task, TaskStatus } from "../types/dashboard";
 import { DashboardGrid } from "../components/DashboardGrid";
-import { isLayoutEditing } from "../core/LayoutEditState";
 import {
   openTaskFilterModal,
   openTaskModal,
@@ -40,7 +39,6 @@ export class TasksPage {
 
   private renderLayoutSection(grid: HTMLElement, section: DashboardSectionConfig): HTMLElement {
     const host = grid.createDiv({ cls: "cow-section cow-task-layout-section" });
-    if (isLayoutEditing(this.page)) host.createDiv({ cls: "cow-section-header cow-task-layout-edit-header", text: section.title });
     switch (section.type) {
       case "task-quick-add": this.renderQuickAdd(host); break;
       case "task-today": this.renderTodayTasks(host); break;

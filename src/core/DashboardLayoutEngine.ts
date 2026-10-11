@@ -1,4 +1,4 @@
-import type { DashboardPage, DashboardSectionConfig, ModuleLayoutConfig, SectionLayoutItem } from "../types/dashboard";
+import type { DashboardPage, DashboardSectionConfig, SectionLayoutItem } from "../types/dashboard";
 
 export const GRID_CONFIG = { columns: 12, rowHeight: 40, gap: 16 } as const;
 
@@ -22,13 +22,13 @@ export interface ResolvedModuleLayout {
 }
 
 const SUMMARY_TYPES = new Set(["weekly-completion", "pending-tasks", "today-focus-stat", "checkin-streak", "enabled-modules-overview"]);
-const WIDE_TYPES = new Set(["monthly-calendar", "month-calendar", "habit-overview", "reading-queue", "bookshelf", "reading-heatmap", "fitness-stats", "income-expense-trend", "priority-matrix", "home-layout-manager", "section-manager", "research-checkin", "reading-checkin", "fitness-checkin", "finance-checkin", "goals-checkin"]);
+const WIDE_TYPES = new Set(["monthly-calendar", "month-calendar", "habit-overview", "reading-queue", "bookshelf", "reading-heatmap", "fitness-stats", "income-expense-trend", "priority-matrix", "section-manager", "research-checkin", "reading-checkin", "fitness-checkin", "finance-checkin", "goals-checkin"]);
 const FULL_TYPES = new Set(["contribution-heatmap"]);
 
 type Geometry = readonly [x: number, y: number, w: number, h: number];
 
 // Default placements are keyed by the stable Section type; user-created Sections
-// are appended below these placements without changing saved custom layouts.
+// are appended below these placements.
 const DEFAULT_GEOMETRY: Partial<Record<DashboardPage, Record<string, Geometry>>> = {
   overview: {
     "weekly-completion": [0, 0, 3, 4], "pending-tasks": [3, 0, 3, 4],
@@ -88,11 +88,10 @@ const DEFAULT_GEOMETRY: Partial<Record<DashboardPage, Record<string, Geometry>>>
     "goals-checkin": [8, 40, 4, 8]
   },
   modules: {
-    "section-manager": [0, 0, 6, 10], "home-layout-manager": [6, 0, 6, 10],
-    "enabled-modules-overview": [0, 10, 4, 8],
-    "banner-background-settings": [4, 10, 4, 8], "calendar-widget-settings": [8, 10, 4, 8],
-    "apex-habit-settings": [0, 18, 4, 8], "quick-action-settings": [4, 18, 4, 8],
-    "theme-color-settings": [8, 18, 4, 8], "data-source-status": [0, 26, 12, 7]
+    "section-manager": [0, 0, 8, 10], "enabled-modules-overview": [8, 0, 4, 8],
+    "banner-background-settings": [0, 10, 4, 8], "calendar-widget-settings": [4, 10, 4, 8],
+    "apex-habit-settings": [8, 10, 4, 8], "quick-action-settings": [0, 18, 4, 8],
+    "theme-color-settings": [4, 18, 4, 8], "data-source-status": [8, 18, 4, 7]
   }
 };
 
@@ -114,7 +113,7 @@ const SECTION_MINIMUMS: Record<string, { w: number; h: number }> = {
   "milestone-timeline": { w: 4, h: 6 }, "priority-matrix": { w: 6, h: 6 },
   "goals-checkin": { w: 4, h: 5 },
   "fitness-checkin": { w: 4, h: 5 },
-  "home-layout-manager": { w: 6, h: 6 }, "section-manager": { w: 6, h: 6 },
+  "section-manager": { w: 6, h: 6 },
   "task-quick-add": { w: 6, h: 3 }, "task-today": { w: 6, h: 5 },
   "task-week": { w: 8, h: 6 }, "task-board": { w: 8, h: 6 },
   "task-projects": { w: 6, h: 5 }, "task-recurring": { w: 6, h: 5 },
@@ -147,8 +146,6 @@ function defaultWidth(section: DashboardSectionConfig, page: DashboardPage): num
   if (section.type === "monthly-calendar") return 6;
   if (section.type === "today-focus" || section.type === "monthly-progress") return 3;
   if (WIDE_TYPES.has(section.type)) return 6;
-  if (section.width === "full") return 12;
-  if (section.width === "lg") return 8;
   return 4;
 }
 
@@ -194,86 +191,46 @@ export function compactLayout(items: SectionLayoutItem[], anchoredId?: string, c
   return placed.sort((a, b) => a.y - b.y || a.x - b.x || a.sectionId.localeCompare(b.sectionId));
 }
 
-export function sanitizeLayout(sections: DashboardSectionConfig[], values: SectionLayoutItem[]): SectionLayoutItem[] {
-  const byId = new Map(values.filter((value) => value && typeof value.sectionId === "string").map((value) => [value.sectionId, value]));
-  let nextY = values.reduce((bottom, value) => Number.isFinite(value?.y) && Number.isFinite(value?.h) ? Math.max(bottom, value.y + value.h) : bottom, 0);
-  const items = sections.map((section) => {
-    const saved = byId.get(section.id);
-    if (saved) return sanitizeItem(section, saved);
-    const item = sanitizeItem(section, { x: 0, y: nextY });
-    nextY += item.h;
-    return item;
-  });
-  return compactLayout(items);
-}
-
-export function createDefaultLayout(page: DashboardPage, sections: DashboardSectionConfig[], mode: ModuleLayoutConfig["mode"] = "default"): SectionLayoutItem[] {
+export function createDefaultLayout(page: DashboardPage, sections: DashboardSectionConfig[], respectOrder = false): SectionLayoutItem[] {
   const ordered = [...sections].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
-  if (mode === "default") {
-    const geometry = DEFAULT_GEOMETRY[page] ?? {};
-    const planned = ordered.filter((section) => geometry[section.type]);
-    const extras = ordered.filter((section) => !geometry[section.type]);
-    const items = planned.map((section) => {
-      const [x, y, w, h] = geometry[section.type];
-      return sanitizeItem(section, { x, y, w, h });
+  const geometry = DEFAULT_GEOMETRY[page] ?? {};
+  if (respectOrder) {
+    let x = 0;
+    let y = 0;
+    let rowHeight = 0;
+    return ordered.map((section) => {
+      const [, , width, height] = geometry[section.type] ?? [0, 0, defaultWidth(section, page), defaultHeight(section)];
+      const w = Math.max(sectionMinimum(section).w, width);
+      if (x + w > GRID_CONFIG.columns) { x = 0; y += rowHeight; rowHeight = 0; }
+      const item = sanitizeItem(section, { x, y, w, h: height });
+      x += item.w;
+      rowHeight = Math.max(rowHeight, item.h);
+      return item;
     });
-    let nextY = items.reduce((bottom, item) => Math.max(bottom, item.y + item.h), 0);
-    for (const section of extras) {
-      const item = sanitizeItem(section, { x: 0, y: nextY });
-      items.push(item);
-      nextY += item.h;
-    }
-    return compactLayout(items);
   }
-  const overviewOrder = ["weekly-completion", "pending-tasks", "today-focus-stat", "checkin-streak", "monthly-calendar", "today-focus", "monthly-progress", "habit-overview", "recent-notes", "quick-actions"];
-  if (page === "overview") ordered.sort((a, b) => {
-    const left = overviewOrder.indexOf(a.type);
-    const right = overviewOrder.indexOf(b.type);
-    return (left < 0 ? 100 + a.order : left) - (right < 0 ? 100 + b.order : right);
+  const planned = ordered.filter((section) => geometry[section.type]);
+  const extras = ordered.filter((section) => !geometry[section.type]);
+  const items = planned.map((section) => {
+    const [x, y, w, h] = geometry[section.type];
+    return sanitizeItem(section, { x, y, w, h });
   });
-  let cursorX = 0;
-  let cursorY = 0;
-  let rowHeight = 0;
-  const items: SectionLayoutItem[] = [];
-  for (const section of ordered) {
-    const w = mode === "minimal" ? 12 : mode === "compact" ? Math.max(sectionMinimum(section).w, Math.min(12, defaultWidth(section, page) - 1)) : defaultWidth(section, page);
-    const h = defaultHeight(section);
-    if (cursorX + w > 12) { cursorY += rowHeight; cursorX = 0; rowHeight = 0; }
-    items.push({ sectionId: section.id, x: cursorX, y: cursorY, w, h });
-    cursorX += w;
-    rowHeight = Math.max(rowHeight, h);
+  let nextY = items.reduce((bottom, item) => Math.max(bottom, item.y + item.h), 0);
+  for (const section of extras) {
+    const item = sanitizeItem(section, { x: 0, y: nextY });
+    items.push(item);
+    nextY += item.h;
   }
-  return items;
-}
-
-export function migrateLegacyLayout(sections: DashboardSectionConfig[], legacy: ModuleLayoutConfig): SectionLayoutItem[] {
-  const ordered = [...sections].sort((a, b) => (legacy.sections?.[a.id]?.order ?? a.order) - (legacy.sections?.[b.id]?.order ?? b.order));
-  let x = 0;
-  let y = 0;
-  let rowHeight = 0;
-  return ordered.map((section) => {
-    const old = legacy.sections?.[section.id];
-    const w = Math.max(sectionMinimum(section).w, Math.min(12, finiteInteger(old?.colSpan, defaultWidth(section, section.page))));
-    const h = old?.rowSpan && old.rowSpan > 1
-      ? Math.max(sectionMinimum(section).h, finiteInteger(old.rowSpan, defaultHeight(section)))
-      : defaultHeight(section);
-    if (x + w > 12) { y += rowHeight; x = 0; rowHeight = 0; }
-    const item = sanitizeItem(section, { x, y, w, h });
-    x += w;
-    rowHeight = Math.max(rowHeight, h);
-    return item;
-  });
+  return compactLayout(items);
 }
 
 export function resolveModuleLayout(
   page: DashboardPage,
   sections: DashboardSectionConfig[],
-  layout: ModuleLayoutConfig,
   viewportWidth: number,
-  draft?: SectionLayoutItem[],
-  naturalRows?: ReadonlyMap<string, number>
+  naturalRows?: ReadonlyMap<string, number>,
+  respectOrder = false
 ): ResolvedModuleLayout {
-  const desktop = sanitizeLayout(sections, draft ?? (layout.mode === "custom" ? layout.items ?? [] : createDefaultLayout(page, sections, layout.mode)));
+  const desktop = createDefaultLayout(page, sections, respectOrder);
   const withNaturalHeight = (items: SectionLayoutItem[], columns: number): ResolvedModuleLayout => ({
     columns,
     items: naturalRows ? compactLayout(items.map((item) => ({ ...item, h: Math.min(item.h, naturalRows.get(item.sectionId) ?? item.h) })), undefined, columns) : items
@@ -283,14 +240,4 @@ export function resolveModuleLayout(
     return withNaturalHeight(compactLayout(desktop.map((item) => ({ ...item, x: 0, w: 1 })), undefined, 1), 1);
   }
   return withNaturalHeight(compactLayout(desktop.map((item) => ({ ...item, x: Math.min(5, Math.floor(item.x / 2)), w: Math.min(6, Math.max(3, Math.ceil(item.w / 2))) })).map((item) => ({ ...item, x: Math.min(item.x, 6 - item.w) })), undefined, 6), 6);
-}
-
-export function moveLayoutItem(items: SectionLayoutItem[], sectionId: string, x: number, y: number): SectionLayoutItem[] {
-  const next = items.map((item) => item.sectionId === sectionId ? { ...item, x, y } : { ...item });
-  return compactLayout(next, sectionId);
-}
-
-export function resizeLayoutItem(items: SectionLayoutItem[], section: DashboardSectionConfig, w: number, h: number): SectionLayoutItem[] {
-  const next = items.map((item) => item.sectionId === section.id ? sanitizeItem(section, { ...item, w, h }) : { ...item });
-  return compactLayout(next, section.id);
 }

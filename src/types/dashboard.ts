@@ -47,14 +47,6 @@ export interface SectionLayoutItem {
   h: number;
 }
 
-export interface SectionSizePreset {
-  id: string;
-  name: string;
-  colSpan: number;
-  rowSpan: number;
-  createdAt: string;
-}
-
 export interface ModuleLayoutConfig {
   mode: ModuleLayoutMode;
   items?: SectionLayoutItem[];
@@ -62,7 +54,6 @@ export interface ModuleLayoutConfig {
   columns?: number;
   templateId?: string;
   sections?: Record<string, SectionLayoutConfig>;
-  sizePresets?: SectionSizePreset[];
 }
 
 export interface WorkbenchSettings {

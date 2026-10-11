@@ -6,8 +6,6 @@ export interface PageHeaderActions {
   onReminder: () => void;
   onSettings: () => void;
   onCustomize: () => void;
-  onEditLayout: () => void;
-  isLayoutEditing: boolean;
 }
 
 export class PageHeader {
@@ -31,8 +29,7 @@ export class PageHeader {
     this.addAction(toolbar, "搜索", "search", this.actions.onSearch, "cow-page-toolbar-search");
     this.addAction(toolbar, "提醒", "bell", this.actions.onReminder);
     this.addAction(toolbar, "设置", "settings", this.actions.onSettings);
-    this.addAction(toolbar, `自定义${this.currentPage === "modules" ? "布局" : ""}`, "plus", this.actions.onCustomize, "cow-page-toolbar-customize");
-    this.addAction(toolbar, this.actions.isLayoutEditing ? "完成布局" : "编辑布局", this.actions.isLayoutEditing ? "check" : "layout-dashboard", this.actions.onEditLayout, "cow-page-toolbar-edit-layout");
+    this.addAction(toolbar, "自定义", "plus", this.actions.onCustomize, "cow-page-toolbar-customize");
   }
 
   private addAction(container: HTMLElement, label: string, iconName: string, onClick: () => void, className?: string): void {

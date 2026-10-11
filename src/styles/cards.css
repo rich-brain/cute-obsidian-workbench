@@ -89,17 +89,6 @@
   grid-column: 1 / -1;
 }
 
-.cow-section-height-sm {
-  min-height: 0;
-}
-
-.cow-section-height-md {
-  min-height: 0;
-}
-
-.cow-section-height-lg {
-  min-height: 0;
-}
 
 .cow-section-header {
   position: relative;

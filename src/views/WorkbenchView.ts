@@ -20,8 +20,6 @@ import { NotesManagerModal } from "../components/NotesManagerModal";
 import { NoteService } from "../services/NoteService";
 import { AvatarPickerModal } from "../components/AvatarPickerModal";
 import { WorkbenchReminderModal } from "../components/WorkbenchReminderModal";
-import { beginLayoutEditing, getDraftLayout, getDraftSections, isLayoutEditing, stopLayoutEditing } from "../core/LayoutEditState";
-import { createDefaultLayout, sanitizeLayout } from "../core/DashboardLayoutEngine";
 
 interface CommandEnabledApp {
   commands?: {
@@ -71,7 +69,6 @@ export class WorkbenchView extends ItemView {
 
   async onClose(): Promise<void> {
     this.pageHost?.querySelectorAll(".cow-dashboard-grid").forEach((grid) => grid.dispatchEvent(new Event("cow-layout-destroy")));
-    stopLayoutEditing();
     if (this.dateWatcher) {
       window.clearInterval(this.dateWatcher);
       this.dateWatcher = undefined;
@@ -121,29 +118,12 @@ export class WorkbenchView extends ItemView {
         onSearch: () => new NotesManagerModal(this.app).open(),
         onReminder: () => new WorkbenchReminderModal(this.app, this.plugin.store).open(),
         onSettings: () => this.openSettings(),
-        onCustomize: () => new WorkbenchCustomizeModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open(),
-        onEditLayout: () => void this.toggleLayoutMode(),
-        isLayoutEditing: isLayoutEditing(this.router.getCurrentPage())
+        onCustomize: () => new WorkbenchCustomizeModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open()
       }).render(pageHost);
     }
     const pageContent = pageHost.createDiv({ cls: "cow-page-content" });
     this.renderPage(pageContent, this.router.getCurrentPage());
     this.observeSectionHeight(container, pageHost);
-  }
-
-  private async toggleLayoutMode(): Promise<void> {
-    const page = this.router.getCurrentPage();
-    if (isLayoutEditing(page)) {
-      const draft = getDraftLayout(page);
-      if (draft) await this.plugin.store.commitModuleLayout(page, draft, getDraftSections(page));
-      stopLayoutEditing();
-    } else {
-      const sections = this.plugin.store.getLayoutSections(page);
-      const layout = this.plugin.store.getModuleLayout(page);
-      beginLayoutEditing(page, sanitizeLayout(sections, layout.mode === "custom" && layout.items?.length
-        ? layout.items : createDefaultLayout(page, sections, layout.mode)));
-    }
-    this.renderPreservingScroll();
   }
 
   private observeSectionHeight(root: HTMLElement, pageHost: HTMLElement): void {

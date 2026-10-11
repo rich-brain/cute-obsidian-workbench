@@ -23,7 +23,7 @@ __export(main_exports, {
   default: () => CuteObsidianWorkbenchPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian87 = require("obsidian");
+var import_obsidian86 = require("obsidian");
 
 // src/core/DashboardLayoutEngine.ts
 var GRID_CONFIG = { columns: 12, rowHeight: 40, gap: 16 };
@@ -47,7 +47,7 @@ var TASK_LAYOUT_SECTIONS = [
   height: "md"
 }));
 var SUMMARY_TYPES = /* @__PURE__ */ new Set(["weekly-completion", "pending-tasks", "today-focus-stat", "checkin-streak", "enabled-modules-overview"]);
-var WIDE_TYPES = /* @__PURE__ */ new Set(["monthly-calendar", "month-calendar", "habit-overview", "reading-queue", "bookshelf", "reading-heatmap", "fitness-stats", "income-expense-trend", "priority-matrix", "home-layout-manager", "section-manager", "research-checkin", "reading-checkin", "fitness-checkin", "finance-checkin", "goals-checkin"]);
+var WIDE_TYPES = /* @__PURE__ */ new Set(["monthly-calendar", "month-calendar", "habit-overview", "reading-queue", "bookshelf", "reading-heatmap", "fitness-stats", "income-expense-trend", "priority-matrix", "section-manager", "research-checkin", "reading-checkin", "fitness-checkin", "finance-checkin", "goals-checkin"]);
 var FULL_TYPES = /* @__PURE__ */ new Set(["contribution-heatmap"]);
 var DEFAULT_GEOMETRY = {
   overview: {
@@ -138,15 +138,14 @@ var DEFAULT_GEOMETRY = {
     "goals-checkin": [8, 40, 4, 8]
   },
   modules: {
-    "section-manager": [0, 0, 6, 10],
-    "home-layout-manager": [6, 0, 6, 10],
-    "enabled-modules-overview": [0, 10, 4, 8],
-    "banner-background-settings": [4, 10, 4, 8],
-    "calendar-widget-settings": [8, 10, 4, 8],
-    "apex-habit-settings": [0, 18, 4, 8],
-    "quick-action-settings": [4, 18, 4, 8],
-    "theme-color-settings": [8, 18, 4, 8],
-    "data-source-status": [0, 26, 12, 7]
+    "section-manager": [0, 0, 8, 10],
+    "enabled-modules-overview": [8, 0, 4, 8],
+    "banner-background-settings": [0, 10, 4, 8],
+    "calendar-widget-settings": [4, 10, 4, 8],
+    "apex-habit-settings": [8, 10, 4, 8],
+    "quick-action-settings": [0, 18, 4, 8],
+    "theme-color-settings": [4, 18, 4, 8],
+    "data-source-status": [8, 18, 4, 7]
   }
 };
 var SECTION_MINIMUMS = {
@@ -182,7 +181,6 @@ var SECTION_MINIMUMS = {
   "priority-matrix": { w: 6, h: 6 },
   "goals-checkin": { w: 4, h: 5 },
   "fitness-checkin": { w: 4, h: 5 },
-  "home-layout-manager": { w: 6, h: 6 },
   "section-manager": { w: 6, h: 6 },
   "task-quick-add": { w: 6, h: 3 },
   "task-today": { w: 6, h: 5 },
@@ -223,8 +221,6 @@ function defaultWidth(section, page) {
   if (section.type === "monthly-calendar") return 6;
   if (section.type === "today-focus" || section.type === "monthly-progress") return 3;
   if (WIDE_TYPES.has(section.type)) return 6;
-  if (section.width === "full") return 12;
-  if (section.width === "lg") return 8;
   return 4;
 }
 function defaultHeight(section) {
@@ -263,93 +259,50 @@ function compactLayout(items, anchoredId, columns = GRID_CONFIG.columns) {
   }
   return placed.sort((a, b) => a.y - b.y || a.x - b.x || a.sectionId.localeCompare(b.sectionId));
 }
-function sanitizeLayout(sections, values) {
-  const byId = new Map(values.filter((value) => value && typeof value.sectionId === "string").map((value) => [value.sectionId, value]));
-  let nextY = values.reduce((bottom, value) => Number.isFinite(value == null ? void 0 : value.y) && Number.isFinite(value == null ? void 0 : value.h) ? Math.max(bottom, value.y + value.h) : bottom, 0);
-  const items = sections.map((section) => {
-    const saved = byId.get(section.id);
-    if (saved) return sanitizeItem(section, saved);
-    const item = sanitizeItem(section, { x: 0, y: nextY });
-    nextY += item.h;
-    return item;
-  });
-  return compactLayout(items);
-}
-function createDefaultLayout(page, sections, mode = "default") {
+function createDefaultLayout(page, sections, respectOrder = false) {
   var _a;
   const ordered = [...sections].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
-  if (mode === "default") {
-    const geometry = (_a = DEFAULT_GEOMETRY[page]) != null ? _a : {};
-    const planned = ordered.filter((section) => geometry[section.type]);
-    const extras = ordered.filter((section) => !geometry[section.type]);
-    const items2 = planned.map((section) => {
-      const [x, y, w, h] = geometry[section.type];
-      return sanitizeItem(section, { x, y, w, h });
+  const geometry = (_a = DEFAULT_GEOMETRY[page]) != null ? _a : {};
+  if (respectOrder) {
+    let x = 0;
+    let y = 0;
+    let rowHeight = 0;
+    return ordered.map((section) => {
+      var _a2;
+      const [, , width, height] = (_a2 = geometry[section.type]) != null ? _a2 : [0, 0, defaultWidth(section, page), defaultHeight(section)];
+      const w = Math.max(sectionMinimum(section).w, width);
+      if (x + w > GRID_CONFIG.columns) {
+        x = 0;
+        y += rowHeight;
+        rowHeight = 0;
+      }
+      const item = sanitizeItem(section, { x, y, w, h: height });
+      x += item.w;
+      rowHeight = Math.max(rowHeight, item.h);
+      return item;
     });
-    let nextY = items2.reduce((bottom, item) => Math.max(bottom, item.y + item.h), 0);
-    for (const section of extras) {
-      const item = sanitizeItem(section, { x: 0, y: nextY });
-      items2.push(item);
-      nextY += item.h;
-    }
-    return compactLayout(items2);
   }
-  const overviewOrder = ["weekly-completion", "pending-tasks", "today-focus-stat", "checkin-streak", "monthly-calendar", "today-focus", "monthly-progress", "habit-overview", "recent-notes", "quick-actions"];
-  if (page === "overview") ordered.sort((a, b) => {
-    const left = overviewOrder.indexOf(a.type);
-    const right = overviewOrder.indexOf(b.type);
-    return (left < 0 ? 100 + a.order : left) - (right < 0 ? 100 + b.order : right);
+  const planned = ordered.filter((section) => geometry[section.type]);
+  const extras = ordered.filter((section) => !geometry[section.type]);
+  const items = planned.map((section) => {
+    const [x, y, w, h] = geometry[section.type];
+    return sanitizeItem(section, { x, y, w, h });
   });
-  let cursorX = 0;
-  let cursorY = 0;
-  let rowHeight = 0;
-  const items = [];
-  for (const section of ordered) {
-    const w = mode === "minimal" ? 12 : mode === "compact" ? Math.max(sectionMinimum(section).w, Math.min(12, defaultWidth(section, page) - 1)) : defaultWidth(section, page);
-    const h = defaultHeight(section);
-    if (cursorX + w > 12) {
-      cursorY += rowHeight;
-      cursorX = 0;
-      rowHeight = 0;
-    }
-    items.push({ sectionId: section.id, x: cursorX, y: cursorY, w, h });
-    cursorX += w;
-    rowHeight = Math.max(rowHeight, h);
+  let nextY = items.reduce((bottom, item) => Math.max(bottom, item.y + item.h), 0);
+  for (const section of extras) {
+    const item = sanitizeItem(section, { x: 0, y: nextY });
+    items.push(item);
+    nextY += item.h;
   }
-  return items;
+  return compactLayout(items);
 }
-function migrateLegacyLayout(sections, legacy) {
-  const ordered = [...sections].sort((a, b) => {
-    var _a, _b, _c, _d, _e, _f;
-    return ((_c = (_b = (_a = legacy.sections) == null ? void 0 : _a[a.id]) == null ? void 0 : _b.order) != null ? _c : a.order) - ((_f = (_e = (_d = legacy.sections) == null ? void 0 : _d[b.id]) == null ? void 0 : _e.order) != null ? _f : b.order);
-  });
-  let x = 0;
-  let y = 0;
-  let rowHeight = 0;
-  return ordered.map((section) => {
-    var _a;
-    const old = (_a = legacy.sections) == null ? void 0 : _a[section.id];
-    const w = Math.max(sectionMinimum(section).w, Math.min(12, finiteInteger(old == null ? void 0 : old.colSpan, defaultWidth(section, section.page))));
-    const h = (old == null ? void 0 : old.rowSpan) && old.rowSpan > 1 ? Math.max(sectionMinimum(section).h, finiteInteger(old.rowSpan, defaultHeight(section))) : defaultHeight(section);
-    if (x + w > 12) {
-      y += rowHeight;
-      x = 0;
-      rowHeight = 0;
-    }
-    const item = sanitizeItem(section, { x, y, w, h });
-    x += w;
-    rowHeight = Math.max(rowHeight, h);
-    return item;
-  });
-}
-function resolveModuleLayout(page, sections, layout, viewportWidth, draft, naturalRows) {
-  var _a;
-  const desktop = sanitizeLayout(sections, draft != null ? draft : layout.mode === "custom" ? (_a = layout.items) != null ? _a : [] : createDefaultLayout(page, sections, layout.mode));
+function resolveModuleLayout(page, sections, viewportWidth, naturalRows, respectOrder = false) {
+  const desktop = createDefaultLayout(page, sections, respectOrder);
   const withNaturalHeight = (items, columns) => ({
     columns,
     items: naturalRows ? compactLayout(items.map((item) => {
-      var _a2;
-      return { ...item, h: Math.min(item.h, (_a2 = naturalRows.get(item.sectionId)) != null ? _a2 : item.h) };
+      var _a;
+      return { ...item, h: Math.min(item.h, (_a = naturalRows.get(item.sectionId)) != null ? _a : item.h) };
     }), void 0, columns) : items
   });
   if (viewportWidth >= 1260) return withNaturalHeight(desktop, 12);
@@ -357,14 +310,6 @@ function resolveModuleLayout(page, sections, layout, viewportWidth, draft, natur
     return withNaturalHeight(compactLayout(desktop.map((item) => ({ ...item, x: 0, w: 1 })), void 0, 1), 1);
   }
   return withNaturalHeight(compactLayout(desktop.map((item) => ({ ...item, x: Math.min(5, Math.floor(item.x / 2)), w: Math.min(6, Math.max(3, Math.ceil(item.w / 2))) })).map((item) => ({ ...item, x: Math.min(item.x, 6 - item.w) })), void 0, 6), 6);
-}
-function moveLayoutItem(items, sectionId, x, y) {
-  const next = items.map((item) => item.sectionId === sectionId ? { ...item, x, y } : { ...item });
-  return compactLayout(next, sectionId);
-}
-function resizeLayoutItem(items, section, w, h) {
-  const next = items.map((item) => item.sectionId === section.id ? sanitizeItem(section, { ...item, w, h }) : { ...item });
-  return compactLayout(next, section.id);
 }
 
 // src/core/DashboardStore.ts
@@ -449,7 +394,6 @@ var AVAILABLE_MODULES = [
   { type: "risks-blockers", title: "\u98CE\u9669\u4E0E\u963B\u788D", description: "\u8BC6\u522B\u98CE\u9669\u5E76\u8BB0\u5F55\u89E3\u51B3\u65B9\u6848\u3002", page: "goals", icon: "triangle-alert", defaultWidth: "md" },
   { type: "long-term-progress", title: "\u957F\u671F\u8FDB\u5C55", description: "\u76EE\u6807\u957F\u671F\u8D8B\u52BF\u548C\u5B8C\u6210\u7387\u3002", page: "goals", icon: "trending-up", defaultWidth: "md" },
   { type: "enabled-modules-overview", title: "\u5DF2\u542F\u7528\u6A21\u5757\u6982\u89C8", description: "\u7EDF\u8BA1\u5F53\u524D\u9875\u9762\u548C\u6574\u4E2A\u5DE5\u4F5C\u53F0\u542F\u7528\u6A21\u5757\u3002", page: "modules", icon: "panel-top", defaultWidth: "md" },
-  { type: "home-layout-manager", title: "\u9875\u9762\u5E03\u5C40\u7BA1\u7406", description: "\u4E3A\u6BCF\u4E2A\u9875\u9762\u5355\u72EC\u8BBE\u7F6E\u9ED8\u8BA4\u3001\u7D27\u51D1\u6216\u6781\u7B80\u5E03\u5C40\u3002", page: "modules", icon: "layout-template", defaultWidth: "md" },
   { type: "section-manager", title: "\u529F\u80FD\u5206\u533A\u7BA1\u7406", description: "\u6309\u9875\u9762\u7BA1\u7406\u542F\u7528\u3001\u9690\u85CF\u3001\u5220\u9664\u3001\u6392\u5E8F\u3001\u989C\u8272\u3001\u5BBD\u5EA6\u548C\u81EA\u5B9A\u4E49\u5206\u533A\u3002", page: "modules", icon: "rows-3", defaultWidth: "full", defaultHeight: "lg" },
   { type: "banner-background-settings", title: "Banner \u80CC\u666F\u8BBE\u7F6E", description: "\u8BBE\u7F6E\u63A8\u8350\u58C1\u7EB8\u3001\u672C\u5730\u56FE\u7247\u3001\u7EAF\u8272\u80CC\u666F\u548C\u906E\u7F69\u3002", page: "modules", icon: "image", defaultWidth: "md" },
   { type: "calendar-widget-settings", title: "\u65E5\u5386\u7EC4\u4EF6\u8BBE\u7F6E", description: "\u63A7\u5236\u65E5\u671F\u6807\u8BB0\u3001\u5468\u8D77\u59CB\u65E5\u548C\u9AD8\u4EAE\u989C\u8272\u3002", page: "modules", icon: "calendar-days", defaultWidth: "md" },
@@ -902,7 +846,6 @@ var DEFAULT_DATA = {
     createSection("goals", "risks-blockers", "\u98CE\u9669\u4E0E\u963B\u788D", 90),
     createSection("goals", "long-term-progress", "\u957F\u671F\u8FDB\u5C55", 100),
     createSection("modules", "enabled-modules-overview", "\u5DF2\u542F\u7528\u6A21\u5757\u6982\u89C8", 10),
-    createSection("modules", "home-layout-manager", "\u9875\u9762\u5E03\u5C40\u7BA1\u7406", 20),
     createSection("modules", "section-manager", "\u529F\u80FD\u5206\u533A\u7BA1\u7406", 30, "full", "lg"),
     createSection("modules", "banner-background-settings", "Banner \u80CC\u666F\u8BBE\u7F6E", 50),
     createSection("modules", "calendar-widget-settings", "\u65E5\u5386\u7EC4\u4EF6\u8BBE\u7F6E", 60),
@@ -1303,33 +1246,31 @@ var DashboardStore = class {
     return AVAILABLE_MODULES.filter((module2) => module2.page === "all" || module2.page === page);
   }
   getAllSections() {
-    return [...this.data.sections].sort((left, right) => {
+    return this.data.sections.filter((section) => section.type !== "home-layout-manager").sort((left, right) => {
       if (left.page === right.page) return left.order - right.order;
       return left.page.localeCompare(right.page);
     });
   }
   getLayoutSections(page) {
-    return page === "tasks" ? [...TASK_LAYOUT_SECTIONS] : this.data.sections.filter((section) => section.page === page);
+    return page === "tasks" ? [...TASK_LAYOUT_SECTIONS] : this.data.sections.filter((section) => section.page === page && section.type !== "home-layout-manager");
   }
   getSectionsForPage(page) {
-    var _a;
-    const layout = this.getModuleLayout(page);
-    const positions = new Map(layout.mode === "custom" ? ((_a = layout.items) != null ? _a : []).map((item, index) => [item.sectionId, index]) : []);
-    return this.data.sections.filter((section) => section.page === page && section.enabled).sort((left, right) => {
-      var _a2, _b;
-      return ((_a2 = positions.get(left.id)) != null ? _a2 : left.order) - ((_b = positions.get(right.id)) != null ? _b : right.order);
-    });
+    return this.data.sections.filter((section) => section.page === page && section.enabled && section.type !== "home-layout-manager").sort((left, right) => left.order - right.order);
   }
-  getModuleLayout(page) {
-    var _a;
-    return (_a = this.data.moduleLayouts[page]) != null ? _a : DEFAULT_MODULE_LAYOUTS[page];
+  hasCustomSectionOrder(page) {
+    const current = this.getSectionsForPage(page).map((section) => section.id);
+    const visible = new Set(current);
+    const defaults = DEFAULT_DATA.sections.filter((section) => section.page === page && visible.has(section.id)).sort((left, right) => left.order - right.order).map((section) => section.id);
+    const defaultIds = new Set(defaults);
+    const expected = [...defaults, ...current.filter((id) => !defaultIds.has(id))];
+    return current.some((id, index) => id !== expected[index]);
   }
   async setCurrentPage(page) {
     this.data.currentPage = page;
     await this.save();
   }
   async addSection(page, moduleType) {
-    var _a, _b, _c;
+    var _a;
     const moduleDefinition = this.getAvailableModules(page).find((module2) => module2.type === moduleType);
     const existingSections = this.data.sections.filter((section2) => section2.page === page);
     const nextOrder = existingSections.reduce((max, section2) => Math.max(max, section2.order), 0) + 10;
@@ -1340,12 +1281,9 @@ var DashboardStore = class {
       title: (_a = moduleDefinition == null ? void 0 : moduleDefinition.title) != null ? _a : moduleType,
       order: nextOrder,
       enabled: true,
-      width: (_b = moduleDefinition == null ? void 0 : moduleDefinition.defaultWidth) != null ? _b : "md",
-      height: (_c = moduleDefinition == null ? void 0 : moduleDefinition.defaultHeight) != null ? _c : "sm",
       config: {}
     };
     this.data.sections.push(section);
-    this.ensureSectionLayout(page, section.id, nextOrder);
     await this.save();
     return section;
   }
@@ -1360,8 +1298,6 @@ var DashboardStore = class {
       title: input.title,
       order: nextOrder,
       enabled: true,
-      width: "md",
-      height: "md",
       config: {
         description: input.description,
         cardColor: input.color,
@@ -1369,19 +1305,11 @@ var DashboardStore = class {
       }
     };
     this.data.sections.push(section);
-    this.ensureSectionLayout(input.page, section.id, nextOrder);
     await this.save();
     return section;
   }
   async removeSection(sectionId) {
-    var _a, _b;
-    const section = this.data.sections.find((item) => item.id === sectionId);
-    this.data.sections = this.data.sections.filter((section2) => section2.id !== sectionId);
-    if (section) {
-      (_b = (_a = this.data.moduleLayouts[section.page]) == null ? void 0 : _a.sections) == null ? true : delete _b[sectionId];
-      const layout = this.data.moduleLayouts[section.page];
-      if (layout == null ? void 0 : layout.items) layout.items = layout.items.filter((item) => item.sectionId !== sectionId);
-    }
+    this.data.sections = this.data.sections.filter((section) => section.id !== sectionId);
     await this.save();
   }
   async setSectionEnabled(sectionId, enabled) {
@@ -1416,137 +1344,17 @@ var DashboardStore = class {
     await this.save();
   }
   async reorderSections(page, orderedIds) {
-    var _a;
-    const pageSections = this.data.sections.filter((section) => section.page === page);
-    const sectionById = new Map(pageSections.map((section) => [section.id, section]));
-    const suppliedIds = [...new Set(orderedIds)].filter((id) => sectionById.has(id));
-    const layout = this.getModuleLayout(page);
-    const remainingIds = pageSections.filter((section) => !suppliedIds.includes(section.id)).sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout)).map((section) => section.id);
-    const normalizedIds = [...suppliedIds, ...remainingIds];
-    if (new Set(pageSections.map((section) => this.getSectionLayoutOrder(section, layout))).size !== pageSections.length) {
-      console.warn(`[Cute Workbench] Normalizing duplicate section order values for ${page}.`);
+    const pageSections = this.data.sections.filter((section) => section.page === page && section.type !== "home-layout-manager");
+    const byId = new Map(pageSections.map((section) => [section.id, section]));
+    const ids = [...new Set(orderedIds)].filter((id) => byId.has(id));
+    for (const section of pageSections.sort((a, b) => a.order - b.order)) {
+      if (!ids.includes(section.id)) ids.push(section.id);
     }
-    normalizedIds.forEach((sectionId, index) => {
-      const section = sectionById.get(sectionId);
-      if (!section) return;
-      const order = (index + 1) * 10;
-      section.order = order;
+    ids.forEach((id, index) => {
+      const section = byId.get(id);
+      if (section) section.order = (index + 1) * 10;
     });
-    const existing = new Map(((_a = layout.items) != null ? _a : []).map((item) => [item.sectionId, item]));
-    const ordered = normalizedIds.map((id) => existing.get(id)).filter((item) => Boolean(item));
-    const remaining = normalizedIds.filter((id) => !existing.has(id));
-    const sections = normalizedIds.map((id) => sectionById.get(id)).filter((section) => Boolean(section));
-    const source = [...ordered, ...createDefaultLayout(page, sections.filter((section) => remaining.includes(section.id)))];
-    let x = 0;
-    let y = 0;
-    let rowHeight = 0;
-    const items = normalizedIds.map((id) => {
-      var _a2, _b;
-      const prior = source.find((item) => item.sectionId === id);
-      const w = (_a2 = prior == null ? void 0 : prior.w) != null ? _a2 : 4;
-      const h = (_b = prior == null ? void 0 : prior.h) != null ? _b : 8;
-      if (x + w > 12) {
-        x = 0;
-        y += rowHeight;
-        rowHeight = 0;
-      }
-      const next = { sectionId: id, x, y, w, h };
-      x += w;
-      rowHeight = Math.max(rowHeight, h);
-      return next;
-    });
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout({ ...layout, mode: "custom", items }, page);
     await this.save();
-  }
-  async setOverviewLayout(layout) {
-    this.data.userSettings.overviewLayout = layout;
-    this.data.moduleLayouts.overview = this.normalizeModuleLayout({ ...this.data.moduleLayouts.overview, mode: layout }, "overview");
-    await this.save();
-  }
-  async setModuleLayoutMode(page, mode) {
-    var _a;
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout({
-      ...this.getModuleLayout(page),
-      mode,
-      items: mode === "custom" && !((_a = this.getModuleLayout(page).items) == null ? void 0 : _a.length) ? createDefaultLayout(page, this.getLayoutSections(page)) : this.getModuleLayout(page).items
-    }, page);
-    if (page === "overview" && mode !== "custom") {
-      this.data.userSettings.overviewLayout = mode;
-    }
-    await this.save();
-  }
-  async updateModuleLayout(page, updates) {
-    var _a, _b;
-    const legacyItems = updates.sections ? migrateLegacyLayout(this.data.sections.filter((section) => section.page === page), { ...this.getModuleLayout(page), ...updates }) : void 0;
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout({
-      ...this.getModuleLayout(page),
-      ...updates,
-      items: (_b = (_a = updates.items) != null ? _a : legacyItems) != null ? _b : this.getModuleLayout(page).items
-    }, page);
-    await this.save();
-  }
-  async updateSectionLayout(page, sectionId, updates) {
-    var _a, _b, _c;
-    const section = this.getLayoutSections(page).find((item) => item.id === sectionId);
-    if (!section) return;
-    const layout = this.getModuleLayout(page);
-    const source = layout.mode === "custom" && ((_a = layout.items) == null ? void 0 : _a.length) ? layout.items : createDefaultLayout(page, this.getLayoutSections(page), layout.mode);
-    const current = source.find((item) => item.sectionId === sectionId);
-    if (!current) return;
-    const items = resizeLayoutItem(source, section, (_b = updates.colSpan) != null ? _b : current.w, (_c = updates.rowSpan) != null ? _c : current.h);
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout({ ...layout, mode: "custom", items }, page);
-    await this.save();
-  }
-  async applySectionSize(page, sectionId, colSpan, rowSpan) {
-    await this.updateSectionLayout(page, sectionId, { colSpan, rowSpan });
-  }
-  async reorderSectionLayout(page, orderedIds) {
-    await this.reorderSections(page, orderedIds);
-  }
-  async commitModuleLayout(page, items, additions = []) {
-    for (const section of additions) {
-      if (section.page === page && !this.data.sections.some((item) => item.id === section.id)) this.data.sections.push(section);
-    }
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout({ ...this.getModuleLayout(page), mode: "custom", items }, page);
-    await this.save();
-  }
-  async resetModuleLayout(page) {
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout({ ...this.getModuleLayout(page), mode: "default", items: void 0 }, page);
-    await this.save();
-  }
-  getSectionSizePresets(page) {
-    var _a;
-    return [...(_a = this.getModuleLayout(page).sizePresets) != null ? _a : []];
-  }
-  async saveSectionSizePreset(page, preset) {
-    var _a, _b;
-    const layout = this.getModuleLayout(page);
-    const columns = layout.mode === "custom" ? (_a = layout.columns) != null ? _a : 12 : 12;
-    const nextPreset = {
-      id: `size-${Date.now()}`,
-      name: preset.name.trim(),
-      colSpan: Math.max(1, Math.min(columns, Math.round(preset.colSpan))),
-      rowSpan: Math.max(1, Math.min(12, Math.round(preset.rowSpan))),
-      createdAt: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout({
-      ...layout,
-      sizePresets: [...(_b = layout.sizePresets) != null ? _b : [], nextPreset]
-    }, page);
-    await this.save();
-  }
-  async moveSectionLayout(page, sectionId, direction) {
-    var _a;
-    const layout = this.getModuleLayout(page);
-    const items = layout.mode === "custom" && ((_a = layout.items) == null ? void 0 : _a.length) ? [...layout.items] : createDefaultLayout(page, this.getLayoutSections(page), layout.mode);
-    const currentIndex = items.findIndex((item) => item.sectionId === sectionId);
-    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= items.length) return;
-    const first = items[currentIndex];
-    const second = items[targetIndex];
-    [first.x, second.x] = [second.x, first.x];
-    [first.y, second.y] = [second.y, first.y];
-    await this.commitModuleLayout(page, compactLayout(items, sectionId));
   }
   async updateUserSettings(settings) {
     this.data.userSettings = {
@@ -3448,7 +3256,7 @@ var DashboardStore = class {
         ...partial.userSettings
       },
       sections,
-      moduleLayouts: this.migrateModuleLayouts(partial, sections),
+      moduleLayouts: this.migrateModuleLayouts(partial),
       habits: (_a = partial.habits) != null ? _a : {},
       todayFocusTasks: Array.isArray(partial.todayFocusTasks) ? partial.todayFocusTasks : structuredClone(DEFAULT_DATA.todayFocusTasks),
       researchProjects: Array.isArray(partial.researchProjects) ? partial.researchProjects.map((project) => this.normalizeResearchProject(project)) : structuredClone(DEFAULT_DATA.researchProjects).map((project) => this.normalizeResearchProject(project)),
@@ -4536,7 +4344,7 @@ var DashboardStore = class {
   }
   migrateSections(sections) {
     const pages = ["overview", "research", "reading", "fitness", "finance", "goals", "modules"];
-    const migrated = sections.filter((section) => section.type !== "module-settings");
+    const migrated = sections.filter((section) => section.type !== "module-settings" && section.type !== "home-layout-manager");
     pages.forEach((page) => {
       if (!sections.some((section) => section.page === page)) {
         migrated.push(...structuredClone(DEFAULT_DATA.sections.filter((section) => section.page === page)));
@@ -4562,55 +4370,14 @@ var DashboardStore = class {
     }
     return this.withRequiredSections(migrated);
   }
-  migrateModuleLayouts(partial, sections) {
-    var _a, _b, _c;
-    const legacy = partial;
-    const fallbackMode = (_c = (_b = legacy.layoutMode) != null ? _b : (_a = partial.userSettings) == null ? void 0 : _a.overviewLayout) != null ? _c : DEFAULT_DATA.userSettings.overviewLayout;
+  migrateModuleLayouts(partial) {
     const layouts = structuredClone(DEFAULT_MODULE_LAYOUTS);
     Object.keys(layouts).forEach((page) => {
-      var _a2, _b2, _c2;
-      const saved = (_a2 = partial.moduleLayouts) == null ? void 0 : _a2[page];
-      const pageSections = page === "tasks" ? TASK_LAYOUT_SECTIONS : sections.filter((section) => section.page === page);
-      const items = Array.isArray(saved == null ? void 0 : saved.items) && saved.items.length ? saved.items : (saved == null ? void 0 : saved.mode) === "custom" && saved.sections && Object.keys(saved.sections).length ? migrateLegacyLayout(pageSections, saved) : createDefaultLayout(page, pageSections, (_b2 = saved == null ? void 0 : saved.mode) != null ? _b2 : fallbackMode);
-      layouts[page] = this.normalizeModuleLayout({ ...saved, mode: (_c2 = saved == null ? void 0 : saved.mode) != null ? _c2 : fallbackMode, items }, page, sections);
+      var _a;
+      const saved = (_a = partial.moduleLayouts) == null ? void 0 : _a[page];
+      if (saved && typeof saved === "object") layouts[page] = saved;
     });
     return layouts;
-  }
-  normalizeModuleLayout(layout, page, allSections = this.data.sections) {
-    var _a;
-    const mode = (layout == null ? void 0 : layout.mode) === "compact" || (layout == null ? void 0 : layout.mode) === "minimal" || (layout == null ? void 0 : layout.mode) === "custom" ? layout.mode : "default";
-    const sizePresets = ((_a = layout == null ? void 0 : layout.sizePresets) != null ? _a : []).filter((preset) => Boolean(preset && typeof preset.name === "string" && preset.name.trim())).map((preset) => ({
-      id: typeof preset.id === "string" && preset.id ? preset.id : `size-${Date.now()}`,
-      name: preset.name.trim().slice(0, 48),
-      colSpan: Math.max(1, Math.min(12, Number(preset.colSpan) || 1)),
-      rowSpan: Math.max(1, Math.min(12, Number(preset.rowSpan) || 1)),
-      createdAt: typeof preset.createdAt === "string" ? preset.createdAt : (/* @__PURE__ */ new Date()).toISOString()
-    }));
-    return {
-      mode,
-      columns: 12,
-      templateId: typeof (layout == null ? void 0 : layout.templateId) === "string" ? layout.templateId : void 0,
-      items: sanitizeLayout(page === "tasks" ? TASK_LAYOUT_SECTIONS : allSections.filter((section) => section.page === page), Array.isArray(layout == null ? void 0 : layout.items) ? layout.items : []),
-      sizePresets
-    };
-  }
-  ensureSectionLayout(page, sectionId, fallbackOrder) {
-    var _a, _b, _c, _d;
-    const layout = (_a = this.data.moduleLayouts[page]) != null ? _a : structuredClone(DEFAULT_MODULE_LAYOUTS[page]);
-    if (!((_b = layout.items) == null ? void 0 : _b.some((item) => item.sectionId === sectionId))) {
-      const section = this.data.sections.find((item) => item.id === sectionId);
-      if (section) {
-        const minimum = sectionMinimum(section);
-        const bottom = ((_c = layout.items) != null ? _c : []).reduce((max, item) => Math.max(max, item.y + item.h), 0);
-        layout.items = [...(_d = layout.items) != null ? _d : [], { sectionId, x: 0, y: bottom, w: Math.max(minimum.w, 4), h: Math.max(minimum.h, 8) }];
-      }
-    }
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout(layout, page);
-  }
-  getSectionLayoutOrder(section, layout) {
-    var _a, _b;
-    const index = (_b = (_a = layout.items) == null ? void 0 : _a.findIndex((item) => item.sectionId === section.id)) != null ? _b : -1;
-    return index >= 0 ? (index + 1) * 10 : section.order;
   }
   normalizeFocusRecord(record) {
     var _a, _b, _c, _d, _e, _f, _g;
@@ -4768,7 +4535,7 @@ var HealthReminderService = class {
 };
 
 // src/views/WorkbenchView.ts
-var import_obsidian86 = require("obsidian");
+var import_obsidian85 = require("obsidian");
 
 // src/core/DashboardRouter.ts
 var ROUTE_CHANGED_EVENT = "route-changed";
@@ -5037,8 +4804,7 @@ var PageHeader = class {
     this.addAction(toolbar, "\u641C\u7D22", "search", this.actions.onSearch, "cow-page-toolbar-search");
     this.addAction(toolbar, "\u63D0\u9192", "bell", this.actions.onReminder);
     this.addAction(toolbar, "\u8BBE\u7F6E", "settings", this.actions.onSettings);
-    this.addAction(toolbar, `\u81EA\u5B9A\u4E49${this.currentPage === "modules" ? "\u5E03\u5C40" : ""}`, "plus", this.actions.onCustomize, "cow-page-toolbar-customize");
-    this.addAction(toolbar, this.actions.isLayoutEditing ? "\u5B8C\u6210\u5E03\u5C40" : "\u7F16\u8F91\u5E03\u5C40", this.actions.isLayoutEditing ? "check" : "layout-dashboard", this.actions.onEditLayout, "cow-page-toolbar-edit-layout");
+    this.addAction(toolbar, "\u81EA\u5B9A\u4E49", "plus", this.actions.onCustomize, "cow-page-toolbar-customize");
   }
   addAction(container, label, iconName, onClick, className) {
     const button = container.createEl("button", {
@@ -5050,9 +4816,6 @@ var PageHeader = class {
     button.addEventListener("click", onClick);
   }
 };
-
-// src/components/DashboardGrid.ts
-var import_obsidian78 = require("obsidian");
 
 // src/components/DashboardSection.ts
 var import_obsidian76 = require("obsidian");
@@ -9682,47 +9445,6 @@ function statusOptions(values) {
   return values.map((value) => ({ value, label: value }));
 }
 
-// src/core/LayoutEditState.ts
-var session;
-function isLayoutEditing(page) {
-  return (session == null ? void 0 : session.page) === page;
-}
-function beginLayoutEditing(page, items) {
-  session = { page, draft: structuredClone(items), additions: [] };
-}
-function getDraftLayout(page) {
-  return (session == null ? void 0 : session.page) === page ? session.draft : void 0;
-}
-function updateDraftLayout(page, items) {
-  if ((session == null ? void 0 : session.page) === page) session.draft = structuredClone(items);
-}
-function resetDraftLayout(page, items) {
-  if ((session == null ? void 0 : session.page) !== page) return;
-  session.draft = structuredClone(items);
-  session.additions = [];
-}
-function getDraftSections(page) {
-  return (session == null ? void 0 : session.page) === page ? session.additions : [];
-}
-function addDraftSection(page, section) {
-  if ((session == null ? void 0 : session.page) !== page) return;
-  const minimum = sectionMinimum(section);
-  const bottom = session.draft.reduce((max, item) => Math.max(max, item.y + item.h), 0);
-  session.additions.push(section);
-  session.draft.push({ sectionId: section.id, x: 0, y: bottom, w: Math.max(minimum.w, 4), h: Math.max(minimum.h, 8) });
-}
-function removeDraftSection(page, sectionId) {
-  if ((session == null ? void 0 : session.page) !== page) return false;
-  const before = session.additions.length;
-  session.additions = session.additions.filter((section) => section.id !== sectionId);
-  if (before === session.additions.length) return false;
-  session.draft = session.draft.filter((item) => item.sectionId !== sectionId);
-  return true;
-}
-function stopLayoutEditing() {
-  session = void 0;
-}
-
 // src/components/SectionActionMenu.ts
 var CARD_COLORS = [
   { id: "default", label: "\u9ED8\u8BA4" },
@@ -9733,13 +9455,12 @@ var CARD_COLORS = [
   { id: "lavender", label: "\u6DE1\u7D2B" }
 ];
 var SectionActionMenu = class {
-  constructor(app, store, section, onRemove, onDataChanged, defaultColSpan) {
+  constructor(app, store, section, onRemove, onDataChanged) {
     this.app = app;
     this.store = store;
     this.section = section;
     this.onRemove = onRemove;
     this.onDataChanged = onDataChanged;
-    this.defaultColSpan = defaultColSpan;
   }
   show(event) {
     const menu = new import_obsidian24.Menu();
@@ -9751,7 +9472,6 @@ var SectionActionMenu = class {
       menu.addItem((item) => item.setTitle("\u7F16\u8F91\u6570\u636E").setIcon("pencil").onClick(() => openManageContentModal(this.app, this.store, this.section, this.onDataChanged)));
     }
     menu.addItem((item) => item.setTitle("\u4FEE\u6539\u6846\u4F53\u989C\u8272").setIcon("palette").onClick(() => new SectionColorModal(this.app, this.store, this.section, this.onDataChanged).open()));
-    menu.addItem((item) => item.setTitle("\u4FEE\u6539\u5BBD\u9AD8").setIcon("maximize-2").onClick(() => new SectionSizeModal(this.app, this.store, this.section, this.onDataChanged, this.defaultColSpan).open()));
     menu.addSeparator();
     menu.addItem((item) => item.setTitle("\u4E0A\u79FB").setIcon("arrow-up").onClick(() => void this.move("up")));
     menu.addItem((item) => item.setTitle("\u4E0B\u79FB").setIcon("arrow-down").onClick(() => void this.move("down")));
@@ -9764,15 +9484,7 @@ var SectionActionMenu = class {
     openAddContentModal(this.app, this.store, this.section, this.onDataChanged);
   }
   async move(direction) {
-    const draft = getDraftLayout(this.section.page);
-    if (draft) {
-      const ordered = [...draft].sort((a, b) => a.y - b.y || a.x - b.x);
-      const index = ordered.findIndex((item) => item.sectionId === this.section.id);
-      const target = ordered[index + (direction === "up" ? -1 : 1)];
-      if (target) updateDraftLayout(this.section.page, moveLayoutItem(draft, this.section.id, target.x, target.y));
-    } else {
-      await this.store.moveSectionLayout(this.section.page, this.section.id, direction);
-    }
+    await this.store.moveSection(this.section.id, direction);
     this.onDataChanged();
   }
   async hide() {
@@ -9826,114 +9538,6 @@ var SectionColorModal = class extends import_obsidian24.Modal {
         this.close();
       });
     });
-  }
-};
-var SectionSizeModal = class extends import_obsidian24.Modal {
-  constructor(app, store, section, onDataChanged, defaultColSpan) {
-    super(app);
-    this.store = store;
-    this.section = section;
-    this.onDataChanged = onDataChanged;
-    this.defaultColSpan = defaultColSpan;
-  }
-  onOpen() {
-    var _a, _b, _c;
-    applyResizableModal(this, {
-      className: "cute-section-size-modal",
-      width: "min(720px, 92vw)",
-      height: "min(640px, 82vh)",
-      maxWidth: "96vw",
-      maxHeight: "90vh",
-      minWidth: "min(360px, 92vw)",
-      minHeight: "min(360px, 70vh)"
-    });
-    this.contentEl.empty();
-    this.contentEl.addClass("cow-modal", "cow-section-size-modal");
-    this.contentEl.createEl("h2", { text: "\u4FEE\u6539\u5BBD\u9AD8" });
-    this.contentEl.createEl("p", { text: `\u6B63\u5728\u8C03\u6574\u201C${this.section.title}\u201D\u3002\u6570\u503C\u5BF9\u5E94\u5F53\u524D\u5DE5\u4F5C\u53F0\u7684\u903B\u8F91\u5217\u5BBD\u4E0E\u884C\u9AD8\u3002` });
-    const layout = this.store.getModuleLayout(this.section.page);
-    const columns = 12;
-    const saved = resolveModuleLayout(
-      this.section.page,
-      this.store.getAllSections().filter((item) => item.page === this.section.page),
-      layout,
-      1260
-    ).items.find((item) => item.sectionId === this.section.id);
-    const defaultWidth2 = (_a = this.defaultColSpan) != null ? _a : this.defaultWidth();
-    const form = this.contentEl.createDiv({ cls: "cow-form-grid cow-section-size-form" });
-    const widthField = form.createDiv({ cls: "cow-form-row" });
-    widthField.createEl("label", { text: `\u5BBD\u5EA6\uFF081-${columns} \u5217\uFF09` });
-    const widthInput = widthField.createEl("input", { type: "number", value: String((_b = saved == null ? void 0 : saved.w) != null ? _b : defaultWidth2), attr: { min: String(sectionMinimum(this.section).w), max: String(columns), step: "1" } });
-    const heightField = form.createDiv({ cls: "cow-form-row" });
-    heightField.createEl("label", { text: "\u9AD8\u5EA6\uFF081-12 \u884C\uFF09" });
-    const heightInput = heightField.createEl("input", { type: "number", value: String((_c = saved == null ? void 0 : saved.h) != null ? _c : 8), attr: { min: String(sectionMinimum(this.section).h), max: "12", step: "1" } });
-    const presetToggle = this.contentEl.createEl("label", { cls: "cow-section-size-preset-toggle" });
-    const savePreset = presetToggle.createEl("input", { type: "checkbox" });
-    presetToggle.createSpan({ text: "\u5C06\u8FD9\u7EC4\u5C3A\u5BF8\u4FDD\u5B58\u4E3A\u6807\u51C6" });
-    const presetName = this.contentEl.createEl("input", {
-      cls: "cow-section-size-preset-name",
-      attr: { type: "text", placeholder: "\u4F8B\u5982\uFF1A\u53CC\u5217\u91CD\u70B9\u5361" }
-    });
-    presetName.hidden = true;
-    savePreset.addEventListener("change", () => {
-      presetName.hidden = !savePreset.checked;
-      if (savePreset.checked) presetName.focus();
-    });
-    const error = this.contentEl.createDiv({ cls: "cow-form-error" });
-    error.hidden = true;
-    const presets = this.store.getSectionSizePresets(this.section.page);
-    const presetArea = this.contentEl.createDiv({ cls: "cow-section-size-presets" });
-    presetArea.createEl("h3", { text: "\u5DF2\u6709\u5C3A\u5BF8\u6807\u51C6" });
-    if (presets.length === 0) {
-      presetArea.createDiv({ cls: "cow-empty-state", text: "\u8FD8\u6CA1\u6709\u4FDD\u5B58\u7684\u5C3A\u5BF8\u6807\u51C6\u3002" });
-    } else {
-      const list = presetArea.createDiv({ cls: "cow-data-list" });
-      presets.forEach((preset) => {
-        const row = list.createDiv({ cls: "cow-data-row cow-section-size-preset" });
-        row.createDiv({ text: `${preset.name} \xB7 ${preset.colSpan} \xD7 ${preset.rowSpan}` });
-        const use = row.createEl("button", { text: "\u4F7F\u7528", attr: { type: "button" } });
-        use.addEventListener("click", () => {
-          widthInput.value = String(preset.colSpan);
-          heightInput.value = String(preset.rowSpan);
-          error.hidden = true;
-        });
-      });
-    }
-    const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
-    actions.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => this.close());
-    const apply = actions.createEl("button", { text: "\u4FDD\u5B58", cls: "mod-cta", attr: { type: "button" } });
-    apply.addEventListener("click", async () => {
-      const colSpan = Number(widthInput.value);
-      const rowSpan = Number(heightInput.value);
-      const invalid = !Number.isInteger(colSpan) || !Number.isInteger(rowSpan) || colSpan < 1 || colSpan > columns || rowSpan < 1 || rowSpan > 12;
-      if (invalid) {
-        error.setText(`\u8BF7\u8F93\u5165\u5BBD\u5EA6 1-${columns}\u3001\u9AD8\u5EA6 1-12 \u7684\u6574\u6570\u3002`);
-        error.hidden = false;
-        return;
-      }
-      if (savePreset.checked && !presetName.value.trim()) {
-        error.setText("\u8BF7\u8F93\u5165\u5C3A\u5BF8\u6807\u51C6\u540D\u79F0\u3002");
-        error.hidden = false;
-        return;
-      }
-      if (isLayoutEditing(this.section.page)) {
-        const draft = getDraftLayout(this.section.page);
-        if (draft) updateDraftLayout(this.section.page, resizeLayoutItem(draft, this.section, colSpan, rowSpan));
-      } else {
-        await this.store.applySectionSize(this.section.page, this.section.id, colSpan, rowSpan);
-      }
-      if (savePreset.checked) {
-        await this.store.saveSectionSizePreset(this.section.page, { name: presetName.value, colSpan, rowSpan });
-      }
-      this.onDataChanged();
-      this.close();
-    });
-  }
-  defaultWidth() {
-    if (this.section.width === "full") return 12;
-    if (this.section.width === "lg") return 8;
-    if (this.section.width === "sm") return 3;
-    return 4;
   }
 };
 
@@ -14543,248 +14147,6 @@ var EnabledModulesOverviewSection = class {
   }
 };
 var MANAGED_PAGES = ["overview", "research", "reading", "fitness", "finance", "goals"];
-var LAYOUT_PAGES = [...MANAGED_PAGES, "tasks", "modules"];
-var LAYOUT_TEMPLATES = [
-  { id: "two-columns", label: "\u5747\u5300\u53CC\u5217", description: "\u4E24\u4E2A\u7B49\u5BBD\u5217\uFF0C\u9002\u5408\u901A\u7528\u4FE1\u606F\u6D41\u3002", columns: 2 },
-  { id: "three-columns", label: "\u5747\u5300\u4E09\u5217", description: "\u4E09\u5217\u5E76\u6392\uFF0C\u9002\u5408\u8F7B\u91CF\u5361\u7247\u3002", columns: 3 },
-  { id: "left-large", label: "\u5DE6\u5927\u53F3\u5C0F", description: "\u5DE6\u4FA7\u91CD\u70B9\uFF0C\u53F3\u4FA7\u4E0A\u4E0B\u6392\u5217\u3002", columns: 4 },
-  { id: "right-large", label: "\u5DE6\u5C0F\u53F3\u5927", description: "\u53F3\u4FA7\u91CD\u70B9\uFF0C\u5DE6\u4FA7\u4E0A\u4E0B\u6392\u5217\u3002", columns: 4 },
-  { id: "top-full", label: "\u9876\u90E8\u901A\u680F", description: "\u9996\u4E2A\u677F\u5757\u901A\u680F\uFF0C\u4E0B\u65B9\u53CC\u5217\u3002", columns: 4 },
-  { id: "left-feature", label: "\u5DE6\u5217\u91CD\u70B9", description: "\u5DE6\u4FA7\u6574\u5217\uFF0C\u53F3\u4FA7\u7F51\u683C\u3002", columns: 4 }
-];
-var HomeLayoutManagerSection = class {
-  constructor(store, onDataChanged) {
-    this.store = store;
-    this.onDataChanged = onDataChanged;
-    const currentPage = this.store.getData().currentPage;
-    this.selectedPage = LAYOUT_PAGES.includes(currentPage) ? currentPage : "overview";
-  }
-  render(container) {
-    this.host = container;
-    container.empty();
-    const header = container.createDiv({ cls: "cow-layout-manager-header" });
-    header.createSpan({ text: "\u5F53\u524D\u6A21\u5757" });
-    const select = header.createEl("select", { attr: { "aria-label": "\u9009\u62E9\u8981\u8BBE\u7F6E\u5E03\u5C40\u7684\u6A21\u5757" } });
-    LAYOUT_PAGES.forEach((page) => select.createEl("option", { value: page, text: PAGE_LABELS[page] }));
-    select.value = this.selectedPage;
-    select.addEventListener("change", () => {
-      this.selectedPage = select.value;
-      this.selectedSectionId = void 0;
-      this.render(container);
-    });
-    const layout = this.store.getModuleLayout(this.selectedPage);
-    const current = layout.mode;
-    const grid = container.createDiv({ cls: "cow-layout-picker" });
-    [
-      ["default", "\u9ED8\u8BA4\u5E03\u5C40", "\u4FDD\u6301\u5F53\u524D\u9875\u9762\u6807\u51C6\u5361\u7247\u8282\u594F"],
-      ["compact", "\u7D27\u51D1\u5E03\u5C40", "\u589E\u52A0\u7F51\u683C\u5217\u6570\uFF0C\u51CF\u5C11\u95F4\u8DDD\u548C\u7559\u767D"],
-      ["minimal", "\u6781\u7B80\u5E03\u5C40", "\u5355\u5217\u5C55\u793A\uFF0C\u51CF\u5C11\u88C5\u9970\u4F46\u4FDD\u7559\u6570\u636E"],
-      ["custom", "\u81EA\u5B9A\u4E49\u5E03\u5C40", "\u4F7F\u7528\u6A21\u677F\u3001\u8DE8\u5EA6\u548C\u987A\u5E8F\u63A7\u5236\u677F\u5757"]
-    ].forEach(([id, title, desc]) => {
-      const button = grid.createEl("button", { cls: current === id ? "is-active" : "", attr: { type: "button" } });
-      button.createEl("strong", { text: title });
-      button.createSpan({ text: desc });
-      button.addEventListener("click", async () => {
-        await this.store.setModuleLayoutMode(this.selectedPage, id);
-        this.rerender();
-      });
-    });
-    const note = container.createDiv({ cls: "cow-meta-line" });
-    note.createSpan({ text: `${PAGE_LABELS[this.selectedPage]} \u4F7F\u7528 12 \u5217\u7F51\u683C\u3002\u81EA\u5B9A\u4E49\u5E03\u5C40\u72EC\u7ACB\u4FDD\u5B58\u4F4D\u7F6E\u4E0E\u5BBD\u9AD8\u3002` });
-    if (layout.mode === "custom") {
-      this.renderCustomLayoutEditor(container, layout);
-    }
-  }
-  renderCustomLayoutEditor(container, layout) {
-    container.createEl("h4", { text: "\u5E03\u5C40\u6A21\u677F" });
-    const templates = container.createDiv({ cls: "cow-layout-template-grid" });
-    LAYOUT_TEMPLATES.forEach((template) => {
-      const button = templates.createEl("button", { cls: layout.templateId === template.id ? "is-active" : "", attr: { type: "button" } });
-      const title = button.createDiv({ cls: "cow-layout-template-title" });
-      title.createEl("strong", { text: template.label });
-      if (layout.templateId === template.id) title.createSpan({ text: "\u2713" });
-      this.renderTemplateMiniature(button, template.id);
-      button.createSpan({ text: template.description });
-      button.addEventListener("click", async () => {
-        const sections = this.getManagedSections();
-        await this.store.updateModuleLayout(this.selectedPage, {
-          mode: "custom",
-          templateId: template.id,
-          items: this.createTemplateSectionLayouts(template, sections)
-        });
-        this.rerender();
-      });
-    });
-    container.createEl("h4", { text: "\u5E03\u5C40\u9884\u89C8" });
-    this.renderPreview(container, layout);
-    container.createEl("h4", { text: "\u677F\u5757\u5E03\u5C40" });
-    this.renderSectionEditor(container, layout);
-  }
-  renderTemplateMiniature(container, id) {
-    const mini = container.createDiv({ cls: `cow-layout-template-mini is-${id}` });
-    Array.from({ length: id === "left-feature" ? 5 : 4 }, (_, index) => {
-      mini.createDiv({ text: String.fromCharCode(65 + index) });
-    });
-  }
-  renderPreview(container, layout) {
-    const sections = this.getManagedSections().filter((section) => section.enabled);
-    const preview = container.createDiv({ cls: "cow-layout-preview" });
-    preview.style.setProperty("--preview-columns", String(GRID_CONFIG.columns));
-    const resolved = resolveModuleLayout(this.selectedPage, sections, layout, 1260);
-    preview.style.setProperty("--preview-row-height", "18px");
-    resolved.items.forEach((sectionLayout) => {
-      const section = sections.find((item) => item.id === sectionLayout.sectionId);
-      if (!section) return;
-      const tile = preview.createEl("button", {
-        cls: [
-          "cow-layout-preview-tile",
-          section.enabled ? "" : "is-disabled",
-          this.selectedSectionId === section.id ? "is-selected" : ""
-        ].filter(Boolean).join(" "),
-        attr: { type: "button" }
-      });
-      tile.style.gridColumn = `${sectionLayout.x + 1} / span ${sectionLayout.w}`;
-      tile.style.gridRow = `${sectionLayout.y + 1} / span ${sectionLayout.h}`;
-      tile.createEl("strong", { text: section.title });
-      tile.createSpan({ text: `${sectionLayout.w}\xD7${sectionLayout.h}` });
-      tile.addEventListener("click", () => {
-        this.selectedSectionId = section.id;
-        this.rerender();
-      });
-    });
-  }
-  renderSectionEditor(container, layout) {
-    var _a;
-    const sections = this.getManagedSections();
-    const selected = (_a = sections.find((section) => section.id === this.selectedSectionId)) != null ? _a : sections[0];
-    if (selected && !this.selectedSectionId) this.selectedSectionId = selected.id;
-    const list = container.createDiv({ cls: "cow-layout-section-list" });
-    sections.forEach((section) => {
-      const row = list.createDiv({ cls: `cow-layout-section-row ${this.selectedSectionId === section.id ? "is-selected" : ""} ${section.enabled ? "" : "is-disabled"}` });
-      const title = row.createDiv({ cls: "cow-section-manager-title" });
-      title.createEl("strong", { text: section.title });
-      title.createSpan({ text: section.enabled ? "\u5DF2\u542F\u7528" : "\u5DF2\u9690\u85CF\uFF0C\u91CD\u65B0\u542F\u7528\u540E\u4F1A\u6062\u590D\u6B64\u5E03\u5C40" });
-      row.addEventListener("click", () => {
-        this.selectedSectionId = section.id;
-        this.rerender();
-      });
-      const actions = row.createDiv({ cls: "cow-list-item-actions" });
-      const up = actions.createEl("button", { attr: { type: "button", "aria-label": "\u4E0A\u79FB" } });
-      (0, import_obsidian38.setIcon)(up, "arrow-up");
-      up.addEventListener("click", async (event) => {
-        event.stopPropagation();
-        await this.store.moveSectionLayout(this.selectedPage, section.id, "up");
-        this.selectedSectionId = section.id;
-        this.rerender();
-      });
-      const down = actions.createEl("button", { attr: { type: "button", "aria-label": "\u4E0B\u79FB" } });
-      (0, import_obsidian38.setIcon)(down, "arrow-down");
-      down.addEventListener("click", async (event) => {
-        event.stopPropagation();
-        await this.store.moveSectionLayout(this.selectedPage, section.id, "down");
-        this.selectedSectionId = section.id;
-        this.rerender();
-      });
-    });
-    if (!selected) {
-      container.createDiv({ cls: "cow-empty-state", text: "\u5F53\u524D\u6A21\u5757\u6682\u65E0\u53EF\u914D\u7F6E\u677F\u5757\u3002" });
-      return;
-    }
-    const selectedLayout = this.getSectionLayout(layout, selected);
-    const panel = container.createDiv({ cls: "cow-layout-selected-panel" });
-    panel.createEl("strong", { text: `\u5F53\u524D\u9009\u4E2D\uFF1A${selected.title}` });
-    panel.createDiv({ cls: "cow-meta-line", text: selected.enabled ? "\u4FEE\u6539\u5BBD\u5EA6 / \u9AD8\u5EA6\u8DE8\u5EA6\u540E\u4F1A\u7ACB\u5373\u5E94\u7528\u5230\u5F53\u524D\u6A21\u5757\u3002" : "\u8BE5 Section \u5DF2\u9690\u85CF\uFF0C\u5E03\u5C40\u8BBE\u7F6E\u4F1A\u4FDD\u7559\u5230\u6062\u590D\u663E\u793A\u540E\u7EE7\u7EED\u751F\u6548\u3002" });
-    const controls = panel.createDiv({ cls: "cow-layout-span-controls" });
-    this.renderSpanButtons(controls, "\u5BBD\u5EA6", GRID_CONFIG.columns, selectedLayout.w, async (value) => {
-      await this.store.updateSectionLayout(this.selectedPage, selected.id, { colSpan: value });
-      this.selectedSectionId = selected.id;
-      this.rerender();
-    }, sectionMinimum(selected).w);
-    this.renderSpanButtons(controls, "\u9AD8\u5EA6", 12, selectedLayout.h, async (value) => {
-      await this.store.updateSectionLayout(this.selectedPage, selected.id, { rowSpan: value });
-      this.selectedSectionId = selected.id;
-      this.rerender();
-    }, sectionMinimum(selected).h);
-  }
-  renderSpanButtons(container, label, max, current, onPick, min = 1) {
-    const group = container.createDiv({ cls: "cow-layout-span-group" });
-    group.createSpan({ text: label });
-    for (let value = min; value <= max; value += 1) {
-      const button = group.createEl("button", { cls: current === value ? "is-active" : "", text: String(value), attr: { type: "button" } });
-      button.addEventListener("click", () => void onPick(value));
-    }
-  }
-  createTemplateSectionLayouts(template, sections) {
-    const items = sections.map((section, index) => {
-      let x = 0;
-      let y = 0;
-      let w = 6;
-      let h = 8;
-      if (template.id === "three-columns") {
-        x = index % 3 * 4;
-        y = Math.floor(index / 3) * 8;
-        w = 4;
-      } else if (template.id === "top-full") {
-        if (index === 0) w = 12;
-        else {
-          x = (index - 1) % 2 * 6;
-          y = 8 + Math.floor((index - 1) / 2) * 8;
-        }
-      } else if (template.id === "left-large" || template.id === "left-feature") {
-        if (index === 0) {
-          w = 8;
-          h = 16;
-        } else if (index < 3) {
-          x = 8;
-          y = (index - 1) * 8;
-          w = 4;
-        } else {
-          x = (index - 3) % 2 * 6;
-          y = 16 + Math.floor((index - 3) / 2) * 8;
-        }
-      } else if (template.id === "right-large") {
-        if (index === 0) {
-          x = 4;
-          w = 8;
-          h = 16;
-        } else if (index < 3) {
-          x = 0;
-          y = (index - 1) * 8;
-          w = 4;
-        } else {
-          x = (index - 3) % 2 * 6;
-          y = 16 + Math.floor((index - 3) / 2) * 8;
-        }
-      } else {
-        x = index % 2 * 6;
-        y = Math.floor(index / 2) * 8;
-      }
-      w = Math.max(w, sectionMinimum(section).w);
-      x = Math.min(x, 12 - w);
-      return { sectionId: section.id, x, y, w, h };
-    });
-    return compactLayout(items);
-  }
-  getManagedSections() {
-    var _a;
-    const layout = this.store.getModuleLayout(this.selectedPage);
-    const positions = new Map(((_a = layout.items) != null ? _a : []).map((item, index) => [item.sectionId, index]));
-    return this.store.getLayoutSections(this.selectedPage).sort((left, right) => {
-      var _a2, _b;
-      return ((_a2 = positions.get(left.id)) != null ? _a2 : left.order) - ((_b = positions.get(right.id)) != null ? _b : right.order);
-    });
-  }
-  getSectionLayout(layout, section) {
-    var _a, _b, _c;
-    return (_c = (_b = (_a = layout.items) == null ? void 0 : _a.find((item) => item.sectionId === section.id)) != null ? _b : resolveModuleLayout(this.selectedPage, this.getManagedSections(), layout, 1260).items.find((item) => item.sectionId === section.id)) != null ? _c : { sectionId: section.id, x: 0, y: 0, w: sectionMinimum(section).w, h: sectionMinimum(section).h };
-  }
-  clamp(value, min, max) {
-    return Math.max(min, Math.min(max, Number(value) || min));
-  }
-  rerender() {
-    if (this.host) this.render(this.host);
-  }
-};
 var CARD_COLORS2 = [
   { id: "default", label: "\u9ED8\u8BA4" },
   { id: "pink", label: "\u7C89\u8272" },
@@ -14792,12 +14154,6 @@ var CARD_COLORS2 = [
   { id: "mint", label: "\u8584\u8377\u7EFF" },
   { id: "sky", label: "\u5929\u84DD" },
   { id: "lavender", label: "\u6DE1\u7D2B" }
-];
-var WIDTHS = [
-  { id: "sm", label: "\u5C0F" },
-  { id: "md", label: "\u4E2D" },
-  { id: "lg", label: "\u5927" },
-  { id: "full", label: "\u6574\u884C" }
 ];
 var FunctionalSectionManagerSection = class {
   constructor(app, store, onDataChanged) {
@@ -14900,7 +14256,6 @@ var FunctionalSectionManagerSection = class {
     title.createSpan({ text: this.getSectionDescription(section) });
     const controls = row.createDiv({ cls: "cow-section-manager-controls" });
     this.renderColorSelect(controls, section);
-    this.renderWidthSelect(controls, section);
     const actions = row.createDiv({ cls: "cow-list-item-actions" });
     if (mode === "enabled") {
       this.renderIconButton(actions, "eye-off", "\u9690\u85CF", async () => this.store.setSectionEnabled(section.id, false));
@@ -14943,24 +14298,6 @@ var FunctionalSectionManagerSection = class {
     select.value = String((_b = (_a = section.config) == null ? void 0 : _a.cardColor) != null ? _b : "default");
     select.addEventListener("change", async () => {
       await this.store.updateSectionConfig(section.id, { cardColor: select.value });
-      this.rerender();
-    });
-  }
-  renderWidthSelect(container, section) {
-    var _a;
-    const select = container.createEl("select", { attr: { "aria-label": "\u4FEE\u6539\u5BBD\u5EA6" } });
-    WIDTHS.forEach((width) => select.createEl("option", { value: width.id, text: width.label }));
-    const item = resolveModuleLayout(
-      section.page,
-      this.store.getAllSections().filter((entry) => entry.page === section.page),
-      this.store.getModuleLayout(section.page),
-      1260
-    ).items.find((entry) => entry.sectionId === section.id);
-    const current = (_a = item == null ? void 0 : item.w) != null ? _a : 4;
-    select.value = current >= 12 ? "full" : current >= 8 ? "lg" : current <= 3 ? "sm" : "md";
-    select.addEventListener("change", async () => {
-      const width = select.value === "full" ? 12 : select.value === "lg" ? 8 : select.value === "sm" ? 3 : 4;
-      await this.store.updateSectionLayout(section.page, section.id, { colSpan: width });
       this.rerender();
     });
   }
@@ -15045,7 +14382,7 @@ var BannerBackgroundSettingsSection = class {
   }
   render(container) {
     const banner = this.store.getData().banner;
-    const choices = container.createDiv({ cls: "cow-layout-picker" });
+    const choices = container.createDiv({ cls: "cow-banner-picker" });
     [
       ["pink-paper", "\u63A8\u8350\u58C1\u7EB8"],
       ["cream-stars", "\u5976\u6CB9\u661F\u661F"],
@@ -19496,11 +18833,11 @@ var DashboardSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    var _a, _b;
+    var _a;
     const cardColor = typeof ((_a = this.section.config) == null ? void 0 : _a.cardColor) === "string" ? this.section.config.cardColor : "default";
     const layoutMeta = this.getLayoutMeta();
     const sectionEl = container.createDiv({
-      cls: `cow-section cow-section-height-${(_b = this.section.height) != null ? _b : "sm"} cow-section-type-${this.section.type} wb-layout-${layoutMeta.role} cow-card-color-${cardColor}`
+      cls: `cow-section cow-section-type-${this.section.type} wb-layout-${layoutMeta.role} cow-card-color-${cardColor}`
     });
     sectionEl.dataset.sectionId = this.section.id;
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
@@ -19540,7 +18877,7 @@ var DashboardSection = class {
     });
     (0, import_obsidian76.setIcon)(menuButton, "more-horizontal");
     menuButton.addEventListener("click", (event) => {
-      new SectionActionMenu(this.app, this.store, this.section, this.onRemove, this.onDataChanged, layoutMeta.span).show(event);
+      new SectionActionMenu(this.app, this.store, this.section, this.onRemove, this.onDataChanged).show(event);
     });
     const content = sectionEl.createDiv({ cls: "cow-section-content" });
     this.renderContent(content);
@@ -19927,9 +19264,6 @@ var DashboardSection = class {
       case "section-manager":
         new FunctionalSectionManagerSection(this.app, this.store, this.onDataChanged).render(container);
         break;
-      case "home-layout-manager":
-        new HomeLayoutManagerSection(this.store, this.onDataChanged).render(container);
-        break;
       case "banner-background-settings":
         new BannerBackgroundSettingsSection(this.store, this.onDataChanged).render(container);
         break;
@@ -20041,7 +19375,6 @@ var DashboardSection = class {
       "risks-blockers": { role: "list", span: 4 },
       "long-term-progress": { role: "visual", span: 4 },
       "enabled-modules-overview": { role: "compact", span: 4 },
-      "home-layout-manager": { role: "primary", span: 8 },
       "section-manager": { role: "primary", span: 8 },
       "banner-background-settings": { role: "secondary", span: 4 },
       "calendar-widget-settings": { role: "secondary", span: 4 },
@@ -20053,9 +19386,6 @@ var DashboardSection = class {
     return (_a = roleByType[this.section.type]) != null ? _a : this.getFallbackLayoutMeta();
   }
   getFallbackLayoutMeta() {
-    if (this.section.width === "full") return { role: "wide", span: 12 };
-    if (this.section.width === "lg") return { role: "primary", span: 8 };
-    if (this.section.width === "sm") return { role: "compact", span: 3 };
     return { role: "secondary", span: 4 };
   }
   getCheckInModuleId() {
@@ -20185,7 +19515,6 @@ var DashboardSection = class {
       "long-term-progress": "trending-up",
       "enabled-modules-overview": "panel-top",
       "section-manager": "rows-3",
-      "home-layout-manager": "layout-template",
       "banner-background-settings": "image",
       "calendar-widget-settings": "calendar-days",
       "apex-habit-settings": "calendar-check",
@@ -20256,7 +19585,7 @@ var SUMMARY_SECTIONS = /* @__PURE__ */ new Set(["weekly-completion", "pending-ta
 var COMPACT_SECTIONS = /* @__PURE__ */ new Set(["quick-actions", "research-memo", "health-reminders", "finance-todos", "task-quick-add", "task-inbox", "data-source-status"]);
 var PRIMARY_SECTIONS = /* @__PURE__ */ new Set(["reading-queue", "bookshelf", "finance-ledger", "workout-log", "goal-breakdown", "yearly-goals", "task-today", "task-board"]);
 var VISUAL_SECTIONS = /* @__PURE__ */ new Set(["contribution-heatmap", "fitness-stats", "income-expense-trend", "reading-stats", "reading-heatmap", "fitness-heatmap", "expense-heatmap", "task-week"]);
-var MANAGER_SECTIONS = /* @__PURE__ */ new Set(["home-layout-manager", "section-manager", "paper-field-manager", "reading-tag-manager"]);
+var MANAGER_SECTIONS = /* @__PURE__ */ new Set(["section-manager", "paper-field-manager", "reading-tag-manager"]);
 function sectionDensity(type) {
   if (type === "monthly-calendar" || type === "month-calendar") return "calendar";
   if (SUMMARY_SECTIONS.has(type)) return "summary";
@@ -20276,46 +19605,13 @@ var DashboardGrid = class {
   }
   render(container) {
     var _a, _b;
-    const layout = this.store.getModuleLayout(this.page);
-    const sections = [...this.renderCustomSection ? this.store.getLayoutSections(this.page) : this.store.getSectionsForPage(this.page), ...getDraftSections(this.page)];
-    const editing = isLayoutEditing(this.page);
-    if (editing) {
-      const toolbar = container.createDiv({ cls: "cow-layout-edit-toolbar" });
-      toolbar.createEl("strong", { text: "\u7F16\u8F91\u5E03\u5C40" });
-      toolbar.createEl("span", { text: "\u62D6\u52A8\u6807\u9898\u79FB\u52A8\u677F\u5757\uFF0C\u62D6\u52A8\u53F3\u4E0B\u89D2\u8C03\u6574\u5C3A\u5BF8\u3002" });
-      if (!this.renderCustomSection) toolbar.createEl("button", { text: "\u6DFB\u52A0\u677F\u5757", attr: { type: "button" } }).addEventListener("click", () => {
-        new AddSectionModal(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
-          var _a2, _b2, _c;
-          const definition = this.store.getAvailableModules(this.page).find((item) => item.type === moduleType);
-          const order = Math.max(0, ...this.store.getAllSections().filter((item) => item.page === this.page).map((item) => item.order)) + 10;
-          addDraftSection(this.page, {
-            id: `${this.page}-${moduleType}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            page: this.page,
-            type: moduleType,
-            title: (_a2 = definition == null ? void 0 : definition.title) != null ? _a2 : moduleType,
-            order,
-            enabled: true,
-            width: (_b2 = definition == null ? void 0 : definition.defaultWidth) != null ? _b2 : "md",
-            height: (_c = definition == null ? void 0 : definition.defaultHeight) != null ? _c : "sm",
-            config: {}
-          });
-          this.onDataChanged();
-        }).open();
-      });
-      const reset = toolbar.createEl("button", { text: "\u91CD\u7F6E\u5E03\u5C40", attr: { type: "button" } });
-      reset.addEventListener("click", () => this.confirmReset());
-      toolbar.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => {
-        stopLayoutEditing();
-        this.onDataChanged();
-      });
-      toolbar.createEl("button", { text: "\u5B8C\u6210\u5E03\u5C40", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.finish());
-    }
-    const grid = container.createDiv({ cls: `cow-dashboard-grid cow-layout-engine cow-dashboard-page-${this.page} cow-module-layout-${layout.mode}` });
-    if (editing) grid.addClass("is-layout-editing");
+    const sections = this.renderCustomSection ? this.store.getLayoutSections(this.page) : this.store.getSectionsForPage(this.page);
+    const respectOrder = !this.renderCustomSection && this.store.hasCustomSectionOrder(this.page);
+    const grid = container.createDiv({ cls: `cow-dashboard-grid cow-layout-engine cow-dashboard-page-${this.page} cow-module-layout-default` });
     const elements = /* @__PURE__ */ new Map();
     sections.forEach((section) => {
       const sectionEl = this.renderCustomSection ? this.renderCustomSection(grid, section) : new DashboardSection(this.app, this.store, section, async (removedSection) => {
-        if (!removeDraftSection(this.page, removedSection.id)) await this.store.removeSection(removedSection.id);
+        await this.store.removeSection(removedSection.id);
         this.onDataChanged();
       }, this.onDataChanged).render(grid);
       sectionEl.dataset.sectionId = section.id;
@@ -20323,10 +19619,9 @@ var DashboardGrid = class {
       sectionEl.addClass(`cow-density-${density}`);
       sectionEl.dataset.autoHeight = density === "summary" || density === "visual" || density === "calendar" ? "false" : "true";
       elements.set(section.id, sectionEl);
-      if (editing) this.decorateEditableSection(grid, sectionEl, section, sections, elements);
     });
-    const apply = (draft) => {
-      const resolved = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth, draft != null ? draft : getDraftLayout(this.page));
+    const apply = () => {
+      const resolved = resolveModuleLayout(this.page, sections, grid.clientWidth, void 0, respectOrder);
       grid.style.gridTemplateColumns = `repeat(${resolved.columns}, minmax(0, 1fr))`;
       grid.style.gridAutoRows = `${GRID_CONFIG.rowHeight}px`;
       grid.style.gap = `${GRID_CONFIG.gap}px`;
@@ -20338,21 +19633,20 @@ var DashboardGrid = class {
         element.style.gridRow = `${item.y + 1} / span ${item.h}`;
         element.style.order = "0";
         const height = item.h * GRID_CONFIG.rowHeight + (item.h - 1) * GRID_CONFIG.gap;
-        element.style.maxHeight = editing ? `min(${height}px, var(--wb-section-max-height, 66.6667vh))` : `min(${height}px, var(--wb-density-max, 440px), var(--wb-section-max-height, 66.6667vh))`;
+        element.style.maxHeight = `min(${height}px, var(--wb-density-max, 440px), var(--wb-section-max-height, 66.6667vh))`;
       }
     };
-    this.paint = apply;
     apply();
     let reflowFrame = 0;
     const scheduleReflow = () => {
-      if (editing || reflowFrame || !grid.isConnected) return;
+      if (reflowFrame || !grid.isConnected) return;
       reflowFrame = window.requestAnimationFrame(() => {
         reflowFrame = 0;
-        this.fitNaturalHeights(grid, sections, elements);
+        this.fitNaturalHeights(grid, sections, elements, respectOrder);
       });
     };
-    const contentResizeObserver = !editing && typeof ResizeObserver !== "undefined" ? new ResizeObserver(scheduleReflow) : void 0;
-    const contentMutationObserver = !editing && typeof MutationObserver !== "undefined" ? new MutationObserver(scheduleReflow) : void 0;
+    const contentResizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(scheduleReflow) : void 0;
+    const contentMutationObserver = typeof MutationObserver !== "undefined" ? new MutationObserver(scheduleReflow) : void 0;
     if (contentResizeObserver || contentMutationObserver) {
       for (const element of elements.values()) {
         if (element.dataset.autoHeight !== "true") continue;
@@ -20380,14 +19674,14 @@ var DashboardGrid = class {
       window.cancelAnimationFrame(reflowFrame);
     }, { once: true });
     scheduleReflow();
-    if (!editing && !this.renderCustomSection) new AddSectionButton(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
+    if (!this.renderCustomSection) new AddSectionButton(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
       await this.store.addSection(this.page, moduleType);
       this.onDataChanged();
     }).render(container);
   }
-  fitNaturalHeights(grid, sections, elements) {
-    if (!grid.isConnected || isLayoutEditing(this.page)) return;
-    const source = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth);
+  fitNaturalHeights(grid, sections, elements, respectOrder) {
+    if (!grid.isConnected) return;
+    const source = resolveModuleLayout(this.page, sections, grid.clientWidth, void 0, respectOrder);
     const naturalRows = /* @__PURE__ */ new Map();
     source.items.forEach((item) => {
       var _a;
@@ -20404,7 +19698,7 @@ var DashboardGrid = class {
       const rows = Math.max(1, Math.ceil((height + GRID_CONFIG.gap) / (GRID_CONFIG.rowHeight + GRID_CONFIG.gap)));
       naturalRows.set(item.sectionId, rows);
     });
-    const placed = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth, void 0, naturalRows).items;
+    const placed = resolveModuleLayout(this.page, sections, grid.clientWidth, naturalRows, respectOrder).items;
     for (const item of placed) {
       const element = elements.get(item.sectionId);
       if (!element) continue;
@@ -20413,140 +19707,6 @@ var DashboardGrid = class {
       if (element.style.gridColumn !== column) element.style.gridColumn = column;
       if (element.style.gridRow !== row) element.style.gridRow = row;
     }
-  }
-  async finish() {
-    const draft = getDraftLayout(this.page);
-    if (draft) await this.store.commitModuleLayout(this.page, draft, getDraftSections(this.page));
-    stopLayoutEditing();
-    this.onDataChanged();
-  }
-  confirmReset() {
-    const modal = new import_obsidian78.Modal(this.app);
-    modal.contentEl.createEl("h2", { text: "\u91CD\u7F6E\u4E3A\u65B0\u7248\u9ED8\u8BA4\u5E03\u5C40\uFF1F" });
-    modal.contentEl.createEl("p", { text: "\u5F53\u524D\u7F16\u8F91\u4E2D\u7684\u5E03\u5C40\u4F1A\u88AB\u66FF\u6362\u3002\u70B9\u51FB\u5B8C\u6210\u5E03\u5C40\u540E\u624D\u4F1A\u4FDD\u5B58\u3002" });
-    const actions = modal.contentEl.createDiv({ cls: "cow-modal-actions" });
-    actions.createEl("button", { text: "\u53D6\u6D88" }).addEventListener("click", () => modal.close());
-    actions.createEl("button", { text: "\u91CD\u7F6E\u5E03\u5C40", cls: "mod-warning" }).addEventListener("click", () => {
-      const sections = this.store.getLayoutSections(this.page);
-      resetDraftLayout(this.page, createDefaultLayout(this.page, sections));
-      modal.close();
-      this.onDataChanged();
-    });
-    modal.open();
-  }
-  decorateEditableSection(grid, sectionEl, section, sections, elements) {
-    sectionEl.addClass("is-layout-editing");
-    const header = sectionEl.querySelector(".cow-section-header");
-    if (!header) return;
-    const grip = document.createElement("button");
-    grip.type = "button";
-    grip.className = "cow-layout-grip";
-    grip.title = "\u62D6\u52A8\u8C03\u6574\u4F4D\u7F6E";
-    grip.setAttribute("aria-label", "\u62D6\u52A8\u8C03\u6574\u4F4D\u7F6E");
-    grip.textContent = "\u22EE\u22EE";
-    header.prepend(grip);
-    const resize = document.createElement("button");
-    resize.type = "button";
-    resize.className = "cow-layout-resize-handle";
-    resize.title = "\u8C03\u6574\u7F51\u683C\u5C3A\u5BF8";
-    resize.setAttribute("aria-label", "\u8C03\u6574\u7F51\u683C\u5C3A\u5BF8");
-    sectionEl.append(resize);
-    grip.addEventListener("pointerdown", (event) => this.startPointerOperation(event, "move", grid, sectionEl, section, sections, elements));
-    resize.addEventListener("pointerdown", (event) => this.startPointerOperation(event, "resize", grid, sectionEl, section, sections, elements));
-  }
-  startPointerOperation(event, kind, grid, sectionEl, section, sections, elements) {
-    var _a, _b;
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const original = structuredClone((_a = getDraftLayout(this.page)) != null ? _a : []);
-    const start = original.find((item) => item.sectionId === section.id);
-    if (!start) return;
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const columns = Number(grid.dataset.columns) || 12;
-    const columnUnit = (grid.clientWidth + GRID_CONFIG.gap) / columns;
-    const rowUnit = GRID_CONFIG.rowHeight + GRID_CONFIG.gap;
-    const scale = GRID_CONFIG.columns / columns;
-    const placeholder = grid.createDiv({ cls: "cow-layout-placeholder" });
-    const badge = sectionEl.createSpan({ cls: "cow-layout-size-badge" });
-    const scrollHost = grid.closest(".cow-page-host");
-    let latest = original;
-    let cancelled = false;
-    let lastPointer = event;
-    let scrollFrame = 0;
-    sectionEl.addClass("is-layout-dragging");
-    const paintPlaceholder = (item) => {
-      const resolved = resolveModuleLayout(this.page, sections, { ...this.store.getModuleLayout(this.page), mode: "custom", items: latest }, grid.clientWidth);
-      const target = resolved.items.find((entry) => entry.sectionId === item.sectionId);
-      if (!target) return;
-      placeholder.style.gridColumn = `${target.x + 1} / span ${target.w}`;
-      placeholder.style.gridRow = `${target.y + 1} / span ${target.h}`;
-      badge.textContent = `${item.w} \xD7 ${item.h}`;
-    };
-    const onMove = (move) => {
-      var _a2, _b2, _c, _d, _e;
-      lastPointer = move;
-      if (kind === "move") {
-        const x = Math.max(0, Math.min(12 - start.w, start.x + Math.round((move.clientX - startX) / columnUnit * scale)));
-        const y = Math.max(0, start.y + Math.round((move.clientY - startY + ((_a2 = scrollHost == null ? void 0 : scrollHost.scrollTop) != null ? _a2 : 0) - scrollStart) / rowUnit));
-        latest = moveLayoutItem(original, section.id, x, y);
-      } else {
-        const min = sectionMinimum(section);
-        const ceiling = Number.parseFloat(getComputedStyle(grid).getPropertyValue("--wb-section-max-height")) || ((_c = (_b2 = grid.closest(".cow-page-host")) == null ? void 0 : _b2.clientHeight) != null ? _c : 900) * 2 / 3;
-        const maxH = Math.max(min.h, Math.floor((ceiling + GRID_CONFIG.gap) / rowUnit));
-        const w = Math.max(min.w, Math.min(12 - start.x, start.w + Math.round((move.clientX - startX) / columnUnit * scale)));
-        const h = Math.max(min.h, Math.min(maxH, start.h + Math.round((move.clientY - startY) / rowUnit)));
-        latest = resizeLayoutItem(original, section, w, h);
-      }
-      (_d = this.paint) == null ? void 0 : _d.call(this, latest);
-      paintPlaceholder((_e = latest.find((item) => item.sectionId === section.id)) != null ? _e : start);
-    };
-    const scrollStart = (_b = scrollHost == null ? void 0 : scrollHost.scrollTop) != null ? _b : 0;
-    const autoScroll = () => {
-      if (scrollHost) {
-        const box = scrollHost.getBoundingClientRect();
-        const amount = lastPointer.clientY < box.top + 36 ? -8 : lastPointer.clientY > box.bottom - 36 ? 8 : 0;
-        if (amount) {
-          const before = scrollHost.scrollTop;
-          scrollHost.scrollTop += amount;
-          if (scrollHost.scrollTop !== before) onMove(lastPointer);
-        }
-      }
-      scrollFrame = window.requestAnimationFrame(autoScroll);
-    };
-    const cleanup = () => {
-      var _a2;
-      window.cancelAnimationFrame(scrollFrame);
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onEnd);
-      document.removeEventListener("keydown", onKey);
-      grid.removeEventListener("cow-layout-destroy", onDestroy);
-      sectionEl.removeClass("is-layout-dragging");
-      placeholder.remove();
-      badge.remove();
-      if (cancelled) (_a2 = this.paint) == null ? void 0 : _a2.call(this, original);
-    };
-    const onEnd = () => {
-      if (!cancelled) updateDraftLayout(this.page, latest);
-      cleanup();
-    };
-    const onKey = (key) => {
-      if (key.key !== "Escape") return;
-      key.preventDefault();
-      cancelled = true;
-      cleanup();
-    };
-    const onDestroy = () => {
-      cancelled = true;
-      cleanup();
-    };
-    paintPlaceholder(start);
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onEnd);
-    document.addEventListener("keydown", onKey);
-    grid.addEventListener("cow-layout-destroy", onDestroy, { once: true });
-    scrollFrame = window.requestAnimationFrame(autoScroll);
   }
 };
 
@@ -20585,7 +19745,7 @@ var FinancePage = class extends BaseDashboardPage {
 };
 
 // src/pages/TasksPage.ts
-var import_obsidian79 = require("obsidian");
+var import_obsidian78 = require("obsidian");
 var BOARD_COLUMNS = [
   ["todo", "\u5F85\u529E"],
   ["doing", "\u8FDB\u884C\u4E2D"],
@@ -20614,7 +19774,6 @@ var TasksPage = class {
   }
   renderLayoutSection(grid, section) {
     const host = grid.createDiv({ cls: "cow-section cow-task-layout-section" });
-    if (isLayoutEditing(this.page)) host.createDiv({ cls: "cow-section-header cow-task-layout-edit-header", text: section.title });
     switch (section.type) {
       case "task-quick-add":
         this.renderQuickAdd(host);
@@ -20881,13 +20040,13 @@ var TasksPage = class {
   }
   iconButton(container, icon, label, onClick) {
     const button = container.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian79.setIcon)(button.createSpan(), icon);
+    (0, import_obsidian78.setIcon)(button.createSpan(), icon);
     button.createSpan({ text: label });
     button.addEventListener("click", onClick);
   }
   smallIcon(container, icon, label, onClick) {
     const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
-    (0, import_obsidian79.setIcon)(button, icon);
+    (0, import_obsidian78.setIcon)(button, icon);
     button.addEventListener("click", (event) => {
       event.stopPropagation();
       onClick();
@@ -20900,8 +20059,8 @@ var GoalsPage = class extends BaseDashboardPage {
 };
 
 // src/pages/ModulesPage.ts
-var import_obsidian80 = require("obsidian");
-var ResetDefaultsModal = class extends import_obsidian80.Modal {
+var import_obsidian79 = require("obsidian");
+var ResetDefaultsModal = class extends import_obsidian79.Modal {
   constructor(app, onConfirm) {
     super(app);
     this.onConfirm = onConfirm;
@@ -20936,7 +20095,7 @@ var ModulesPage = class {
     const importInput = actions.createEl("input", { type: "file", attr: { accept: "application/json" } });
     importInput.addClass("cow-hidden-input");
     const importButton = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian80.setIcon)(importButton.createSpan(), "upload");
+    (0, import_obsidian79.setIcon)(importButton.createSpan(), "upload");
     importButton.createSpan({ text: "\u5BFC\u5165\u914D\u7F6E" });
     importButton.addEventListener("click", () => importInput.click());
     importInput.addEventListener("change", () => {
@@ -20945,18 +20104,18 @@ var ModulesPage = class {
       if (!file) return;
       readJsonFile(file, async (data) => {
         await this.store.importData(data);
-        new import_obsidian80.Notice("\u914D\u7F6E\u5DF2\u5BFC\u5165\u3002");
+        new import_obsidian79.Notice("\u914D\u7F6E\u5DF2\u5BFC\u5165\u3002");
         this.onDataChanged();
       });
     });
     const exportButton = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian80.setIcon)(exportButton.createSpan(), "download");
+    (0, import_obsidian79.setIcon)(exportButton.createSpan(), "download");
     exportButton.createSpan({ text: "\u5BFC\u51FA\u914D\u7F6E" });
     exportButton.addEventListener("click", () => {
       downloadJson("cute-obsidian-workbench-config.json", this.store.exportData());
     });
     const resetButton = actions.createEl("button", { cls: "mod-warning", attr: { type: "button" } });
-    (0, import_obsidian80.setIcon)(resetButton.createSpan(), "rotate-ccw");
+    (0, import_obsidian79.setIcon)(resetButton.createSpan(), "rotate-ccw");
     resetButton.createSpan({ text: "\u6062\u590D\u9ED8\u8BA4" });
     resetButton.addEventListener("click", () => {
       new ResetDefaultsModal(this.app, async () => {
@@ -20968,8 +20127,8 @@ var ModulesPage = class {
 };
 
 // src/components/QuickCreateModal.ts
-var import_obsidian81 = require("obsidian");
-var QuickCreateModal = class extends import_obsidian81.Modal {
+var import_obsidian80 = require("obsidian");
+var QuickCreateModal = class extends import_obsidian80.Modal {
   constructor(app, store, getCurrentPage, onDataChanged) {
     super(app);
     this.store = store;
@@ -20992,12 +20151,12 @@ var QuickCreateModal = class extends import_obsidian81.Modal {
     this.renderAction(grid, "\u6DFB\u52A0\u4EFB\u52A1", "list-plus", async () => {
       await this.store.addTodayFocusTask("\u65B0\u7684\u5F85\u529E\u4EFB\u52A1");
       this.onDataChanged();
-      new import_obsidian81.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
+      new import_obsidian80.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
     });
     this.renderAction(grid, "\u6DFB\u52A0\u6253\u5361\u9879\u76EE", "badge-plus", async () => {
       await this.store.addCustomHabit("\u65B0\u7684\u6253\u5361");
       this.onDataChanged();
-      new import_obsidian81.Notice("\u5DF2\u6DFB\u52A0\u6253\u5361\u9879\u76EE\uFF0C\u53EF\u5728\u6A21\u5757\u7BA1\u7406\u4E2D\u7F16\u8F91\u3002");
+      new import_obsidian80.Notice("\u5DF2\u6DFB\u52A0\u6253\u5361\u9879\u76EE\uFF0C\u53EF\u5728\u6A21\u5757\u7BA1\u7406\u4E2D\u7F16\u8F91\u3002");
     });
     this.renderAction(grid, "\u6DFB\u52A0\u529F\u80FD\u5206\u533A", "layout-grid", async () => {
       this.close();
@@ -21006,7 +20165,7 @@ var QuickCreateModal = class extends import_obsidian81.Modal {
   }
   renderAction(container, label, icon, action, closeAfter = true) {
     const button = container.createEl("button", { cls: "cow-quick-create-card", attr: { type: "button" } });
-    (0, import_obsidian81.setIcon)(button.createSpan(), icon);
+    (0, import_obsidian80.setIcon)(button.createSpan(), icon);
     button.createSpan({ text: label });
     button.addEventListener("click", async () => {
       await action();
@@ -21023,8 +20182,8 @@ var QuickCreateModal = class extends import_obsidian81.Modal {
 };
 
 // src/components/WorkbenchCustomizeModal.ts
-var import_obsidian82 = require("obsidian");
-var WorkbenchCustomizeModal = class extends import_obsidian82.Modal {
+var import_obsidian81 = require("obsidian");
+var WorkbenchCustomizeModal = class extends import_obsidian81.Modal {
   constructor(app, store, getCurrentPage, onDataChanged) {
     var _a;
     super(app);
@@ -21051,7 +20210,7 @@ var WorkbenchCustomizeModal = class extends import_obsidian82.Modal {
         cls: this.store.getData().banner.background === background.id ? "is-active" : "",
         attr: { type: "button" }
       });
-      (0, import_obsidian82.setIcon)(button.createSpan(), "image");
+      (0, import_obsidian81.setIcon)(button.createSpan(), "image");
       button.createSpan({ text: background.label });
       button.addEventListener("click", async () => {
         await this.store.updateBanner({ background: background.id, imageDataUrl: void 0 });
@@ -21075,30 +20234,30 @@ var WorkbenchCustomizeModal = class extends import_obsidian82.Modal {
       };
       reader.readAsDataURL(file);
     });
-    new import_obsidian82.Setting(this.contentEl).setName("\u672C\u5730\u56FE\u7247").setDesc("\u4FDD\u5B58\u4E3A data URL\uFF0CBRAT \u5B89\u88C5\u540E\u4E0D\u4F9D\u8D56\u989D\u5916\u8D44\u6E90\u8DEF\u5F84\u3002").addButton((button) => button.setButtonText("\u9009\u62E9\u56FE\u7247").onClick(() => fileInput.click()));
-    new import_obsidian82.Setting(this.contentEl).setName("\u5DE6\u4FA7\u5934\u50CF").setDesc("\u9009\u62E9\u9884\u8BBE\u56FE\u6807\u6216\u4E0A\u4F20\u56FE\u7247\uFF0C\u5237\u65B0\u540E\u4ECD\u4FDD\u7559\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF").onClick(() => {
+    new import_obsidian81.Setting(this.contentEl).setName("\u672C\u5730\u56FE\u7247").setDesc("\u4FDD\u5B58\u4E3A data URL\uFF0CBRAT \u5B89\u88C5\u540E\u4E0D\u4F9D\u8D56\u989D\u5916\u8D44\u6E90\u8DEF\u5F84\u3002").addButton((button) => button.setButtonText("\u9009\u62E9\u56FE\u7247").onClick(() => fileInput.click()));
+    new import_obsidian81.Setting(this.contentEl).setName("\u5DE6\u4FA7\u5934\u50CF").setDesc("\u9009\u62E9\u9884\u8BBE\u56FE\u6807\u6216\u4E0A\u4F20\u56FE\u7247\uFF0C\u5237\u65B0\u540E\u4ECD\u4FDD\u7559\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF").onClick(() => {
       const current = this.store.getData().banner.sidebarAvatar;
       new AvatarPickerModal(this.app, "\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF", current, async (avatar) => {
         await this.store.updateSidebarAvatar(avatar);
         this.onDataChanged();
       }).open();
     }));
-    new import_obsidian82.Setting(this.contentEl).setName("Banner \u56FE\u6807").setDesc("\u9009\u62E9 Banner \u5DE6\u4FA7\u663E\u793A\u7684\u53EF\u7231\u56FE\u6807\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539 Banner \u56FE\u6807").onClick(() => {
+    new import_obsidian81.Setting(this.contentEl).setName("Banner \u56FE\u6807").setDesc("\u9009\u62E9 Banner \u5DE6\u4FA7\u663E\u793A\u7684\u53EF\u7231\u56FE\u6807\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539 Banner \u56FE\u6807").onClick(() => {
       const current = this.store.getData().banner.bannerAvatar;
       new AvatarPickerModal(this.app, "\u4FEE\u6539 Banner \u56FE\u6807", current, async (avatar) => {
         await this.store.updateBannerAvatar(avatar);
         this.onDataChanged();
       }).open();
     }));
-    new import_obsidian82.Setting(this.contentEl).setName("Banner \u4E3B\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
+    new import_obsidian81.Setting(this.contentEl).setName("Banner \u4E3B\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
       this.titleValue = value;
     }));
-    new import_obsidian82.Setting(this.contentEl).setName("Banner \u526F\u6807\u9898").addText((text) => text.setValue(this.subtitleValue).onChange((value) => {
+    new import_obsidian81.Setting(this.contentEl).setName("Banner \u526F\u6807\u9898").addText((text) => text.setValue(this.subtitleValue).onChange((value) => {
       this.subtitleValue = value;
     }));
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     const addSection = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian82.setIcon)(addSection.createSpan(), "plus");
+    (0, import_obsidian81.setIcon)(addSection.createSpan(), "plus");
     addSection.createSpan({ text: "\u6DFB\u52A0\u5F53\u524D\u9875\u9762\u529F\u80FD\u5206\u533A" });
     addSection.addEventListener("click", () => {
       this.close();
@@ -21111,7 +20270,7 @@ var WorkbenchCustomizeModal = class extends import_obsidian82.Modal {
         subtitle: this.subtitleValue.trim() || "\u628A\u60F3\u6CD5\u53D8\u6210\u884C\u52A8\uFF0C\u8BA9\u6BCF\u4E00\u5929\u90FD\u66F4\u9760\u8FD1\u7406\u60F3\u7684\u81EA\u5DF1\u3002"
       });
       this.onDataChanged();
-      new import_obsidian82.Notice("Banner \u6587\u6848\u5DF2\u4FDD\u5B58\u3002");
+      new import_obsidian81.Notice("Banner \u6587\u6848\u5DF2\u4FDD\u5B58\u3002");
       this.close();
     });
   }
@@ -21125,8 +20284,8 @@ var WorkbenchCustomizeModal = class extends import_obsidian82.Modal {
 };
 
 // src/components/DayDetailModal.ts
-var import_obsidian83 = require("obsidian");
-var DayDetailModal = class extends import_obsidian83.Modal {
+var import_obsidian82 = require("obsidian");
+var DayDetailModal = class extends import_obsidian82.Modal {
   constructor(app, store, date) {
     super(app);
     this.store = store;
@@ -21160,7 +20319,7 @@ var DayDetailModal = class extends import_obsidian83.Modal {
     const noteRow = this.contentEl.createDiv({ cls: "cow-day-note-row" });
     noteRow.createSpan({ text: dailyNote ? dailyNote.path : "\u8FD8\u6CA1\u6709\u6BCF\u65E5\u7B14\u8BB0\u3002" });
     const button = noteRow.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian83.setIcon)(button.createSpan(), dailyNote ? "file-text" : "file-plus");
+    (0, import_obsidian82.setIcon)(button.createSpan(), dailyNote ? "file-text" : "file-plus");
     button.createSpan({ text: dailyNote ? "\u6253\u5F00\u6BCF\u65E5\u7B14\u8BB0" : "\u521B\u5EFA\u6BCF\u65E5\u7B14\u8BB0" });
     button.addEventListener("click", async () => {
       await this.notes.openOrCreateDailyNote(this.date);
@@ -21170,8 +20329,8 @@ var DayDetailModal = class extends import_obsidian83.Modal {
 };
 
 // src/components/NotesManagerModal.ts
-var import_obsidian84 = require("obsidian");
-var NotesManagerModal = class extends import_obsidian84.Modal {
+var import_obsidian83 = require("obsidian");
+var NotesManagerModal = class extends import_obsidian83.Modal {
   constructor(app) {
     super(app);
     this.searchValue = "";
@@ -21222,8 +20381,8 @@ var NotesManagerModal = class extends import_obsidian84.Modal {
 };
 
 // src/components/WorkbenchReminderModal.ts
-var import_obsidian85 = require("obsidian");
-var WorkbenchReminderModal = class extends import_obsidian85.Modal {
+var import_obsidian84 = require("obsidian");
+var WorkbenchReminderModal = class extends import_obsidian84.Modal {
   constructor(app, store) {
     super(app);
     this.store = store;
@@ -21233,7 +20392,7 @@ var WorkbenchReminderModal = class extends import_obsidian85.Modal {
     this.contentEl.addClass("cow-modal", "cow-reminder-modal");
     const header = this.contentEl.createDiv({ cls: "cow-modal-header" });
     const title = header.createDiv({ cls: "cow-modal-title" });
-    (0, import_obsidian85.setIcon)(title.createSpan(), "bell");
+    (0, import_obsidian84.setIcon)(title.createSpan(), "bell");
     title.createEl("h2", { text: "\u63D0\u9192" });
     const entries = new DailyFocusService(this.store).getEntriesForDate(formatDateKey(/* @__PURE__ */ new Date())).filter((entry) => entry.status !== "completed").slice(0, 30);
     const body = this.contentEl.createDiv({ cls: "cow-reminder-list" });
@@ -21243,7 +20402,7 @@ var WorkbenchReminderModal = class extends import_obsidian85.Modal {
     }
     entries.forEach((entry) => {
       const row = body.createDiv({ cls: "cow-reminder-row" });
-      (0, import_obsidian85.setIcon)(row.createSpan({ cls: "cow-reminder-icon" }), entry.status === "overdue" ? "alert-circle" : "bell-ring");
+      (0, import_obsidian84.setIcon)(row.createSpan({ cls: "cow-reminder-icon" }), entry.status === "overdue" ? "alert-circle" : "bell-ring");
       const text = row.createDiv({ cls: "cow-reminder-text" });
       text.createEl("strong", { text: entry.title });
       text.createEl("span", { text: [entry.subtitle, entry.dueDate ? `\u622A\u6B62 ${entry.dueDate}` : ""].filter(Boolean).join(" \xB7 ") });
@@ -21253,7 +20412,7 @@ var WorkbenchReminderModal = class extends import_obsidian85.Modal {
 
 // src/views/WorkbenchView.ts
 var WORKBENCH_VIEW_TYPE = "cute-obsidian-workbench-view";
-var WorkbenchView = class extends import_obsidian86.ItemView {
+var WorkbenchView = class extends import_obsidian85.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -21281,7 +20440,6 @@ var WorkbenchView = class extends import_obsidian86.ItemView {
   async onClose() {
     var _a, _b, _c;
     (_a = this.pageHost) == null ? void 0 : _a.querySelectorAll(".cow-dashboard-grid").forEach((grid) => grid.dispatchEvent(new Event("cow-layout-destroy")));
-    stopLayoutEditing();
     if (this.dateWatcher) {
       window.clearInterval(this.dateWatcher);
       this.dateWatcher = void 0;
@@ -21329,28 +20487,12 @@ var WorkbenchView = class extends import_obsidian86.ItemView {
         onSearch: () => new NotesManagerModal(this.app).open(),
         onReminder: () => new WorkbenchReminderModal(this.app, this.plugin.store).open(),
         onSettings: () => this.openSettings(),
-        onCustomize: () => new WorkbenchCustomizeModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open(),
-        onEditLayout: () => void this.toggleLayoutMode(),
-        isLayoutEditing: isLayoutEditing(this.router.getCurrentPage())
+        onCustomize: () => new WorkbenchCustomizeModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open()
       }).render(pageHost);
     }
     const pageContent = pageHost.createDiv({ cls: "cow-page-content" });
     this.renderPage(pageContent, this.router.getCurrentPage());
     this.observeSectionHeight(container, pageHost);
-  }
-  async toggleLayoutMode() {
-    var _a;
-    const page = this.router.getCurrentPage();
-    if (isLayoutEditing(page)) {
-      const draft = getDraftLayout(page);
-      if (draft) await this.plugin.store.commitModuleLayout(page, draft, getDraftSections(page));
-      stopLayoutEditing();
-    } else {
-      const sections = this.plugin.store.getLayoutSections(page);
-      const layout = this.plugin.store.getModuleLayout(page);
-      beginLayoutEditing(page, sanitizeLayout(sections, layout.mode === "custom" && ((_a = layout.items) == null ? void 0 : _a.length) ? layout.items : createDefaultLayout(page, sections, layout.mode)));
-    }
-    this.renderPreservingScroll();
   }
   observeSectionHeight(root, pageHost) {
     const update = () => {
@@ -21402,13 +20544,13 @@ var WorkbenchView = class extends import_obsidian86.ItemView {
     var _a;
     const didRun = (_a = this.app.commands) == null ? void 0 : _a.executeCommandById("file-explorer:open");
     if (!didRun) {
-      new import_obsidian86.Notice("\u672A\u80FD\u6FC0\u6D3B Obsidian \u6587\u4EF6\u7BA1\u7406\u5668\u3002");
+      new import_obsidian85.Notice("\u672A\u80FD\u6FC0\u6D3B Obsidian \u6587\u4EF6\u7BA1\u7406\u5668\u3002");
     }
   }
   openSettings() {
     var _a;
     const didRun = (_a = this.app.commands) == null ? void 0 : _a.executeCommandById("app:open-settings");
-    if (!didRun) new import_obsidian86.Notice("\u65E0\u6CD5\u6253\u5F00 Obsidian \u8BBE\u7F6E\u3002\u8BF7\u4ECE\u5DE6\u4E0B\u89D2\u8BBE\u7F6E\u5165\u53E3\u6253\u5F00\u3002 ");
+    if (!didRun) new import_obsidian85.Notice("\u65E0\u6CD5\u6253\u5F00 Obsidian \u8BBE\u7F6E\u3002\u8BF7\u4ECE\u5DE6\u4E0B\u89D2\u8BBE\u7F6E\u5165\u53E3\u6253\u5F00\u3002 ");
   }
   openAvatarPicker(target) {
     const banner = this.plugin.store.getData().banner;
@@ -21444,7 +20586,7 @@ var WorkbenchView = class extends import_obsidian86.ItemView {
 };
 
 // src/main.ts
-var CuteObsidianWorkbenchPlugin = class extends import_obsidian87.Plugin {
+var CuteObsidianWorkbenchPlugin = class extends import_obsidian86.Plugin {
   async onload() {
     this.store = new DashboardStore(
       () => this.loadData(),
