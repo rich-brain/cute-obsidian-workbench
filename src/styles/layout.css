@@ -15,7 +15,7 @@
 
 .cow-shell {
   display: grid;
-  grid-template-columns: 244px minmax(0, 1fr);
+  grid-template-columns: minmax(200px, 224px) minmax(0, 1fr);
   gap: 12px;
   height: 100%;
   padding: 12px;
@@ -35,10 +35,107 @@
   overflow: hidden;
 }
 
+.cow-shell:has(.cow-sidebar.is-collapsed) {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
 .cow-page-host {
   overflow: auto;
   padding-right: 4px;
   min-width: 0;
+}
+
+.cow-page-content {
+  min-width: 0;
+}
+
+.cow-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  padding: 4px 2px 8px;
+}
+
+.cow-page-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cow-page-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border: 1px solid var(--cow-border);
+  border-radius: 12px;
+  background: rgba(255, 231, 239, 0.78);
+  color: var(--cow-pink-strong);
+}
+
+.cow-page-identity-text {
+  min-width: 0;
+}
+
+.cow-page-identity-text h1,
+.cow-page-identity-text p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.cow-page-identity-text h1 {
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.cow-page-identity-text p {
+  margin-top: 2px;
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-page-toolbar,
+.cow-page-local-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cow-page-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--cow-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--cow-ink);
+  cursor: pointer;
+}
+
+.cow-page-toolbar-button:hover {
+  border-color: var(--cow-pink-strong);
+  background: rgba(255, 239, 247, 0.94);
+}
+
+.cow-page-toolbar-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.cow-page-toolbar-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .cow-page-heading {
@@ -110,15 +207,54 @@
 
 @media (max-width: 900px) {
   .cow-shell {
-    grid-template-columns: 1fr;
-    overflow: auto;
+    grid-template-columns: 64px minmax(0, 1fr);
+    overflow: hidden;
   }
 
   .cow-sidebar {
+    display: block;
+    padding: 10px 8px;
+  }
+
+  .cow-sidebar .cow-profile h2,
+  .cow-sidebar .cow-profile p,
+  .cow-sidebar .cow-clock p,
+  .cow-sidebar .cow-clock span,
+  .cow-sidebar .cow-sidebar-action > span:not(:first-child),
+  .cow-sidebar .cow-sidebar-group-label,
+  .cow-sidebar .cow-file-shortcut span:not(:first-child) {
     display: none;
+  }
+
+  .cow-sidebar .cow-sidebar-action,
+  .cow-sidebar .cow-file-shortcut {
+    justify-content: center;
+    padding-inline: 4px;
   }
 
   .cow-dashboard-grid {
     grid-template-columns: 1fr;
+  }
+
+  .cow-page-header {
+    align-items: flex-start;
+  }
+
+  .cow-page-toolbar-label {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .cow-page-header {
+    gap: 8px;
+  }
+
+  .cow-page-identity-text h1 {
+    font-size: 19px;
+  }
+
+  .cow-page-toolbar {
+    gap: 4px;
   }
 }

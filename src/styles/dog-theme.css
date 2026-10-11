@@ -5,6 +5,72 @@
   padding: 14px;
 }
 
+.cow-sidebar-header {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 30px;
+}
+
+.cow-sidebar-collapse-button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--cow-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--cow-pink-strong);
+  cursor: pointer;
+}
+
+.cow-sidebar.is-collapsed .cow-sidebar-header {
+  justify-content: center;
+}
+
+.cow-sidebar.is-collapsed .cow-sidebar-create-button {
+  position: static;
+  margin: 8px auto 0;
+}
+
+.cow-sidebar.is-collapsed .cow-profile h2,
+.cow-sidebar.is-collapsed .cow-profile p,
+.cow-sidebar.is-collapsed .cow-clock p,
+.cow-sidebar.is-collapsed .cow-clock span,
+.cow-sidebar.is-collapsed .cow-sidebar-action > span:not(:first-child),
+.cow-sidebar.is-collapsed .cow-sidebar-group-label,
+.cow-sidebar.is-collapsed .cow-file-shortcut span:not(:first-child) {
+  display: none;
+}
+
+.cow-sidebar.is-collapsed .cow-profile {
+  margin-top: 8px;
+}
+
+.cow-sidebar.is-collapsed .cow-profile-avatar-button,
+.cow-sidebar.is-collapsed .cow-profile-avatar {
+  width: 48px;
+  height: 48px;
+}
+
+.cow-sidebar.is-collapsed .cow-clock {
+  padding: 8px 4px;
+}
+
+.cow-sidebar.is-collapsed .cow-clock strong {
+  font-size: 16px;
+}
+
+.cow-sidebar.is-collapsed .cow-sidebar-action,
+.cow-sidebar.is-collapsed .cow-file-shortcut {
+  justify-content: center;
+  padding-inline: 4px;
+}
+
+.cow-sidebar.is-collapsed .cow-sidebar-group-label {
+  margin: 8px 0 0;
+}
+
 .cow-sidebar-create-button {
   position: absolute;
   top: 12px;
@@ -193,6 +259,13 @@
   margin-top: 14px;
 }
 
+.cow-sidebar-group-label {
+  margin: 8px 10px 0;
+  color: var(--cow-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .cow-sidebar-action,
 .cow-file-shortcut {
   display: flex;
@@ -210,6 +283,12 @@
 
 .cow-sidebar-action:hover {
   background: rgba(255, 127, 180, 0.2);
+}
+
+.cow-sidebar-action.is-active {
+  background: rgba(255, 127, 180, 0.28);
+  color: var(--cow-pink-strong);
+  font-weight: 800;
 }
 
 .cow-file-shortcut {

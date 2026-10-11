@@ -30,9 +30,8 @@ export class TasksPage {
 
   render(container: HTMLElement): void {
     void this.store.generateDueRecurringTasks();
-    const definition = this.store.getPages().find((item) => item.id === this.page) as DashboardPageDefinition;
     const pageEl = container.createDiv({ cls: "cow-page cow-module-page cow-page-tasks cow-tasks-page" });
-    this.renderHeader(pageEl, definition);
+    this.renderHeader(pageEl);
     this.renderQuickAdd(pageEl);
     const topGrid = pageEl.createDiv({ cls: "cow-tasks-top-grid" });
     this.renderTodayTasks(topGrid);
@@ -45,12 +44,8 @@ export class TasksPage {
     this.renderRecurring(bottomGrid);
   }
 
-  private renderHeader(container: HTMLElement, definition: DashboardPageDefinition): void {
-    const heading = container.createDiv({ cls: "cow-page-heading cow-tasks-heading" });
-    const title = heading.createDiv({ cls: "cow-page-title" });
-    title.createEl("h1", { text: definition.label });
-    title.createEl("p", { text: definition.description });
-    const actions = heading.createDiv({ cls: "cow-config-actions cow-page-actions" });
+  private renderHeader(container: HTMLElement): void {
+    const actions = container.createDiv({ cls: "cow-config-actions cow-page-local-actions" });
     this.iconButton(actions, "plus", "新建任务", () => openTaskModal(this.app, this.store, this.onDataChanged, undefined, { status: "inbox", sourceModule: "general" }));
     this.iconButton(actions, "filter", "筛选", () => openTaskFilterModal(this.app, this.store, this.onDataChanged));
     this.iconButton(actions, "bar-chart-3", "统计", () => new TaskStatisticsModal(this.app, this.store).open());
