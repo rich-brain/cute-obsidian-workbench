@@ -848,6 +848,38 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.cow-paper-queue .cow-paper-card-header {
+  align-items: center;
+  gap: 8px;
+}
+
+.cow-paper-queue .cow-paper-body {
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.9fr);
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.cow-paper-queue .cow-paper-meta-row,
+.cow-paper-queue .cow-paper-progress-row,
+.cow-paper-queue .cow-paper-tags,
+.cow-paper-queue .cow-paper-body > .cow-meta-line {
+  min-width: 0;
+}
+
+.cow-paper-queue .cow-paper-progress-row {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.cow-paper-queue .cow-paper-tags,
+.cow-paper-queue .cow-paper-body > .cow-meta-line {
+  grid-column: 1;
 }
 
 .cow-paper-card-header {
@@ -1960,7 +1992,7 @@
   min-height: 0;
   height: auto;
   box-sizing: border-box;
-  padding: 10px;
+  padding: 8px 10px;
   border: 1px solid rgba(242, 59, 141, 0.18);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.52);
@@ -2172,6 +2204,7 @@
   display: grid;
   gap: 6px;
   min-width: 0;
+  padding: 8px 10px;
 }
 
 .cow-reading-note-card .cow-link-button {
@@ -2184,6 +2217,19 @@
   font-weight: 800;
   text-align: left;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .cow-paper-queue .cow-paper-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cow-paper-queue .cow-paper-progress-row,
+  .cow-paper-queue .cow-paper-tags,
+  .cow-paper-queue .cow-paper-body > .cow-meta-line {
+    grid-column: 1;
+    grid-row: auto;
+  }
 }
 
 .cow-linked-notes-panel {

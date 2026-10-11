@@ -1802,6 +1802,38 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.cow-paper-queue .cow-paper-card-header {
+  align-items: center;
+  gap: 8px;
+}
+
+.cow-paper-queue .cow-paper-body {
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.9fr);
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.cow-paper-queue .cow-paper-meta-row,
+.cow-paper-queue .cow-paper-progress-row,
+.cow-paper-queue .cow-paper-tags,
+.cow-paper-queue .cow-paper-body > .cow-meta-line {
+  min-width: 0;
+}
+
+.cow-paper-queue .cow-paper-progress-row {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.cow-paper-queue .cow-paper-tags,
+.cow-paper-queue .cow-paper-body > .cow-meta-line {
+  grid-column: 1;
 }
 
 .cow-paper-card-header {
@@ -2914,7 +2946,7 @@
   min-height: 0;
   height: auto;
   box-sizing: border-box;
-  padding: 10px;
+  padding: 8px 10px;
   border: 1px solid rgba(242, 59, 141, 0.18);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.52);
@@ -3126,6 +3158,7 @@
   display: grid;
   gap: 6px;
   min-width: 0;
+  padding: 8px 10px;
 }
 
 .cow-reading-note-card .cow-link-button {
@@ -3138,6 +3171,19 @@
   font-weight: 800;
   text-align: left;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .cow-paper-queue .cow-paper-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cow-paper-queue .cow-paper-progress-row,
+  .cow-paper-queue .cow-paper-tags,
+  .cow-paper-queue .cow-paper-body > .cow-meta-line {
+    grid-column: 1;
+    grid-row: auto;
+  }
 }
 
 .cow-linked-notes-panel {
@@ -8543,7 +8589,7 @@ button.cow-daily-focus-title:hover {
 }
 
 .cute-obsidian-workbench .cow-section-type-habit-overview .cow-section-content {
-  max-height: 440px;
+  max-height: none;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;
@@ -9222,15 +9268,15 @@ button.cow-daily-focus-title:hover {
   order: 50;
 }
 
-/* Overview: action-oriented primary area, compact summary side panels, then calendar and lists. */
+/* Overview: summary first, then the calendar/focus workspace and supporting lists. */
 .cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-today-focus { order: 10; }
-.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-monthly-progress { order: 11; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-monthly-calendar { order: 11; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-monthly-progress { order: 12; }
 .cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-habit-overview { order: 20; }
 .cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-today-focus-stat { order: 21; }
-.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-monthly-calendar { order: 30; }
-.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-recent-notes { order: 31; }
-.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-quick-actions { order: 40; }
-.cute-obsidian-workbench .cow-dashboard-page-overview > :where(.cow-section-type-weekly-completion, .cow-section-type-pending-tasks, .cow-section-type-checkin-streak) { order: 41; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-recent-notes { order: 30; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-quick-actions { order: 31; }
+.cute-obsidian-workbench .cow-dashboard-page-overview > :where(.cow-section-type-weekly-completion, .cow-section-type-pending-tasks, .cow-section-type-checkin-streak) { order: 32; }
 .cute-obsidian-workbench .cow-dashboard-page-overview > .cow-section-type-contribution-heatmap { order: 60; }
 
 /* Research: paper queue as the master panel, projects as the side context. */
@@ -9240,10 +9286,10 @@ button.cow-daily-focus-title:hover {
 .cute-obsidian-workbench .cow-dashboard-page-research > :where(.cow-section-type-experiment-records, .cow-section-type-data-analysis-tasks) { order: 30; }
 .cute-obsidian-workbench .cow-dashboard-page-research > :where(.cow-section-type-research-checkin, .cow-section-type-paper-field-manager, .cow-section-type-research-memo) { order: 40; }
 
-/* Reading: current work and plan lead; the bookshelf gets the full visual runway. */
-.cute-obsidian-workbench .cow-dashboard-page-reading > .cow-section-type-current-reading { order: 10; }
-.cute-obsidian-workbench .cow-dashboard-page-reading > .cow-section-type-reading-plan { order: 11; }
-.cute-obsidian-workbench .cow-dashboard-page-reading > .cow-section-type-bookshelf { order: 20; }
+/* Reading: the shelf is the visual anchor, followed by current work and plans. */
+.cute-obsidian-workbench .cow-dashboard-page-reading > .cow-section-type-bookshelf { order: 10; }
+.cute-obsidian-workbench .cow-dashboard-page-reading > .cow-section-type-current-reading { order: 20; }
+.cute-obsidian-workbench .cow-dashboard-page-reading > .cow-section-type-reading-plan { order: 21; }
 .cute-obsidian-workbench .cow-dashboard-page-reading > :where(.cow-section-type-reading-notes, .cow-section-type-reading-quotes, .cow-section-type-wishlist-books, .cow-section-type-reading-tag-manager) { order: 30; }
 .cute-obsidian-workbench .cow-dashboard-page-reading > :where(.cow-section-type-reading-checkin, .cow-section-type-finished-books, .cow-section-type-reading-stats, .cow-section-type-ai-reading-review) { order: 40; }
 .cute-obsidian-workbench .cow-dashboard-page-reading > .cow-section-type-reading-heatmap { order: 50; }
@@ -9763,8 +9809,6 @@ button.cow-daily-focus-title:hover {
 .cute-obsidian-workbench .cow-tasks-bottom-grid > .cow-task-panel {
   min-width: 0;
   max-width: 100%;
-  max-height: 480px;
-  overflow: auto;
 }
 
 /* 0.9.4: restore a regular overview summary row and content-led sections. */
