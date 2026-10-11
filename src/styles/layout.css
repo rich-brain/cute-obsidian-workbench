@@ -138,6 +138,97 @@
   height: 16px;
 }
 
+.cow-layout-edit-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px dashed rgba(242, 59, 141, 0.42);
+  border-radius: 12px;
+  background: rgba(255, 239, 247, 0.7);
+  color: var(--cow-muted);
+  font-size: 12px;
+}
+
+.cow-layout-edit-toolbar strong {
+  color: var(--cow-pink-strong);
+}
+
+.cow-layout-edit-toolbar button {
+  margin-left: auto;
+}
+
+.cow-dashboard-grid.is-layout-editing {
+  position: relative;
+  background-image: linear-gradient(to right, rgba(242, 59, 141, 0.1) 1px, transparent 1px);
+  background-size: calc(100% / var(--layout-columns, 12)) 100%;
+  outline: 1px dashed rgba(242, 59, 141, 0.24);
+  outline-offset: 4px;
+}
+
+.cow-dashboard-grid.is-layout-dragging {
+  cursor: grabbing;
+}
+
+.cow-section.is-layout-editing {
+  position: relative;
+  overflow: visible;
+  cursor: default;
+  outline: 1px dashed rgba(242, 59, 141, 0.46);
+  outline-offset: 2px;
+}
+
+.cow-layout-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  flex: 0 0 22px;
+  color: var(--cow-pink-strong);
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: -3px;
+  cursor: grab;
+  user-select: none;
+}
+
+.cow-layout-grip:active {
+  cursor: grabbing;
+}
+
+.cow-section.is-layout-drop-target {
+  outline: 2px solid var(--cow-pink-strong);
+  outline-offset: 4px;
+}
+
+.cow-layout-resize-handle {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 14px;
+  height: 14px;
+  border-right: 3px solid var(--cow-pink-strong);
+  border-bottom: 3px solid var(--cow-pink-strong);
+  border-radius: 0 0 4px 0;
+  cursor: nwse-resize;
+}
+
+.cow-layout-size-badge {
+  position: absolute;
+  right: 24px;
+  bottom: 6px;
+  z-index: 4;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--cow-pink-strong);
+  color: white;
+  font-size: 11px;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
 .cow-page-heading {
   display: flex;
   align-items: end;
@@ -256,5 +347,9 @@
 
   .cow-page-toolbar {
     gap: 4px;
+  }
+
+  .cow-layout-edit-toolbar button {
+    margin-left: 0;
   }
 }

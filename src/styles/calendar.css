@@ -6528,11 +6528,55 @@
 
 .cow-checkin-week-table {
   display: grid;
-  grid-template-columns: minmax(120px, 1.4fr) repeat(7, minmax(36px, 1fr));
+  --checkin-label-column: minmax(120px, 1.4fr);
+  --checkin-day-column: minmax(36px, 1fr);
+  grid-template-columns: var(--checkin-label-column) repeat(7, var(--checkin-day-column));
   gap: 6px;
   width: 100%;
   min-width: 0;
   overflow-x: auto;
+}
+
+.cow-checkin-week-row {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cow-checkin-week-row-main {
+  display: grid;
+  grid-template-columns: var(--checkin-label-column) repeat(7, var(--checkin-day-column));
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cow-checkin-week-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding-left: 3px;
+  color: var(--cow-muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.cow-checkin-week-progress-track {
+  width: 100%;
+  height: 5px;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(138, 103, 102, 0.14);
+}
+
+.cow-checkin-week-progress-fill {
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  transition: width 220ms ease;
 }
 
 .cow-checkin-week-corner,
@@ -7105,7 +7149,8 @@ button.cow-daily-focus-title:hover {
   }
 
   .cow-checkin-week-table {
-    grid-template-columns: minmax(96px, 1.2fr) repeat(7, minmax(32px, 36px));
+    --checkin-label-column: minmax(96px, 1.2fr);
+    --checkin-day-column: minmax(32px, 36px);
   }
 
   .cow-checkin-week-corner {

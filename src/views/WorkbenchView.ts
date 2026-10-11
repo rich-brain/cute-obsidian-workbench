@@ -20,6 +20,7 @@ import { NotesManagerModal } from "../components/NotesManagerModal";
 import { NoteService } from "../services/NoteService";
 import { AvatarPickerModal } from "../components/AvatarPickerModal";
 import { WorkbenchReminderModal } from "../components/WorkbenchReminderModal";
+import { isLayoutEditing, toggleLayoutEditing } from "../core/LayoutEditState";
 
 interface CommandEnabledApp {
   commands?: {
@@ -98,7 +99,6 @@ export class WorkbenchView extends ItemView {
       { label: "目标管理", icon: "target", page: "goals", group: "工作模块", onClick: () => this.router.navigate("goals") },
       { label: "每日笔记", icon: "calendar-days", group: "知识管理", onClick: () => void new NoteService(this.app).openOrCreateDailyNote(new Date()) },
       { label: "笔记管理", icon: "notebook-tabs", group: "知识管理", onClick: () => new NotesManagerModal(this.app).open() },
-      { label: "全部文件", icon: "files", group: "知识管理", onClick: () => this.openFileExplorer() },
       { label: "模块管理", icon: "layout-grid", page: "modules", group: "", onClick: () => this.router.navigate("modules") },
       { label: "设置", icon: "settings", group: "", onClick: () => this.openSettings() }
     ], () => {
@@ -117,7 +117,12 @@ export class WorkbenchView extends ItemView {
         onSearch: () => new NotesManagerModal(this.app).open(),
         onReminder: () => new WorkbenchReminderModal(this.app, this.plugin.store).open(),
         onSettings: () => this.openSettings(),
-        onCustomize: () => new WorkbenchCustomizeModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open()
+        onCustomize: () => new WorkbenchCustomizeModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open(),
+        onEditLayout: () => {
+          toggleLayoutEditing(this.router.getCurrentPage());
+          this.renderPreservingScroll();
+        },
+        isLayoutEditing: isLayoutEditing(this.router.getCurrentPage())
       }).render(pageHost);
     }
     const pageContent = pageHost.createDiv({ cls: "cow-page-content" });

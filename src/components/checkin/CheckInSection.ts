@@ -98,54 +98,112 @@ export class CheckInSection {
       header.createEl("strong", { text: String(date.getDate()) });
     });
     definitions.forEach((definition) => this.renderWeeklyRow(table, definition, dates));
-    this.renderSummary(container, definitions, dates.map((date) => formatDateKey(date)));
+    this.renderSummary(container, definitions, dates);
   }
 
   private renderWeeklyRow(table: HTMLElement, definition: CheckInDefinition, dates: Date[]): void {
-    const label = table.createDiv({ cls: "cow-checkin-week-name", attr: { title: definition.title } });
-    label.style.setProperty("--checkin-color", definition.color ?? "#ff8fbc");
-    label.createSpan({ text: definition.title });
-    dates.forEach((date) => {
-      const key = formatDateKey(date);
-      const status = this.getCellStatus(definition, key);
-      const cell = table.createEl("button", {
-        cls: `cow-checkin-week-cell is-${status}`,
-        attr: { type: "button", title: `${key}\n${definition.title}\n${this.statusLabel(status)}`, "aria-label": `${definition.title} ${key} ${this.statusLabel(status)}` }
-      });
-      cell.style.setProperty("--checkin-color", definition.color ?? "#ff8fbc");
-      cell.setText(this.statusMark(status));
-      const clickable = key === formatDateKey(new Date()) && status !== "future" && status !== "na";
-      cell.disabled = !clickable;
-      if (clickable) {
-        cell.addEventListener("click", async () => {
-          await this.service.toggleCheckIn(definition.id, key);
-          this.rerenderSection(table.closest(".cow-checkin-section") as HTMLElement | null);
-        });
-      }
-    });
+    const row = table.createDiv({ cls: "cow-checkin-week-row", attr: { "data-checkin-id": definition.id } });
+    row.style.setProperty("--checkin-color", definition.color || "var(--cow-pink-strong)");
+    const main = row.createDiv({ cls: "cow-checkin-week-row-main" });
+    this.renderWeekLabel(main, definition);
+    dates.forEach((date) => this.renderWeekCell(main, definition, formatDateKey(date), table, row, dates));
+
+    const progress = this.getWeeklyProgress(definition, dates);
+    const progressMeta = row.createDiv({ cls: "cow-checkin-week-progress-meta" });
+    progressMeta.createSpan({ text: `${progress.completed} / ${progress.eligible}` });
+    progressMeta.createSpan({ text: `${progress.percent}%` });
+    const track = row.createDiv({ cls: "cow-checkin-week-progress-track", attr: { "aria-label": `本周完成 ${progress.completed}/${progress.eligible}，${progress.percent}%` } });
+    const fill = track.createDiv({ cls: "cow-checkin-week-progress-fill" });
+    fill.style.width = `${progress.percent}%`;
+    fill.style.backgroundColor = definition.color || "var(--cow-pink-strong)";
   }
 
-  private renderSummary(container: HTMLElement, definitions: CheckInDefinition[], dates: string[]): void {
+  private renderWeekLabel(container: HTMLElement, definition: CheckInDefinition): void {
+    const label = container.createDiv({ cls: "cow-checkin-week-name", attr: { title: definition.title } });
+    label.style.setProperty("--checkin-color", definition.color || "var(--cow-pink-strong)");
+    label.createSpan({ text: definition.title });
+  }
+
+  private renderWeekCell(container: HTMLElement, definition: CheckInDefinition, key: string, table: HTMLElement, row: HTMLElement, dates: Date[]): void {
+    const status = this.getCellStatus(definition, key);
+    const cell = container.createEl("button", {
+      cls: `cow-checkin-week-cell is-${status}`,
+      attr: { type: "button", title: `${key}\n${definition.title}\n${this.statusLabel(status)}`, "aria-label": `${definition.title} ${key} ${this.statusLabel(status)}` }
+    });
+    cell.style.setProperty("--checkin-color", definition.color || "var(--cow-pink-strong)");
+    cell.setText(this.statusMark(status));
+    const clickable = key === formatDateKey(new Date()) && status !== "future" && status !== "na";
+    cell.disabled = !clickable;
+    if (clickable) {
+      cell.addEventListener("click", async () => {
+        await this.service.toggleCheckIn(definition.id, key);
+        this.refreshWeeklyRow(table, row, definition, dates);
+      });
+    }
+  }
+
+  private refreshWeeklyRow(table: HTMLElement, row: HTMLElement, definition: CheckInDefinition, dates: Date[]): void {
+    const main = row.querySelector<HTMLElement>(".cow-checkin-week-row-main");
+    if (!main) return;
+    main.empty();
+    this.renderWeekLabel(main, definition);
+    dates.forEach((date) => this.renderWeekCell(main, definition, formatDateKey(date), table, row, dates));
+
+    const progress = this.getWeeklyProgress(definition, dates);
+    row.querySelectorAll<HTMLElement>(".cow-checkin-week-progress-meta span").forEach((item, index) => {
+      item.setText(index === 0 ? `${progress.completed} / ${progress.eligible}` : `${progress.percent}%`);
+    });
+    const fill = row.querySelector<HTMLElement>(".cow-checkin-week-progress-fill");
+    const track = row.querySelector<HTMLElement>(".cow-checkin-week-progress-track");
+    if (fill) fill.style.width = `${progress.percent}%`;
+    track?.setAttribute("aria-label", `本周完成 ${progress.completed}/${progress.eligible}，${progress.percent}%`);
+    const summaryContainer = table.parentElement;
+    const existingSummary = summaryContainer?.querySelector<HTMLElement>(":scope > .cow-checkin-week-summary");
+    if (summaryContainer && existingSummary) {
+      const replacement = this.createSummary(this.getDefinitionsForTable(table), dates);
+      existingSummary.replaceWith(replacement);
+    }
+  }
+
+  private getDefinitionsForTable(table: HTMLElement): CheckInDefinition[] {
+    const ids = new Set(Array.from(table.querySelectorAll<HTMLElement>(".cow-checkin-week-row")).map((row) => row.dataset.checkinId));
+    return this.service.getAllDefinitions().filter((definition) => ids.has(definition.id));
+  }
+
+  private renderSummary(container: HTMLElement, definitions: CheckInDefinition[], dates: Date[]): void {
+    container.append(this.createSummary(definitions, dates));
+  }
+
+  private createSummary(definitions: CheckInDefinition[], dates: Date[]): HTMLElement {
     let total = 0;
     let completed = 0;
     dates.forEach((date) => {
+      const key = formatDateKey(date);
       definitions.forEach((definition) => {
-        const status = this.getCellStatus(definition, date);
-        if (status === "completed") {
-          total += 1;
+        if (!this.isDefinitionApplicable(definition, key)) return;
+        total += 1;
+        if (this.service.isCompleted(definition.id, key)) {
           completed += 1;
-        } else if (status === "missed" || status === "today") {
-          total += 1;
         }
       });
     });
-    container.createDiv({ cls: "cow-checkin-week-summary", text: `本周完成：${completed} / ${total} · 完成率：${total ? Math.round((completed / total) * 100) : 0}%` });
+    const summary = document.createElement("div");
+    summary.className = "cow-checkin-week-summary";
+    summary.textContent = `本周完成：${completed} / ${total} · 完成率：${total ? Math.round((completed / total) * 100) : 0}%`;
+    return summary;
+  }
+
+  private getWeeklyProgress(definition: CheckInDefinition, dates: Date[]): { completed: number; eligible: number; percent: number } {
+    const eligibleDates = dates.map((date) => formatDateKey(date)).filter((date) => this.isDefinitionApplicable(definition, date));
+    const completed = eligibleDates.filter((date) => this.service.isCompleted(definition.id, date)).length;
+    const eligible = eligibleDates.length;
+    return { completed, eligible, percent: eligible ? Math.round((completed / eligible) * 100) : 0 };
   }
 
   private getCellStatus(definition: CheckInDefinition, date: string): CheckInCellStatus {
     const today = formatDateKey(new Date());
-    if (date > today) return "future";
     if (!this.isDefinitionApplicable(definition, date)) return "na";
+    if (date > today) return "future";
     if (this.service.isCompleted(definition.id, date)) return "completed";
     if (date === today) return "today";
     return "missed";

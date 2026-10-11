@@ -493,9 +493,14 @@
 }
 
 .cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-table {
-  grid-template-columns: minmax(86px, 1.15fr) repeat(7, minmax(28px, 32px));
+  --checkin-label-column: minmax(86px, 1.15fr);
+  --checkin-day-column: minmax(28px, 32px);
   gap: 4px;
   overflow-x: auto;
+}
+
+.cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-row-main {
+  gap: 4px;
 }
 
 .cute-obsidian-workbench .cow-checkin-section.is-overview-compact .cow-checkin-week-corner,

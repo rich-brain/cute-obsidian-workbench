@@ -43,13 +43,6 @@ export class Sidebar {
     });
     setIcon(collapse, initiallyCollapsed ? "chevron-right" : "chevron-left");
     collapse.addEventListener("click", () => this.toggleCollapsed(collapse));
-    const quickCreate = sidebar.createEl("button", {
-      cls: "cow-sidebar-create-button",
-      attr: { type: "button", "aria-label": "快速创建" }
-    });
-    setIcon(quickCreate, "plus");
-    quickCreate.addEventListener("click", this.onQuickCreate);
-
     const profile = sidebar.createDiv({ cls: "cow-profile" });
     const avatarButton = profile.createEl("button", {
       cls: "cow-profile-avatar-button",
@@ -97,6 +90,14 @@ export class Sidebar {
     const fileHint = actions.createDiv({ cls: "cow-file-shortcut" });
     setIcon(fileHint.createSpan(), "folder-open");
     fileHint.createSpan({ text: `文件库：${this.app.vault.getName()}` });
+
+    const quickAccess = actions.createEl("button", {
+      cls: "cow-sidebar-action cow-sidebar-quick-access",
+      attr: { type: "button", title: "快捷方式", "aria-label": "快捷方式" }
+    });
+    setIcon(quickAccess.createSpan(), "plus");
+    quickAccess.createSpan({ text: "快捷方式" });
+    quickAccess.addEventListener("click", this.onQuickCreate);
   }
 
   private toggleCollapsed(button: HTMLButtonElement): void {

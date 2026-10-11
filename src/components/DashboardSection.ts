@@ -172,7 +172,7 @@ export class DashboardSection {
     private readonly onDataChanged: () => void
   ) {}
 
-  render(container: HTMLElement): void {
+  render(container: HTMLElement): HTMLElement {
     const cardColor = typeof this.section.config?.cardColor === "string" ? this.section.config.cardColor : "default";
     const layoutMeta = this.getLayoutMeta();
     const sectionEl = container.createDiv({
@@ -231,6 +231,7 @@ export class DashboardSection {
 
     const content = sectionEl.createDiv({ cls: "cow-section-content" });
     this.renderContent(content);
+    return sectionEl;
   }
 
   private renderFitnessHeaderActions(actions: HTMLElement): void {

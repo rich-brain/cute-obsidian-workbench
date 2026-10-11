@@ -4585,12 +4585,6 @@ var _Sidebar = class _Sidebar {
     });
     (0, import_obsidian4.setIcon)(collapse, initiallyCollapsed ? "chevron-right" : "chevron-left");
     collapse.addEventListener("click", () => this.toggleCollapsed(collapse));
-    const quickCreate = sidebar.createEl("button", {
-      cls: "cow-sidebar-create-button",
-      attr: { type: "button", "aria-label": "\u5FEB\u901F\u521B\u5EFA" }
-    });
-    (0, import_obsidian4.setIcon)(quickCreate, "plus");
-    quickCreate.addEventListener("click", this.onQuickCreate);
     const profile = sidebar.createDiv({ cls: "cow-profile" });
     const avatarButton = profile.createEl("button", {
       cls: "cow-profile-avatar-button",
@@ -4633,6 +4627,13 @@ var _Sidebar = class _Sidebar {
     const fileHint = actions.createDiv({ cls: "cow-file-shortcut" });
     (0, import_obsidian4.setIcon)(fileHint.createSpan(), "folder-open");
     fileHint.createSpan({ text: `\u6587\u4EF6\u5E93\uFF1A${this.app.vault.getName()}` });
+    const quickAccess = actions.createEl("button", {
+      cls: "cow-sidebar-action cow-sidebar-quick-access",
+      attr: { type: "button", title: "\u5FEB\u6377\u65B9\u5F0F", "aria-label": "\u5FEB\u6377\u65B9\u5F0F" }
+    });
+    (0, import_obsidian4.setIcon)(quickAccess.createSpan(), "plus");
+    quickAccess.createSpan({ text: "\u5FEB\u6377\u65B9\u5F0F" });
+    quickAccess.addEventListener("click", this.onQuickCreate);
   }
   toggleCollapsed(button) {
     if (!this.sidebarEl) return;
@@ -4686,6 +4687,7 @@ var PageHeader = class {
     this.addAction(toolbar, "\u63D0\u9192", "bell", this.actions.onReminder);
     this.addAction(toolbar, "\u8BBE\u7F6E", "settings", this.actions.onSettings);
     this.addAction(toolbar, `\u81EA\u5B9A\u4E49${this.currentPage === "modules" ? "\u5E03\u5C40" : ""}`, "plus", this.actions.onCustomize, "cow-page-toolbar-customize");
+    this.addAction(toolbar, this.actions.isLayoutEditing ? "\u5B8C\u6210\u5E03\u5C40" : "\u7F16\u8F91\u5E03\u5C40", this.actions.isLayoutEditing ? "check" : "layout-dashboard", this.actions.onEditLayout, "cow-page-toolbar-edit-layout");
   }
   addAction(container, label, iconName, onClick, className) {
     const button = container.createEl("button", {
@@ -9992,55 +9994,103 @@ var CheckInSection = class {
       header.createEl("strong", { text: String(date.getDate()) });
     });
     definitions.forEach((definition) => this.renderWeeklyRow(table, definition, dates));
-    this.renderSummary(container, definitions, dates.map((date) => formatDateKey(date)));
+    this.renderSummary(container, definitions, dates);
   }
   renderWeeklyRow(table, definition, dates) {
-    var _a;
-    const label = table.createDiv({ cls: "cow-checkin-week-name", attr: { title: definition.title } });
-    label.style.setProperty("--checkin-color", (_a = definition.color) != null ? _a : "#ff8fbc");
+    const row = table.createDiv({ cls: "cow-checkin-week-row", attr: { "data-checkin-id": definition.id } });
+    row.style.setProperty("--checkin-color", definition.color || "var(--cow-pink-strong)");
+    const main = row.createDiv({ cls: "cow-checkin-week-row-main" });
+    this.renderWeekLabel(main, definition);
+    dates.forEach((date) => this.renderWeekCell(main, definition, formatDateKey(date), table, row, dates));
+    const progress = this.getWeeklyProgress(definition, dates);
+    const progressMeta = row.createDiv({ cls: "cow-checkin-week-progress-meta" });
+    progressMeta.createSpan({ text: `${progress.completed} / ${progress.eligible}` });
+    progressMeta.createSpan({ text: `${progress.percent}%` });
+    const track = row.createDiv({ cls: "cow-checkin-week-progress-track", attr: { "aria-label": `\u672C\u5468\u5B8C\u6210 ${progress.completed}/${progress.eligible}\uFF0C${progress.percent}%` } });
+    const fill = track.createDiv({ cls: "cow-checkin-week-progress-fill" });
+    fill.style.width = `${progress.percent}%`;
+    fill.style.backgroundColor = definition.color || "var(--cow-pink-strong)";
+  }
+  renderWeekLabel(container, definition) {
+    const label = container.createDiv({ cls: "cow-checkin-week-name", attr: { title: definition.title } });
+    label.style.setProperty("--checkin-color", definition.color || "var(--cow-pink-strong)");
     label.createSpan({ text: definition.title });
-    dates.forEach((date) => {
-      var _a2;
-      const key = formatDateKey(date);
-      const status = this.getCellStatus(definition, key);
-      const cell = table.createEl("button", {
-        cls: `cow-checkin-week-cell is-${status}`,
-        attr: { type: "button", title: `${key}
+  }
+  renderWeekCell(container, definition, key, table, row, dates) {
+    const status = this.getCellStatus(definition, key);
+    const cell = container.createEl("button", {
+      cls: `cow-checkin-week-cell is-${status}`,
+      attr: { type: "button", title: `${key}
 ${definition.title}
 ${this.statusLabel(status)}`, "aria-label": `${definition.title} ${key} ${this.statusLabel(status)}` }
-      });
-      cell.style.setProperty("--checkin-color", (_a2 = definition.color) != null ? _a2 : "#ff8fbc");
-      cell.setText(this.statusMark(status));
-      const clickable = key === formatDateKey(/* @__PURE__ */ new Date()) && status !== "future" && status !== "na";
-      cell.disabled = !clickable;
-      if (clickable) {
-        cell.addEventListener("click", async () => {
-          await this.service.toggleCheckIn(definition.id, key);
-          this.rerenderSection(table.closest(".cow-checkin-section"));
-        });
-      }
     });
+    cell.style.setProperty("--checkin-color", definition.color || "var(--cow-pink-strong)");
+    cell.setText(this.statusMark(status));
+    const clickable = key === formatDateKey(/* @__PURE__ */ new Date()) && status !== "future" && status !== "na";
+    cell.disabled = !clickable;
+    if (clickable) {
+      cell.addEventListener("click", async () => {
+        await this.service.toggleCheckIn(definition.id, key);
+        this.refreshWeeklyRow(table, row, definition, dates);
+      });
+    }
+  }
+  refreshWeeklyRow(table, row, definition, dates) {
+    const main = row.querySelector(".cow-checkin-week-row-main");
+    if (!main) return;
+    main.empty();
+    this.renderWeekLabel(main, definition);
+    dates.forEach((date) => this.renderWeekCell(main, definition, formatDateKey(date), table, row, dates));
+    const progress = this.getWeeklyProgress(definition, dates);
+    row.querySelectorAll(".cow-checkin-week-progress-meta span").forEach((item, index) => {
+      item.setText(index === 0 ? `${progress.completed} / ${progress.eligible}` : `${progress.percent}%`);
+    });
+    const fill = row.querySelector(".cow-checkin-week-progress-fill");
+    const track = row.querySelector(".cow-checkin-week-progress-track");
+    if (fill) fill.style.width = `${progress.percent}%`;
+    track == null ? void 0 : track.setAttribute("aria-label", `\u672C\u5468\u5B8C\u6210 ${progress.completed}/${progress.eligible}\uFF0C${progress.percent}%`);
+    const summaryContainer = table.parentElement;
+    const existingSummary = summaryContainer == null ? void 0 : summaryContainer.querySelector(":scope > .cow-checkin-week-summary");
+    if (summaryContainer && existingSummary) {
+      const replacement = this.createSummary(this.getDefinitionsForTable(table), dates);
+      existingSummary.replaceWith(replacement);
+    }
+  }
+  getDefinitionsForTable(table) {
+    const ids = new Set(Array.from(table.querySelectorAll(".cow-checkin-week-row")).map((row) => row.dataset.checkinId));
+    return this.service.getAllDefinitions().filter((definition) => ids.has(definition.id));
   }
   renderSummary(container, definitions, dates) {
+    container.append(this.createSummary(definitions, dates));
+  }
+  createSummary(definitions, dates) {
     let total = 0;
     let completed = 0;
     dates.forEach((date) => {
+      const key = formatDateKey(date);
       definitions.forEach((definition) => {
-        const status = this.getCellStatus(definition, date);
-        if (status === "completed") {
-          total += 1;
+        if (!this.isDefinitionApplicable(definition, key)) return;
+        total += 1;
+        if (this.service.isCompleted(definition.id, key)) {
           completed += 1;
-        } else if (status === "missed" || status === "today") {
-          total += 1;
         }
       });
     });
-    container.createDiv({ cls: "cow-checkin-week-summary", text: `\u672C\u5468\u5B8C\u6210\uFF1A${completed} / ${total} \xB7 \u5B8C\u6210\u7387\uFF1A${total ? Math.round(completed / total * 100) : 0}%` });
+    const summary = document.createElement("div");
+    summary.className = "cow-checkin-week-summary";
+    summary.textContent = `\u672C\u5468\u5B8C\u6210\uFF1A${completed} / ${total} \xB7 \u5B8C\u6210\u7387\uFF1A${total ? Math.round(completed / total * 100) : 0}%`;
+    return summary;
+  }
+  getWeeklyProgress(definition, dates) {
+    const eligibleDates = dates.map((date) => formatDateKey(date)).filter((date) => this.isDefinitionApplicable(definition, date));
+    const completed = eligibleDates.filter((date) => this.service.isCompleted(definition.id, date)).length;
+    const eligible = eligibleDates.length;
+    return { completed, eligible, percent: eligible ? Math.round(completed / eligible * 100) : 0 };
   }
   getCellStatus(definition, date) {
     const today6 = formatDateKey(/* @__PURE__ */ new Date());
-    if (date > today6) return "future";
     if (!this.isDefinitionApplicable(definition, date)) return "na";
+    if (date > today6) return "future";
     if (this.service.isCompleted(definition.id, date)) return "completed";
     if (date === today6) return "today";
     return "missed";
@@ -19070,6 +19120,7 @@ var DashboardSection = class {
     });
     const content = sectionEl.createDiv({ cls: "cow-section-content" });
     this.renderContent(content);
+    return sectionEl;
   }
   renderFitnessHeaderActions(actions) {
     const addAction = (label, icon, onClick) => {
@@ -19776,6 +19827,17 @@ var AddSectionButton = class {
   }
 };
 
+// src/core/LayoutEditState.ts
+var editingPage = null;
+var listeners = /* @__PURE__ */ new Set();
+function isLayoutEditing(page) {
+  return editingPage === page;
+}
+function toggleLayoutEditing(page) {
+  editingPage = editingPage === page ? null : page;
+  listeners.forEach((listener) => listener());
+}
+
 // src/components/DashboardGrid.ts
 var DashboardGrid = class {
   constructor(app, store, page, onDataChanged) {
@@ -19790,16 +19852,115 @@ var DashboardGrid = class {
     const grid = container.createDiv({ cls: `cow-dashboard-grid cow-dashboard-page-${this.page} cow-module-layout-${layout.mode}` });
     grid.style.setProperty("--layout-columns", String((_a = layout.columns) != null ? _a : 12));
     const sections = this.store.getSectionsForPage(this.page);
+    const editing = isLayoutEditing(this.page);
+    if (editing) {
+      const toolbar = container.createDiv({ cls: "cow-layout-edit-toolbar" });
+      toolbar.createEl("strong", { text: "\u7F16\u8F91\u5E03\u5C40" });
+      toolbar.createEl("span", { text: "\u62D6\u52A8\u6807\u9898\u533A\u57DF\u8C03\u6574\u987A\u5E8F\uFF0C\u53F3\u4E0B\u89D2\u8C03\u6574\u7F51\u683C\u5C3A\u5BF8\u3002" });
+      const reset = toolbar.createEl("button", { text: "\u91CD\u7F6E\u5E03\u5C40", attr: { type: "button" } });
+      reset.addEventListener("click", () => void this.store.setModuleLayoutMode(this.page, "default").then(this.onDataChanged));
+    }
     sections.forEach((section) => {
-      new DashboardSection(this.app, this.store, section, async (removedSection) => {
+      const sectionEl = new DashboardSection(this.app, this.store, section, async (removedSection) => {
         await this.store.removeSection(removedSection.id);
         this.onDataChanged();
       }, this.onDataChanged).render(grid);
+      if (editing) this.decorateEditableSection(grid, sectionEl, section.id);
     });
     new AddSectionButton(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
       await this.store.addSection(this.page, moduleType);
       this.onDataChanged();
     }).render(container);
+  }
+  decorateEditableSection(grid, sectionEl, sectionId) {
+    sectionEl.addClass("is-layout-editing");
+    sectionEl.draggable = true;
+    const header = sectionEl.querySelector(".cow-section-header");
+    if (!header) return;
+    const grip = document.createElement("span");
+    grip.className = "cow-layout-grip";
+    grip.setAttribute("title", "\u62D6\u52A8\u8C03\u6574\u4F4D\u7F6E");
+    grip.setAttribute("aria-label", "\u62D6\u52A8\u8C03\u6574\u4F4D\u7F6E");
+    grip.textContent = "\u22EE\u22EE";
+    header.prepend(grip);
+    const resize = document.createElement("span");
+    resize.className = "cow-layout-resize-handle";
+    resize.setAttribute("title", "\u8C03\u6574\u7F51\u683C\u5C3A\u5BF8");
+    resize.setAttribute("aria-label", "\u8C03\u6574\u7F51\u683C\u5C3A\u5BF8");
+    sectionEl.append(resize);
+    sectionEl.addEventListener("dragstart", (event) => {
+      var _a;
+      if (!(event.target instanceof HTMLElement) || !event.target.closest(".cow-layout-grip")) {
+        event.preventDefault();
+        return;
+      }
+      (_a = event.dataTransfer) == null ? void 0 : _a.setData("text/plain", sectionId);
+      sectionEl.addClass("is-layout-dragging");
+      grid.addClass("is-layout-dragging");
+    });
+    sectionEl.addEventListener("dragend", () => {
+      sectionEl.removeClass("is-layout-dragging");
+      grid.removeClass("is-layout-dragging");
+      grid.querySelectorAll(".is-layout-drop-target").forEach((item) => item.removeClass("is-layout-drop-target"));
+    });
+    sectionEl.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      sectionEl.addClass("is-layout-drop-target");
+    });
+    sectionEl.addEventListener("dragleave", () => sectionEl.removeClass("is-layout-drop-target"));
+    sectionEl.addEventListener("drop", (event) => {
+      var _a;
+      event.preventDefault();
+      const sourceId = (_a = event.dataTransfer) == null ? void 0 : _a.getData("text/plain");
+      if (!sourceId || sourceId === sectionId) return;
+      const ordered = Array.from(grid.querySelectorAll(".cow-section[data-section-id]")).map((item) => {
+        var _a2;
+        return (_a2 = item.dataset.sectionId) != null ? _a2 : "";
+      }).filter(Boolean);
+      const sourceIndex = ordered.indexOf(sourceId);
+      const targetIndex = ordered.indexOf(sectionId);
+      if (sourceIndex < 0 || targetIndex < 0) return;
+      ordered.splice(sourceIndex, 1);
+      ordered.splice(targetIndex, 0, sourceId);
+      void this.store.reorderSectionLayout(this.page, ordered).then(this.onDataChanged);
+    });
+    resize.addEventListener("pointerdown", (event) => {
+      var _a, _b, _c, _d, _e, _f, _g;
+      event.preventDefault();
+      event.stopPropagation();
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startWidth = (_c = (_b = (_a = this.store.getModuleLayout(this.page).sections) == null ? void 0 : _a[sectionId]) == null ? void 0 : _b.colSpan) != null ? _c : 4;
+      const startHeight = (_f = (_e = (_d = this.store.getModuleLayout(this.page).sections) == null ? void 0 : _d[sectionId]) == null ? void 0 : _e.rowSpan) != null ? _f : 1;
+      const columns = (_g = this.store.getModuleLayout(this.page).columns) != null ? _g : 12;
+      const gridWidth = Math.max(1, grid.getBoundingClientRect().width);
+      const columnWidth = gridWidth / columns;
+      const badge = document.createElement("span");
+      badge.className = "cow-layout-size-badge";
+      sectionEl.append(badge);
+      const move = (moveEvent) => {
+        const colSpan = Math.max(1, Math.min(columns, startWidth + Math.round((moveEvent.clientX - startX) / columnWidth)));
+        const rowSpan = Math.max(1, Math.min(12, startHeight + Math.round((moveEvent.clientY - startY) / 40)));
+        badge.textContent = `${colSpan} \xD7 ${rowSpan}`;
+        sectionEl.style.gridColumn = `span ${colSpan}`;
+        sectionEl.style.gridRow = `span ${rowSpan}`;
+        sectionEl.dataset.draftColSpan = String(colSpan);
+        sectionEl.dataset.draftRowSpan = String(rowSpan);
+      };
+      const end = () => {
+        var _a2, _b2;
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", end);
+        const colSpan = Number((_a2 = sectionEl.dataset.draftColSpan) != null ? _a2 : startWidth);
+        const rowSpan = Number((_b2 = sectionEl.dataset.draftRowSpan) != null ? _b2 : startHeight);
+        badge.remove();
+        delete sectionEl.dataset.draftColSpan;
+        delete sectionEl.dataset.draftRowSpan;
+        void this.store.applySectionSize(this.page, sectionId, colSpan, rowSpan).then(this.onDataChanged);
+      };
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", end, { once: true });
+    });
   }
 };
 
@@ -20534,7 +20695,6 @@ var WorkbenchView = class extends import_obsidian85.ItemView {
       { label: "\u76EE\u6807\u7BA1\u7406", icon: "target", page: "goals", group: "\u5DE5\u4F5C\u6A21\u5757", onClick: () => this.router.navigate("goals") },
       { label: "\u6BCF\u65E5\u7B14\u8BB0", icon: "calendar-days", group: "\u77E5\u8BC6\u7BA1\u7406", onClick: () => void new NoteService(this.app).openOrCreateDailyNote(/* @__PURE__ */ new Date()) },
       { label: "\u7B14\u8BB0\u7BA1\u7406", icon: "notebook-tabs", group: "\u77E5\u8BC6\u7BA1\u7406", onClick: () => new NotesManagerModal(this.app).open() },
-      { label: "\u5168\u90E8\u6587\u4EF6", icon: "files", group: "\u77E5\u8BC6\u7BA1\u7406", onClick: () => this.openFileExplorer() },
       { label: "\u6A21\u5757\u7BA1\u7406", icon: "layout-grid", page: "modules", group: "", onClick: () => this.router.navigate("modules") },
       { label: "\u8BBE\u7F6E", icon: "settings", group: "", onClick: () => this.openSettings() }
     ], () => {
@@ -20552,7 +20712,12 @@ var WorkbenchView = class extends import_obsidian85.ItemView {
         onSearch: () => new NotesManagerModal(this.app).open(),
         onReminder: () => new WorkbenchReminderModal(this.app, this.plugin.store).open(),
         onSettings: () => this.openSettings(),
-        onCustomize: () => new WorkbenchCustomizeModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open()
+        onCustomize: () => new WorkbenchCustomizeModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open(),
+        onEditLayout: () => {
+          toggleLayoutEditing(this.router.getCurrentPage());
+          this.renderPreservingScroll();
+        },
+        isLayoutEditing: isLayoutEditing(this.router.getCurrentPage())
       }).render(pageHost);
     }
     const pageContent = pageHost.createDiv({ cls: "cow-page-content" });
