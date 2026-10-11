@@ -40,6 +40,8 @@
 }
 
 .cow-page-host {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   padding-right: 4px;
   min-width: 0;
@@ -157,7 +159,7 @@
 }
 
 .cow-layout-edit-toolbar button {
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .cow-dashboard-grid.is-layout-editing {
@@ -212,6 +214,9 @@
   border-right: 3px solid var(--cow-pink-strong);
   border-bottom: 3px solid var(--cow-pink-strong);
   border-radius: 0 0 4px 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
   cursor: nwse-resize;
 }
 

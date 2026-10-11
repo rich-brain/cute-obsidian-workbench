@@ -50,6 +50,7 @@ import type {
   Risk,
   SavingGoal,
   SectionLayoutConfig,
+  SectionLayoutItem,
   SectionSizePreset,
   Task,
   TaskPriority,
@@ -65,6 +66,7 @@ import type {
   ThemeSettings,
   WorkbenchData
 } from "../types/dashboard";
+import { compactLayout, createDefaultLayout, migrateLegacyLayout, resizeLayoutItem, sanitizeLayout, sectionMinimum, TASK_LAYOUT_SECTIONS } from "./DashboardLayoutEngine";
 
 export const DASHBOARD_PAGES: DashboardPageDefinition[] = [
   { id: "overview", label: "总览", icon: "home", description: "今日概览与快捷入口" },
@@ -1030,11 +1032,16 @@ export class DashboardStore {
     });
   }
 
+  getLayoutSections(page: DashboardPage): DashboardSectionConfig[] {
+    return page === "tasks" ? [...TASK_LAYOUT_SECTIONS] : this.data.sections.filter((section) => section.page === page);
+  }
+
   getSectionsForPage(page: DashboardPage): DashboardSectionConfig[] {
     const layout = this.getModuleLayout(page);
+    const positions = new Map(layout.mode === "custom" ? (layout.items ?? []).map((item, index) => [item.sectionId, index]) : []);
     return this.data.sections
       .filter((section) => section.page === page && section.enabled)
-      .sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout));
+      .sort((left, right) => (positions.get(left.id) ?? left.order) - (positions.get(right.id) ?? right.order));
   }
 
   getModuleLayout(page: DashboardPage): ModuleLayoutConfig {
@@ -1098,6 +1105,8 @@ export class DashboardStore {
     this.data.sections = this.data.sections.filter((section) => section.id !== sectionId);
     if (section) {
       delete this.data.moduleLayouts[section.page]?.sections?.[sectionId];
+      const layout = this.data.moduleLayouts[section.page];
+      if (layout?.items) layout.items = layout.items.filter((item) => item.sectionId !== sectionId);
     }
     await this.save();
   }
@@ -1161,24 +1170,43 @@ export class DashboardStore {
       if (!section) return;
       const order = (index + 1) * 10;
       section.order = order;
-      this.ensureSectionLayout(page, section.id, order);
-      const sectionLayout = this.data.moduleLayouts[page].sections?.[section.id];
-      if (sectionLayout) sectionLayout.order = order;
     });
+    const existing = new Map((layout.items ?? []).map((item) => [item.sectionId, item]));
+    const ordered = normalizedIds.map((id) => existing.get(id)).filter((item): item is SectionLayoutItem => Boolean(item));
+    const remaining = normalizedIds.filter((id) => !existing.has(id));
+    const sections = normalizedIds.map((id) => sectionById.get(id)).filter((section): section is DashboardSectionConfig => Boolean(section));
+    const source = [...ordered, ...createDefaultLayout(page, sections.filter((section) => remaining.includes(section.id)))];
+    let x = 0;
+    let y = 0;
+    let rowHeight = 0;
+    const items = normalizedIds.map((id) => {
+      const prior = source.find((item) => item.sectionId === id);
+      const w = prior?.w ?? 4;
+      const h = prior?.h ?? 8;
+      if (x + w > 12) { x = 0; y += rowHeight; rowHeight = 0; }
+      const next = { sectionId: id, x, y, w, h };
+      x += w;
+      rowHeight = Math.max(rowHeight, h);
+      return next;
+    });
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({ ...layout, mode: "custom", items }, page);
     await this.save();
   }
 
   async setOverviewLayout(layout: WorkbenchData["userSettings"]["overviewLayout"]): Promise<void> {
     this.data.userSettings.overviewLayout = layout;
-    this.data.moduleLayouts.overview = this.normalizeModuleLayout({ ...this.data.moduleLayouts.overview, mode: layout });
+    this.data.moduleLayouts.overview = this.normalizeModuleLayout({ ...this.data.moduleLayouts.overview, mode: layout }, "overview");
     await this.save();
   }
 
   async setModuleLayoutMode(page: DashboardPage, mode: ModuleLayoutMode): Promise<void> {
     this.data.moduleLayouts[page] = this.normalizeModuleLayout({
       ...this.getModuleLayout(page),
-      mode
-    });
+      mode,
+      items: mode === "custom" && !this.getModuleLayout(page).items?.length
+        ? createDefaultLayout(page, this.getLayoutSections(page))
+        : this.getModuleLayout(page).items
+    }, page);
     if (page === "overview" && mode !== "custom") {
       this.data.userSettings.overviewLayout = mode;
     }
@@ -1186,33 +1214,48 @@ export class DashboardStore {
   }
 
   async updateModuleLayout(page: DashboardPage, updates: Partial<ModuleLayoutConfig>): Promise<void> {
+    const legacyItems = updates.sections
+      ? migrateLegacyLayout(this.data.sections.filter((section) => section.page === page), { ...this.getModuleLayout(page), ...updates })
+      : undefined;
     this.data.moduleLayouts[page] = this.normalizeModuleLayout({
       ...this.getModuleLayout(page),
-      ...updates
-    });
+      ...updates,
+      items: updates.items ?? legacyItems ?? this.getModuleLayout(page).items
+    }, page);
     await this.save();
   }
 
   async updateSectionLayout(page: DashboardPage, sectionId: string, updates: SectionLayoutConfig): Promise<void> {
-    const section = this.data.sections.find((item) => item.id === sectionId && item.page === page);
+    const section = this.getLayoutSections(page).find((item) => item.id === sectionId);
     if (!section) return;
-    this.ensureSectionLayout(page, sectionId, section.order);
-    const layout = this.data.moduleLayouts[page];
-    const sectionLayout = layout.sections?.[sectionId];
-    if (!sectionLayout) return;
-    Object.assign(sectionLayout, updates);
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout(layout);
+    const layout = this.getModuleLayout(page);
+    const source = layout.mode === "custom" && layout.items?.length ? layout.items : createDefaultLayout(page, this.getLayoutSections(page), layout.mode);
+    const current = source.find((item) => item.sectionId === sectionId);
+    if (!current) return;
+    const items = resizeLayoutItem(source, section, updates.colSpan ?? current.w, updates.rowSpan ?? current.h);
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({ ...layout, mode: "custom", items }, page);
     await this.save();
   }
 
   async applySectionSize(page: DashboardPage, sectionId: string, colSpan: number, rowSpan: number): Promise<void> {
-    await this.ensureCustomModuleLayout(page);
     await this.updateSectionLayout(page, sectionId, { colSpan, rowSpan });
   }
 
   async reorderSectionLayout(page: DashboardPage, orderedIds: string[]): Promise<void> {
-    await this.ensureCustomModuleLayout(page);
     await this.reorderSections(page, orderedIds);
+  }
+
+  async commitModuleLayout(page: DashboardPage, items: SectionLayoutItem[], additions: DashboardSectionConfig[] = []): Promise<void> {
+    for (const section of additions) {
+      if (section.page === page && !this.data.sections.some((item) => item.id === section.id)) this.data.sections.push(section);
+    }
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({ ...this.getModuleLayout(page), mode: "custom", items }, page);
+    await this.save();
+  }
+
+  async resetModuleLayout(page: DashboardPage): Promise<void> {
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({ ...this.getModuleLayout(page), mode: "default", items: undefined }, page);
+    await this.save();
   }
 
   getSectionSizePresets(page: DashboardPage): SectionSizePreset[] {
@@ -1232,22 +1275,21 @@ export class DashboardStore {
     this.data.moduleLayouts[page] = this.normalizeModuleLayout({
       ...layout,
       sizePresets: [...(layout.sizePresets ?? []), nextPreset]
-    });
+    }, page);
     await this.save();
   }
 
   async moveSectionLayout(page: DashboardPage, sectionId: string, direction: "up" | "down"): Promise<void> {
-    await this.ensureCustomModuleLayout(page);
-    const layout = this.data.moduleLayouts[page];
-    const pageSections = this.data.sections
-      .filter((section) => section.page === page)
-      .sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout));
-    const currentIndex = pageSections.findIndex((section) => section.id === sectionId);
+    const layout = this.getModuleLayout(page);
+    const items = layout.mode === "custom" && layout.items?.length ? [...layout.items] : createDefaultLayout(page, this.getLayoutSections(page), layout.mode);
+    const currentIndex = items.findIndex((item) => item.sectionId === sectionId);
     const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= pageSections.length) return;
-    const orderedIds = pageSections.map((section) => section.id);
-    [orderedIds[currentIndex], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[currentIndex]];
-    await this.reorderSections(page, orderedIds);
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= items.length) return;
+    const first = items[currentIndex];
+    const second = items[targetIndex];
+    [first.x, second.x] = [second.x, first.x];
+    [first.y, second.y] = [second.y, first.y];
+    await this.commitModuleLayout(page, compactLayout(items, sectionId));
   }
 
   async updateUserSettings(settings: Partial<WorkbenchData["userSettings"]>): Promise<void> {
@@ -3409,7 +3451,7 @@ export class DashboardStore {
         ...partial.userSettings
       },
       sections,
-      moduleLayouts: this.migrateModuleLayouts(partial),
+      moduleLayouts: this.migrateModuleLayouts(partial, sections),
       habits: partial.habits ?? {},
       todayFocusTasks: Array.isArray(partial.todayFocusTasks)
         ? partial.todayFocusTasks
@@ -4646,107 +4688,61 @@ export class DashboardStore {
     return this.withRequiredSections(migrated);
   }
 
-  private migrateModuleLayouts(partial: Partial<WorkbenchData>): Record<DashboardPage, ModuleLayoutConfig> {
+  private migrateModuleLayouts(partial: Partial<WorkbenchData>, sections: DashboardSectionConfig[]): Record<DashboardPage, ModuleLayoutConfig> {
     const legacy = partial as Partial<WorkbenchData> & { layoutMode?: ModuleLayoutMode };
     const fallbackMode = legacy.layoutMode ?? partial.userSettings?.overviewLayout ?? DEFAULT_DATA.userSettings.overviewLayout;
     const layouts = structuredClone(DEFAULT_MODULE_LAYOUTS);
     (Object.keys(layouts) as DashboardPage[]).forEach((page) => {
       const saved = partial.moduleLayouts?.[page];
-      layouts[page] = this.normalizeModuleLayout(saved ?? { ...layouts[page], mode: fallbackMode });
+      const pageSections = page === "tasks" ? TASK_LAYOUT_SECTIONS : sections.filter((section) => section.page === page);
+      const items = Array.isArray(saved?.items) && saved.items.length
+        ? saved.items
+        : saved?.mode === "custom" && saved.sections && Object.keys(saved.sections).length
+          ? migrateLegacyLayout(pageSections, saved)
+          : createDefaultLayout(page, pageSections, saved?.mode ?? fallbackMode);
+      layouts[page] = this.normalizeModuleLayout({ ...saved, mode: saved?.mode ?? fallbackMode, items }, page, sections);
     });
     return layouts;
   }
 
-  private normalizeModuleLayout(layout: Partial<ModuleLayoutConfig> | undefined): ModuleLayoutConfig {
+  private normalizeModuleLayout(layout: Partial<ModuleLayoutConfig> | undefined, page: DashboardPage, allSections = this.data.sections): ModuleLayoutConfig {
     const mode: ModuleLayoutMode = layout?.mode === "compact" || layout?.mode === "minimal" || layout?.mode === "custom"
       ? layout.mode
       : "default";
-    const requestedColumns = Number(layout?.columns) || this.columnsForLayoutMode(mode);
-    const columns = mode === "minimal"
-      ? 1
-      : mode === "default"
-        ? 12
-        : mode === "compact"
-          ? 16
-          : Math.max(2, Math.min(12, requestedColumns));
-    const sections: NonNullable<ModuleLayoutConfig["sections"]> = {};
-    Object.entries(layout?.sections ?? {}).forEach(([sectionId, sectionLayout]) => {
-      sections[sectionId] = {
-        order: sectionLayout.order,
-        colSpan: sectionLayout.colSpan === undefined ? undefined : Math.max(1, Math.min(columns, Number(sectionLayout.colSpan) || 1)),
-        rowSpan: sectionLayout.rowSpan === undefined ? undefined : Math.max(1, Math.min(12, Number(sectionLayout.rowSpan) || 1))
-      };
-    });
     const sizePresets = (layout?.sizePresets ?? [])
       .filter((preset): preset is SectionSizePreset => Boolean(preset && typeof preset.name === "string" && preset.name.trim()))
       .map((preset) => ({
         id: typeof preset.id === "string" && preset.id ? preset.id : `size-${Date.now()}`,
         name: preset.name.trim().slice(0, 48),
-        colSpan: Math.max(1, Math.min(columns, Number(preset.colSpan) || 1)),
+        colSpan: Math.max(1, Math.min(12, Number(preset.colSpan) || 1)),
         rowSpan: Math.max(1, Math.min(12, Number(preset.rowSpan) || 1)),
         createdAt: typeof preset.createdAt === "string" ? preset.createdAt : new Date().toISOString()
       }));
     return {
       mode,
-      columns,
+      columns: 12,
       templateId: typeof layout?.templateId === "string" ? layout.templateId : undefined,
-      sections,
+      items: sanitizeLayout(page === "tasks" ? TASK_LAYOUT_SECTIONS : allSections.filter((section) => section.page === page), Array.isArray(layout?.items) ? layout.items : []),
       sizePresets
     };
   }
 
-  private async ensureCustomModuleLayout(page: DashboardPage): Promise<void> {
-    const current = this.getModuleLayout(page);
-    if (current.mode === "custom") return;
-
-    const sections: NonNullable<ModuleLayoutConfig["sections"]> = {};
-    this.data.sections
-      .filter((section) => section.page === page)
-      .forEach((section) => {
-        const saved = current.sections?.[section.id];
-        sections[section.id] = {
-          order: saved?.order ?? section.order,
-          colSpan: saved?.colSpan ?? this.defaultColSpan(section),
-          rowSpan: saved?.rowSpan ?? 1
-        };
-      });
-
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout({
-      ...current,
-      mode: "custom",
-      columns: 12,
-      sections
-    });
-    await this.save();
-  }
-
-  private defaultColSpan(section: DashboardSectionConfig): number {
-    if (section.width === "full") return 12;
-    if (section.width === "lg") return 8;
-    if (section.width === "sm") return 3;
-    return 4;
-  }
-
   private ensureSectionLayout(page: DashboardPage, sectionId: string, fallbackOrder: number): void {
     const layout = this.data.moduleLayouts[page] ?? structuredClone(DEFAULT_MODULE_LAYOUTS[page]);
-    layout.sections = layout.sections ?? {};
-    layout.sections[sectionId] = {
-      order: fallbackOrder,
-      colSpan: 1,
-      rowSpan: 1,
-      ...layout.sections[sectionId]
-    };
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout(layout);
+    if (!layout.items?.some((item) => item.sectionId === sectionId)) {
+      const section = this.data.sections.find((item) => item.id === sectionId);
+      if (section) {
+        const minimum = sectionMinimum(section);
+        const bottom = (layout.items ?? []).reduce((max, item) => Math.max(max, item.y + item.h), 0);
+        layout.items = [...(layout.items ?? []), { sectionId, x: 0, y: bottom, w: Math.max(minimum.w, 4), h: Math.max(minimum.h, 8) }];
+      }
+    }
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout(layout, page);
   }
 
   private getSectionLayoutOrder(section: DashboardSectionConfig, layout: ModuleLayoutConfig): number {
-    return layout.sections?.[section.id]?.order ?? section.order;
-  }
-
-  private columnsForLayoutMode(mode: ModuleLayoutMode): number {
-    if (mode === "compact") return 16;
-    if (mode === "minimal") return 1;
-    return 12;
+    const index = layout.items?.findIndex((item) => item.sectionId === section.id) ?? -1;
+    return index >= 0 ? (index + 1) * 10 : section.order;
   }
 
   private normalizeFocusRecord(record: FocusRecord): FocusRecord {

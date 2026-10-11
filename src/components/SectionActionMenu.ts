@@ -5,6 +5,8 @@ import { getSectionCapabilities } from "../core/SectionCapabilities";
 import { openAddContentModal } from "./SectionContentActions";
 import { openManageContentModal } from "./SectionContentActions";
 import { applyResizableModal } from "./ResizableModal";
+import { moveLayoutItem, resolveModuleLayout, resizeLayoutItem, sectionMinimum } from "../core/DashboardLayoutEngine";
+import { getDraftLayout, isLayoutEditing, updateDraftLayout } from "../core/LayoutEditState";
 
 const CARD_COLORS = [
   { id: "default", label: "默认" },
@@ -78,7 +80,15 @@ export class SectionActionMenu {
   }
 
   private async move(direction: "up" | "down"): Promise<void> {
-    await this.store.moveSectionLayout(this.section.page, this.section.id, direction);
+    const draft = getDraftLayout(this.section.page);
+    if (draft) {
+      const ordered = [...draft].sort((a, b) => a.y - b.y || a.x - b.x);
+      const index = ordered.findIndex((item) => item.sectionId === this.section.id);
+      const target = ordered[index + (direction === "up" ? -1 : 1)];
+      if (target) updateDraftLayout(this.section.page, moveLayoutItem(draft, this.section.id, target.x, target.y));
+    } else {
+      await this.store.moveSectionLayout(this.section.page, this.section.id, direction);
+    }
     this.onDataChanged();
   }
 
@@ -173,16 +183,18 @@ class SectionSizeModal extends Modal {
     this.contentEl.createEl("p", { text: `正在调整“${this.section.title}”。数值对应当前工作台的逻辑列宽与行高。` });
 
     const layout = this.store.getModuleLayout(this.section.page);
-    const columns = layout.mode === "custom" ? layout.columns ?? 12 : 12;
-    const saved = layout.sections?.[this.section.id];
+    const columns = 12;
+    const saved = resolveModuleLayout(this.section.page,
+      this.store.getAllSections().filter((item) => item.page === this.section.page),
+      layout, 1260).items.find((item) => item.sectionId === this.section.id);
     const defaultWidth = this.defaultColSpan ?? this.defaultWidth();
     const form = this.contentEl.createDiv({ cls: "cow-form-grid cow-section-size-form" });
     const widthField = form.createDiv({ cls: "cow-form-row" });
     widthField.createEl("label", { text: `宽度（1-${columns} 列）` });
-    const widthInput = widthField.createEl("input", { type: "number", value: String(saved?.colSpan ?? defaultWidth), attr: { min: "1", max: String(columns), step: "1" } });
+    const widthInput = widthField.createEl("input", { type: "number", value: String(saved?.w ?? defaultWidth), attr: { min: String(sectionMinimum(this.section).w), max: String(columns), step: "1" } });
     const heightField = form.createDiv({ cls: "cow-form-row" });
     heightField.createEl("label", { text: "高度（1-12 行）" });
-    const heightInput = heightField.createEl("input", { type: "number", value: String(saved?.rowSpan ?? 1), attr: { min: "1", max: "12", step: "1" } });
+    const heightInput = heightField.createEl("input", { type: "number", value: String(saved?.h ?? 8), attr: { min: String(sectionMinimum(this.section).h), max: "12", step: "1" } });
 
     const presetToggle = this.contentEl.createEl("label", { cls: "cow-section-size-preset-toggle" });
     const savePreset = presetToggle.createEl("input", { type: "checkbox" });
@@ -235,7 +247,12 @@ class SectionSizeModal extends Modal {
         error.hidden = false;
         return;
       }
-      await this.store.applySectionSize(this.section.page, this.section.id, colSpan, rowSpan);
+      if (isLayoutEditing(this.section.page)) {
+        const draft = getDraftLayout(this.section.page);
+        if (draft) updateDraftLayout(this.section.page, resizeLayoutItem(draft, this.section, colSpan, rowSpan));
+      } else {
+        await this.store.applySectionSize(this.section.page, this.section.id, colSpan, rowSpan);
+      }
       if (savePreset.checked) {
         await this.store.saveSectionSizePreset(this.section.page, { name: presetName.value, colSpan, rowSpan });
       }

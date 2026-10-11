@@ -1,7 +1,6 @@
 import { App, Modal, setIcon } from "obsidian";
 import type { DashboardStore } from "../core/DashboardStore";
 import type { DashboardSectionConfig } from "../types/dashboard";
-import { resolveSectionLayout } from "../core/SectionLayoutResolver";
 import { SectionActionMenu } from "./SectionActionMenu";
 import { getSectionCapabilities } from "../core/SectionCapabilities";
 import { openAddContentModal } from "./SectionContentActions";
@@ -176,16 +175,9 @@ export class DashboardSection {
     const cardColor = typeof this.section.config?.cardColor === "string" ? this.section.config.cardColor : "default";
     const layoutMeta = this.getLayoutMeta();
     const sectionEl = container.createDiv({
-      cls: `cow-section cow-section-${this.section.width ?? "md"} cow-section-height-${this.section.height ?? "sm"} cow-section-type-${this.section.type} wb-layout-${layoutMeta.role} wb-span-${layoutMeta.span} cow-card-color-${cardColor}`
+      cls: `cow-section cow-section-height-${this.section.height ?? "sm"} cow-section-type-${this.section.type} wb-layout-${layoutMeta.role} cow-card-color-${cardColor}`
     });
     sectionEl.dataset.sectionId = this.section.id;
-    const moduleLayout = this.store.getModuleLayout(this.section.page);
-    if (moduleLayout.mode === "custom") {
-      const layout = resolveSectionLayout(this.section, moduleLayout);
-      sectionEl.style.gridColumn = layout.gridColumn;
-      sectionEl.style.gridRow = layout.gridRow;
-      sectionEl.dataset.rowSpan = String(layout.rowSpan);
-    }
 
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
     const title = header.createDiv({ cls: "cow-section-title" });

@@ -16,7 +16,7 @@ export class AddSectionModal extends Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     this.contentEl.createEl("h2", { text: "添加功能分区" });
-    this.contentEl.createEl("p", { text: "选择一个模块后会立即加入当前页面并保存布局。" });
+    this.contentEl.createEl("p", { text: "选择要加入当前页面的功能分区。" });
 
     const grid = this.contentEl.createDiv({ cls: "cow-add-module-grid" });
     this.modules.forEach((module) => {

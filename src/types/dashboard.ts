@@ -39,6 +39,14 @@ export interface SectionLayoutConfig {
   rowSpan?: number;
 }
 
+export interface SectionLayoutItem {
+  sectionId: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface SectionSizePreset {
   id: string;
   name: string;
@@ -49,6 +57,8 @@ export interface SectionSizePreset {
 
 export interface ModuleLayoutConfig {
   mode: ModuleLayoutMode;
+  items?: SectionLayoutItem[];
+  /** Legacy input only; converted to items when plugin data is loaded. */
   columns?: number;
   templateId?: string;
   sections?: Record<string, SectionLayoutConfig>;

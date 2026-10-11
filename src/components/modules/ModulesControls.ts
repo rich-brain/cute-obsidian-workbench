@@ -1,9 +1,9 @@
 import { App, Modal, Notice, setIcon, Setting } from "obsidian";
 import type { DashboardStore } from "../../core/DashboardStore";
 import { AVAILABLE_MODULES, DASHBOARD_PAGES } from "../../core/DashboardStore";
-import type { CustomSectionInput, DashboardPage, DashboardSectionConfig, ModuleLayoutConfig, ModuleLayoutMode, SectionLayoutConfig } from "../../types/dashboard";
+import type { CustomSectionInput, DashboardPage, DashboardSectionConfig, ModuleLayoutConfig, ModuleLayoutMode, SectionLayoutItem } from "../../types/dashboard";
 import { PAGE_LABELS } from "../../core/PageLabels";
-import { resolveSectionLayout } from "../../core/SectionLayoutResolver";
+import { compactLayout, GRID_CONFIG, resolveModuleLayout, sectionMinimum } from "../../core/DashboardLayoutEngine";
 
 function renderSwitch(container: HTMLElement, checked: boolean, onChange: (checked: boolean) => void): HTMLInputElement {
   const input = container.createEl("input", { type: "checkbox", cls: "cow-switch" });
@@ -42,6 +42,7 @@ export class EnabledModulesOverviewSection {
 }
 
 const MANAGED_PAGES: DashboardPage[] = ["overview", "research", "reading", "fitness", "finance", "goals"];
+const LAYOUT_PAGES: DashboardPage[] = [...MANAGED_PAGES, "tasks", "modules"];
 
 type LayoutTemplateId = "two-columns" | "three-columns" | "left-large" | "right-large" | "top-full" | "left-feature";
 
@@ -71,7 +72,7 @@ export class HomeLayoutManagerSection {
     private readonly onDataChanged: () => void
   ) {
     const currentPage = this.store.getData().currentPage;
-    this.selectedPage = MANAGED_PAGES.includes(currentPage) ? currentPage : "overview";
+    this.selectedPage = LAYOUT_PAGES.includes(currentPage) ? currentPage : "overview";
   }
 
   render(container: HTMLElement): void {
@@ -80,7 +81,7 @@ export class HomeLayoutManagerSection {
     const header = container.createDiv({ cls: "cow-layout-manager-header" });
     header.createSpan({ text: "当前模块" });
     const select = header.createEl("select", { attr: { "aria-label": "选择要设置布局的模块" } });
-    MANAGED_PAGES.forEach((page) => select.createEl("option", { value: page, text: PAGE_LABELS[page] }));
+    LAYOUT_PAGES.forEach((page) => select.createEl("option", { value: page, text: PAGE_LABELS[page] }));
     select.value = this.selectedPage;
     select.addEventListener("change", () => {
       this.selectedPage = select.value as DashboardPage;
@@ -107,7 +108,7 @@ export class HomeLayoutManagerSection {
     });
 
     const note = container.createDiv({ cls: "cow-meta-line" });
-    note.createSpan({ text: `${PAGE_LABELS[this.selectedPage]} 当前列数：${layout.columns ?? 12}。自定义布局会保存 columns / colSpan / rowSpan，并只作用于当前模块。` });
+    note.createSpan({ text: `${PAGE_LABELS[this.selectedPage]} 使用 12 列网格。自定义布局独立保存位置与宽高。` });
     if (layout.mode === "custom") {
       this.renderCustomLayoutEditor(container, layout);
     }
@@ -127,9 +128,8 @@ export class HomeLayoutManagerSection {
         const sections = this.getManagedSections();
         await this.store.updateModuleLayout(this.selectedPage, {
           mode: "custom",
-          columns: template.columns,
           templateId: template.id,
-          sections: this.createTemplateSectionLayouts(template, sections)
+          items: this.createTemplateSectionLayouts(template, sections)
         });
         this.rerender();
       });
@@ -151,9 +151,12 @@ export class HomeLayoutManagerSection {
   private renderPreview(container: HTMLElement, layout: ModuleLayoutConfig): void {
     const sections = this.getManagedSections().filter((section) => section.enabled);
     const preview = container.createDiv({ cls: "cow-layout-preview" });
-    preview.style.setProperty("--preview-columns", String(layout.columns ?? 12));
-    sections.forEach((section) => {
-      const sectionLayout = this.getSectionLayout(layout, section);
+    preview.style.setProperty("--preview-columns", String(GRID_CONFIG.columns));
+    const resolved = resolveModuleLayout(this.selectedPage, sections, layout, 1260);
+    preview.style.setProperty("--preview-row-height", "18px");
+    resolved.items.forEach((sectionLayout) => {
+      const section = sections.find((item) => item.id === sectionLayout.sectionId);
+      if (!section) return;
       const tile = preview.createEl("button", {
         cls: [
           "cow-layout-preview-tile",
@@ -162,10 +165,10 @@ export class HomeLayoutManagerSection {
         ].filter(Boolean).join(" "),
         attr: { type: "button" }
       });
-      tile.style.gridColumn = sectionLayout.gridColumn;
-      tile.style.gridRow = sectionLayout.gridRow;
+      tile.style.gridColumn = `${sectionLayout.x + 1} / span ${sectionLayout.w}`;
+      tile.style.gridRow = `${sectionLayout.y + 1} / span ${sectionLayout.h}`;
       tile.createEl("strong", { text: section.title });
-      tile.createSpan({ text: `${sectionLayout.colSpan}×${sectionLayout.rowSpan}${section.enabled ? "" : " · 已隐藏"}` });
+      tile.createSpan({ text: `${sectionLayout.w}×${sectionLayout.h}` });
       tile.addEventListener("click", () => {
         this.selectedSectionId = section.id;
         this.rerender();
@@ -214,63 +217,64 @@ export class HomeLayoutManagerSection {
     panel.createEl("strong", { text: `当前选中：${selected.title}` });
     panel.createDiv({ cls: "cow-meta-line", text: selected.enabled ? "修改宽度 / 高度跨度后会立即应用到当前模块。" : "该 Section 已隐藏，布局设置会保留到恢复显示后继续生效。" });
     const controls = panel.createDiv({ cls: "cow-layout-span-controls" });
-    this.renderSpanButtons(controls, "宽度", layout.columns ?? 4, selectedLayout.colSpan ?? 1, async (value) => {
+    this.renderSpanButtons(controls, "宽度", GRID_CONFIG.columns, selectedLayout.w, async (value) => {
       await this.store.updateSectionLayout(this.selectedPage, selected.id, { colSpan: value });
       this.selectedSectionId = selected.id;
       this.rerender();
-    });
-    this.renderSpanButtons(controls, "高度", 3, selectedLayout.rowSpan ?? 1, async (value) => {
+    }, sectionMinimum(selected).w);
+    this.renderSpanButtons(controls, "高度", 12, selectedLayout.h, async (value) => {
       await this.store.updateSectionLayout(this.selectedPage, selected.id, { rowSpan: value });
       this.selectedSectionId = selected.id;
       this.rerender();
-    });
+    }, sectionMinimum(selected).h);
   }
 
-  private renderSpanButtons(container: HTMLElement, label: string, max: number, current: number, onPick: (value: number) => Promise<void>): void {
+  private renderSpanButtons(container: HTMLElement, label: string, max: number, current: number, onPick: (value: number) => Promise<void>, min = 1): void {
     const group = container.createDiv({ cls: "cow-layout-span-group" });
     group.createSpan({ text: label });
-    for (let value = 1; value <= max; value += 1) {
+    for (let value = min; value <= max; value += 1) {
       const button = group.createEl("button", { cls: current === value ? "is-active" : "", text: String(value), attr: { type: "button" } });
       button.addEventListener("click", () => void onPick(value));
     }
   }
 
-  private createTemplateSectionLayouts(template: LayoutTemplateDefinition, sections: DashboardSectionConfig[]): Record<string, SectionLayoutConfig> {
-    const layouts: Record<string, SectionLayoutConfig> = {};
-    sections.forEach((section, index) => {
-      layouts[section.id] = {
-        order: (index + 1) * 10,
-        colSpan: this.templateColSpan(template.id, index),
-        rowSpan: this.templateRowSpan(template.id, index)
-      };
+  private createTemplateSectionLayouts(template: LayoutTemplateDefinition, sections: DashboardSectionConfig[]): SectionLayoutItem[] {
+    const items = sections.map((section, index) => {
+      let x = 0;
+      let y = 0;
+      let w = 6;
+      let h = 8;
+      if (template.id === "three-columns") { x = (index % 3) * 4; y = Math.floor(index / 3) * 8; w = 4; }
+      else if (template.id === "top-full") {
+        if (index === 0) w = 12;
+        else { x = ((index - 1) % 2) * 6; y = 8 + Math.floor((index - 1) / 2) * 8; }
+      } else if (template.id === "left-large" || template.id === "left-feature") {
+        if (index === 0) { w = 8; h = 16; }
+        else if (index < 3) { x = 8; y = (index - 1) * 8; w = 4; }
+        else { x = ((index - 3) % 2) * 6; y = 16 + Math.floor((index - 3) / 2) * 8; }
+      } else if (template.id === "right-large") {
+        if (index === 0) { x = 4; w = 8; h = 16; }
+        else if (index < 3) { x = 0; y = (index - 1) * 8; w = 4; }
+        else { x = ((index - 3) % 2) * 6; y = 16 + Math.floor((index - 3) / 2) * 8; }
+      } else { x = (index % 2) * 6; y = Math.floor(index / 2) * 8; }
+      w = Math.max(w, sectionMinimum(section).w);
+      x = Math.min(x, 12 - w);
+      return { sectionId: section.id, x, y, w, h };
     });
-    return layouts;
-  }
-
-  private templateColSpan(template: LayoutTemplateId, index: number): number {
-    if (template === "two-columns") return 1;
-    if (template === "three-columns") return 1;
-    if (template === "top-full" && index === 0) return 4;
-    if (template === "top-full") return 2;
-    if (template === "left-feature") return index === 0 ? 2 : 1;
-    return 2;
-  }
-
-  private templateRowSpan(template: LayoutTemplateId, index: number): number {
-    if ((template === "left-large" || template === "left-feature") && index === 0) return 2;
-    if (template === "right-large" && index === 1) return 2;
-    return 1;
+    return compactLayout(items);
   }
 
   private getManagedSections(): DashboardSectionConfig[] {
     const layout = this.store.getModuleLayout(this.selectedPage);
-    return this.store.getAllSections()
-      .filter((section) => section.page === this.selectedPage)
-      .sort((left, right) => this.getSectionLayout(layout, left).order - this.getSectionLayout(layout, right).order);
+    const positions = new Map((layout.items ?? []).map((item, index) => [item.sectionId, index]));
+    return this.store.getLayoutSections(this.selectedPage)
+      .sort((left, right) => (positions.get(left.id) ?? left.order) - (positions.get(right.id) ?? right.order));
   }
 
-  private getSectionLayout(layout: ModuleLayoutConfig, section: DashboardSectionConfig): ReturnType<typeof resolveSectionLayout> {
-    return resolveSectionLayout(section, layout);
+  private getSectionLayout(layout: ModuleLayoutConfig, section: DashboardSectionConfig): SectionLayoutItem {
+    return layout.items?.find((item) => item.sectionId === section.id)
+      ?? resolveModuleLayout(this.selectedPage, this.getManagedSections(), layout, 1260).items.find((item) => item.sectionId === section.id)
+      ?? { sectionId: section.id, x: 0, y: 0, w: sectionMinimum(section).w, h: sectionMinimum(section).h };
   }
 
   private clamp(value: number, min: number, max: number): number {
@@ -346,7 +350,7 @@ export class FunctionalSectionManagerSection {
     const panel = container.createDiv({ cls: "cow-section-manager-panel" });
     panel.createEl("h4", { text: "当前启用模块" });
     const list = panel.createDiv({ cls: "cow-module-sort-list" });
-    const sections = this.store.getAllSections().filter((section) => section.page === this.selectedPage && section.enabled);
+    const sections = this.store.getSectionsForPage(this.selectedPage);
     if (sections.length === 0) {
       list.createEl("p", { cls: "cow-empty-state", text: "暂无启用模块。" });
     }
@@ -430,11 +434,16 @@ export class FunctionalSectionManagerSection {
       row.addEventListener("dragover", (event) => {
         event.preventDefault();
         if (!this.draggingId || this.draggingId === section.id) return;
-        const draggingEl = list.querySelector(`[data-id="${this.draggingId}"]`);
-        if (draggingEl) list.insertBefore(draggingEl, row);
+        row.addClass("is-drop-target");
       });
+      row.addEventListener("dragleave", () => row.removeClass("is-drop-target"));
       row.addEventListener("drop", async () => {
-        const ids = Array.from(list.querySelectorAll<HTMLElement>(".cow-section-manager-row")).map((item) => item.dataset.id ?? "");
+        row.removeClass("is-drop-target");
+        const ids = this.store.getSectionsForPage(this.selectedPage).map((item) => item.id);
+        const from = ids.indexOf(this.draggingId ?? "");
+        const to = ids.indexOf(section.id);
+        if (from < 0 || to < 0 || from === to) return;
+        ids.splice(to, 0, ids.splice(from, 1)[0]);
         await this.store.reorderSections(this.selectedPage, ids);
         this.rerender();
       });
@@ -454,9 +463,14 @@ export class FunctionalSectionManagerSection {
   private renderWidthSelect(container: HTMLElement, section: DashboardSectionConfig): void {
     const select = container.createEl("select", { attr: { "aria-label": "修改宽度" } });
     WIDTHS.forEach((width) => select.createEl("option", { value: width.id, text: width.label }));
-    select.value = section.width ?? "md";
+    const item = resolveModuleLayout(section.page,
+      this.store.getAllSections().filter((entry) => entry.page === section.page),
+      this.store.getModuleLayout(section.page), 1260).items.find((entry) => entry.sectionId === section.id);
+    const current = item?.w ?? 4;
+    select.value = current >= 12 ? "full" : current >= 8 ? "lg" : current <= 3 ? "sm" : "md";
     select.addEventListener("change", async () => {
-      await this.store.updateSection(section.id, { width: select.value as DashboardSectionConfig["width"] });
+      const width = select.value === "full" ? 12 : select.value === "lg" ? 8 : select.value === "sm" ? 3 : 4;
+      await this.store.updateSectionLayout(section.page, section.id, { colSpan: width });
       this.rerender();
     });
   }

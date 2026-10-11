@@ -1,133 +1,277 @@
-import type { App } from "obsidian";
-import type { DashboardPage, DashboardSectionConfig } from "../types/dashboard";
+import { App, Modal } from "obsidian";
+import type { DashboardPage, DashboardSectionConfig, SectionLayoutItem } from "../types/dashboard";
 import { DashboardSection } from "./DashboardSection";
-import { AddSectionButton } from "./AddSectionButton";
+import { AddSectionButton, AddSectionModal } from "./AddSectionButton";
 import type { DashboardStore } from "../core/DashboardStore";
-import { isLayoutEditing } from "../core/LayoutEditState";
+import { addDraftSection, getDraftLayout, getDraftSections, isLayoutEditing, removeDraftSection, resetDraftLayout, stopLayoutEditing, updateDraftLayout } from "../core/LayoutEditState";
+import { createDefaultLayout, GRID_CONFIG, moveLayoutItem, resolveModuleLayout, resizeLayoutItem, sectionMinimum } from "../core/DashboardLayoutEngine";
 
 export class DashboardGrid {
   constructor(
     private readonly app: App,
     private readonly store: DashboardStore,
     private readonly page: DashboardPage,
-    private readonly onDataChanged: () => void
+    private readonly onDataChanged: () => void,
+    private readonly renderCustomSection?: (grid: HTMLElement, section: DashboardSectionConfig) => HTMLElement
   ) {}
 
   render(container: HTMLElement): void {
     const layout = this.store.getModuleLayout(this.page);
-    const grid = container.createDiv({ cls: `cow-dashboard-grid cow-dashboard-page-${this.page} cow-module-layout-${layout.mode}` });
-    grid.style.setProperty("--layout-columns", String(layout.columns ?? 12));
-    const sections = this.store.getSectionsForPage(this.page);
-
+    const sections = [...(this.renderCustomSection ? this.store.getLayoutSections(this.page) : this.store.getSectionsForPage(this.page)), ...getDraftSections(this.page)];
     const editing = isLayoutEditing(this.page);
     if (editing) {
       const toolbar = container.createDiv({ cls: "cow-layout-edit-toolbar" });
       toolbar.createEl("strong", { text: "编辑布局" });
-      toolbar.createEl("span", { text: "拖动标题区域调整顺序，右下角调整网格尺寸。" });
+      toolbar.createEl("span", { text: "拖动标题移动板块，拖动右下角调整尺寸。" });
+      if (!this.renderCustomSection) toolbar.createEl("button", { text: "添加板块", attr: { type: "button" } }).addEventListener("click", () => {
+        new AddSectionModal(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
+          const definition = this.store.getAvailableModules(this.page).find((item) => item.type === moduleType);
+          const order = Math.max(0, ...this.store.getAllSections().filter((item) => item.page === this.page).map((item) => item.order)) + 10;
+          addDraftSection(this.page, {
+            id: `${this.page}-${moduleType}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            page: this.page,
+            type: moduleType,
+            title: definition?.title ?? moduleType,
+            order,
+            enabled: true,
+            width: definition?.defaultWidth ?? "md",
+            height: definition?.defaultHeight ?? "sm",
+            config: {}
+          });
+          this.onDataChanged();
+        }).open();
+      });
       const reset = toolbar.createEl("button", { text: "重置布局", attr: { type: "button" } });
-      reset.addEventListener("click", () => void this.store.setModuleLayoutMode(this.page, "default").then(this.onDataChanged));
+      reset.addEventListener("click", () => this.confirmReset());
+      toolbar.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => {
+        stopLayoutEditing();
+        this.onDataChanged();
+      });
+      toolbar.createEl("button", { text: "完成布局", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.finish());
     }
 
+    const grid = container.createDiv({ cls: `cow-dashboard-grid cow-layout-engine cow-dashboard-page-${this.page} cow-module-layout-${layout.mode}` });
+    if (editing) grid.addClass("is-layout-editing");
+
+    const elements = new Map<string, HTMLElement>();
     sections.forEach((section: DashboardSectionConfig) => {
-      const sectionEl = new DashboardSection(this.app, this.store, section, async (removedSection) => {
-        await this.store.removeSection(removedSection.id);
-        this.onDataChanged();
-      }, this.onDataChanged).render(grid);
-      if (editing) this.decorateEditableSection(grid, sectionEl, section.id);
+      const sectionEl = this.renderCustomSection ? this.renderCustomSection(grid, section)
+        : new DashboardSection(this.app, this.store, section, async (removedSection) => {
+          if (!removeDraftSection(this.page, removedSection.id)) await this.store.removeSection(removedSection.id);
+          this.onDataChanged();
+        }, this.onDataChanged).render(grid);
+      sectionEl.dataset.sectionId = section.id;
+      elements.set(section.id, sectionEl);
+      if (editing) this.decorateEditableSection(grid, sectionEl, section, sections, elements);
     });
 
-    new AddSectionButton(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
+    const apply = (draft?: SectionLayoutItem[]) => {
+      const resolved = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth, draft ?? getDraftLayout(this.page));
+      grid.style.gridTemplateColumns = `repeat(${resolved.columns}, minmax(0, 1fr))`;
+      grid.style.gridAutoRows = `${GRID_CONFIG.rowHeight}px`;
+      grid.style.gap = `${GRID_CONFIG.gap}px`;
+      grid.dataset.columns = String(resolved.columns);
+      for (const item of resolved.items) {
+        const element = elements.get(item.sectionId);
+        if (!element) continue;
+        element.style.gridColumn = `${item.x + 1} / span ${item.w}`;
+        element.style.gridRow = `${item.y + 1} / span ${item.h}`;
+        element.style.order = "0";
+        const height = item.h * GRID_CONFIG.rowHeight + (item.h - 1) * GRID_CONFIG.gap;
+        element.style.maxHeight = `min(${height}px, var(--wb-section-max-height, 66.6667vh))`;
+      }
+    };
+    this.paint = apply;
+    apply();
+    let lastWidth = grid.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (!grid.isConnected || grid.clientWidth === lastWidth) return;
+      lastWidth = grid.clientWidth;
+      apply();
+      if (!editing) window.requestAnimationFrame(() => this.fitNaturalHeights(grid, sections, elements));
+    });
+    observer.observe(grid.parentElement ?? grid);
+    grid.addEventListener("cow-layout-destroy", () => observer.disconnect(), { once: true });
+    if (!editing) window.requestAnimationFrame(() => this.fitNaturalHeights(grid, sections, elements));
+
+    if (!editing && !this.renderCustomSection) new AddSectionButton(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
       await this.store.addSection(this.page, moduleType);
       this.onDataChanged();
     }).render(container);
   }
 
-  private decorateEditableSection(grid: HTMLElement, sectionEl: HTMLElement, sectionId: string): void {
+  private paint?: (draft?: SectionLayoutItem[]) => void;
+
+  private fitNaturalHeights(grid: HTMLElement, sections: DashboardSectionConfig[], elements: Map<string, HTMLElement>): void {
+    if (!grid.isConnected || isLayoutEditing(this.page)) return;
+    const source = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth);
+    const naturalRows = new Map<string, number>();
+    source.items.forEach((item) => {
+      const element = elements.get(item.sectionId);
+      if (!element) return;
+      const header = element.querySelector<HTMLElement>(".cow-section-header");
+      const body = element.querySelector<HTMLElement>(".cow-section-content");
+      const natural = body ? (header?.offsetHeight ?? 0) + body.scrollHeight + 48 : element.scrollHeight;
+      const rows = Math.max(1, Math.ceil((natural + GRID_CONFIG.gap) / (GRID_CONFIG.rowHeight + GRID_CONFIG.gap)));
+      naturalRows.set(item.sectionId, rows);
+    });
+    const placed = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth, undefined, naturalRows).items;
+    for (const item of placed) {
+      const element = elements.get(item.sectionId);
+      if (element) {
+        element.style.gridColumn = `${item.x + 1} / span ${item.w}`;
+        element.style.gridRow = `${item.y + 1} / span ${item.h}`;
+      }
+    }
+  }
+
+  private async finish(): Promise<void> {
+    const draft = getDraftLayout(this.page);
+    if (draft) await this.store.commitModuleLayout(this.page, draft, getDraftSections(this.page));
+    stopLayoutEditing();
+    this.onDataChanged();
+  }
+
+  private confirmReset(): void {
+    const modal = new Modal(this.app);
+    modal.contentEl.createEl("h2", { text: "重置为新版默认布局？" });
+    modal.contentEl.createEl("p", { text: "当前编辑中的布局会被替换。点击完成布局后才会保存。" });
+    const actions = modal.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "取消" }).addEventListener("click", () => modal.close());
+    actions.createEl("button", { text: "重置布局", cls: "mod-warning" }).addEventListener("click", () => {
+      const sections = this.store.getLayoutSections(this.page);
+      resetDraftLayout(this.page, createDefaultLayout(this.page, sections));
+      modal.close();
+      this.onDataChanged();
+    });
+    modal.open();
+  }
+
+  private decorateEditableSection(
+    grid: HTMLElement,
+    sectionEl: HTMLElement,
+    section: DashboardSectionConfig,
+    sections: DashboardSectionConfig[],
+    elements: Map<string, HTMLElement>
+  ): void {
     sectionEl.addClass("is-layout-editing");
-    sectionEl.draggable = true;
     const header = sectionEl.querySelector<HTMLElement>(".cow-section-header");
     if (!header) return;
-    const grip = document.createElement("span");
+    const grip = document.createElement("button");
+    grip.type = "button";
     grip.className = "cow-layout-grip";
-    grip.setAttribute("title", "拖动调整位置");
+    grip.title = "拖动调整位置";
     grip.setAttribute("aria-label", "拖动调整位置");
     grip.textContent = "⋮⋮";
     header.prepend(grip);
 
-    const resize = document.createElement("span");
+    const resize = document.createElement("button");
+    resize.type = "button";
     resize.className = "cow-layout-resize-handle";
-    resize.setAttribute("title", "调整网格尺寸");
+    resize.title = "调整网格尺寸";
     resize.setAttribute("aria-label", "调整网格尺寸");
     sectionEl.append(resize);
+    grip.addEventListener("pointerdown", (event) => this.startPointerOperation(event, "move", grid, sectionEl, section, sections, elements));
+    resize.addEventListener("pointerdown", (event) => this.startPointerOperation(event, "resize", grid, sectionEl, section, sections, elements));
+  }
 
-    sectionEl.addEventListener("dragstart", (event) => {
-      if (!(event.target instanceof HTMLElement) || !event.target.closest(".cow-layout-grip")) {
-        event.preventDefault();
-        return;
+  private startPointerOperation(
+    event: PointerEvent,
+    kind: "move" | "resize",
+    grid: HTMLElement,
+    sectionEl: HTMLElement,
+    section: DashboardSectionConfig,
+    sections: DashboardSectionConfig[],
+    elements: Map<string, HTMLElement>
+  ): void {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const original = structuredClone(getDraftLayout(this.page) ?? []);
+    const start = original.find((item) => item.sectionId === section.id);
+    if (!start) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const columns = Number(grid.dataset.columns) || 12;
+    const columnUnit = (grid.clientWidth + GRID_CONFIG.gap) / columns;
+    const rowUnit = GRID_CONFIG.rowHeight + GRID_CONFIG.gap;
+    const scale = GRID_CONFIG.columns / columns;
+    const placeholder = grid.createDiv({ cls: "cow-layout-placeholder" });
+    const badge = sectionEl.createSpan({ cls: "cow-layout-size-badge" });
+    const scrollHost = grid.closest<HTMLElement>(".cow-page-host");
+    let latest = original;
+    let cancelled = false;
+    let lastPointer = event;
+    let scrollFrame = 0;
+    sectionEl.addClass("is-layout-dragging");
+    const paintPlaceholder = (item: SectionLayoutItem) => {
+      const resolved = resolveModuleLayout(this.page, sections, { ...this.store.getModuleLayout(this.page), mode: "custom", items: latest }, grid.clientWidth);
+      const target = resolved.items.find((entry) => entry.sectionId === item.sectionId);
+      if (!target) return;
+      placeholder.style.gridColumn = `${target.x + 1} / span ${target.w}`;
+      placeholder.style.gridRow = `${target.y + 1} / span ${target.h}`;
+      badge.textContent = `${item.w} × ${item.h}`;
+    };
+    const onMove = (move: PointerEvent) => {
+      lastPointer = move;
+      if (kind === "move") {
+        const x = Math.max(0, Math.min(12 - start.w, start.x + Math.round(((move.clientX - startX) / columnUnit) * scale)));
+        const y = Math.max(0, start.y + Math.round((move.clientY - startY + (scrollHost?.scrollTop ?? 0) - scrollStart) / rowUnit));
+        latest = moveLayoutItem(original, section.id, x, y);
+      } else {
+        const min = sectionMinimum(section);
+        const ceiling = Number.parseFloat(getComputedStyle(grid).getPropertyValue("--wb-section-max-height")) || (grid.closest<HTMLElement>(".cow-page-host")?.clientHeight ?? 900) * 2 / 3;
+        const maxH = Math.max(min.h, Math.floor((ceiling + GRID_CONFIG.gap) / rowUnit));
+        const w = Math.max(min.w, Math.min(12 - start.x, start.w + Math.round(((move.clientX - startX) / columnUnit) * scale)));
+        const h = Math.max(min.h, Math.min(maxH, start.h + Math.round((move.clientY - startY) / rowUnit)));
+        latest = resizeLayoutItem(original, section, w, h);
       }
-      event.dataTransfer?.setData("text/plain", sectionId);
-      sectionEl.addClass("is-layout-dragging");
-      grid.addClass("is-layout-dragging");
-    });
-    sectionEl.addEventListener("dragend", () => {
+      this.paint?.(latest);
+      paintPlaceholder(latest.find((item) => item.sectionId === section.id) ?? start);
+    };
+    const scrollStart = scrollHost?.scrollTop ?? 0;
+    const autoScroll = () => {
+      if (scrollHost) {
+        const box = scrollHost.getBoundingClientRect();
+        const amount = lastPointer.clientY < box.top + 36 ? -8 : lastPointer.clientY > box.bottom - 36 ? 8 : 0;
+        if (amount) {
+          const before = scrollHost.scrollTop;
+          scrollHost.scrollTop += amount;
+          if (scrollHost.scrollTop !== before) onMove(lastPointer);
+        }
+      }
+      scrollFrame = window.requestAnimationFrame(autoScroll);
+    };
+    const cleanup = () => {
+      window.cancelAnimationFrame(scrollFrame);
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onEnd);
+      document.removeEventListener("keydown", onKey);
+      grid.removeEventListener("cow-layout-destroy", onDestroy);
       sectionEl.removeClass("is-layout-dragging");
-      grid.removeClass("is-layout-dragging");
-      grid.querySelectorAll(".is-layout-drop-target").forEach((item) => item.removeClass("is-layout-drop-target"));
-    });
-    sectionEl.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      sectionEl.addClass("is-layout-drop-target");
-    });
-    sectionEl.addEventListener("dragleave", () => sectionEl.removeClass("is-layout-drop-target"));
-    sectionEl.addEventListener("drop", (event) => {
-      event.preventDefault();
-      const sourceId = event.dataTransfer?.getData("text/plain");
-      if (!sourceId || sourceId === sectionId) return;
-      const ordered = Array.from(grid.querySelectorAll<HTMLElement>(".cow-section[data-section-id]"))
-        .map((item) => item.dataset.sectionId ?? "")
-        .filter(Boolean);
-      const sourceIndex = ordered.indexOf(sourceId);
-      const targetIndex = ordered.indexOf(sectionId);
-      if (sourceIndex < 0 || targetIndex < 0) return;
-      ordered.splice(sourceIndex, 1);
-      ordered.splice(targetIndex, 0, sourceId);
-      void this.store.reorderSectionLayout(this.page, ordered).then(this.onDataChanged);
-    });
-
-    resize.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const startX = event.clientX;
-      const startY = event.clientY;
-      const startWidth = this.store.getModuleLayout(this.page).sections?.[sectionId]?.colSpan ?? 4;
-      const startHeight = this.store.getModuleLayout(this.page).sections?.[sectionId]?.rowSpan ?? 1;
-      const columns = this.store.getModuleLayout(this.page).columns ?? 12;
-      const gridWidth = Math.max(1, grid.getBoundingClientRect().width);
-      const columnWidth = gridWidth / columns;
-      const badge = document.createElement("span");
-      badge.className = "cow-layout-size-badge";
-      sectionEl.append(badge);
-      const move = (moveEvent: PointerEvent) => {
-        const colSpan = Math.max(1, Math.min(columns, startWidth + Math.round((moveEvent.clientX - startX) / columnWidth)));
-        const rowSpan = Math.max(1, Math.min(12, startHeight + Math.round((moveEvent.clientY - startY) / 40)));
-        badge.textContent = `${colSpan} × ${rowSpan}`;
-        sectionEl.style.gridColumn = `span ${colSpan}`;
-        sectionEl.style.gridRow = `span ${rowSpan}`;
-        sectionEl.dataset.draftColSpan = String(colSpan);
-        sectionEl.dataset.draftRowSpan = String(rowSpan);
-      };
-      const end = () => {
-        document.removeEventListener("pointermove", move);
-        document.removeEventListener("pointerup", end);
-        const colSpan = Number(sectionEl.dataset.draftColSpan ?? startWidth);
-        const rowSpan = Number(sectionEl.dataset.draftRowSpan ?? startHeight);
-        badge.remove();
-        delete sectionEl.dataset.draftColSpan;
-        delete sectionEl.dataset.draftRowSpan;
-        void this.store.applySectionSize(this.page, sectionId, colSpan, rowSpan).then(this.onDataChanged);
-      };
-      document.addEventListener("pointermove", move);
-      document.addEventListener("pointerup", end, { once: true });
-    });
+      placeholder.remove();
+      badge.remove();
+      if (cancelled) this.paint?.(original);
+    };
+    const onEnd = () => {
+      if (!cancelled) updateDraftLayout(this.page, latest);
+      cleanup();
+    };
+    const onKey = (key: KeyboardEvent) => {
+      if (key.key !== "Escape") return;
+      key.preventDefault();
+      cancelled = true;
+      cleanup();
+    };
+    const onDestroy = () => {
+      cancelled = true;
+      cleanup();
+    };
+    paintPlaceholder(start);
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onEnd);
+    document.addEventListener("keydown", onKey);
+    grid.addEventListener("cow-layout-destroy", onDestroy, { once: true });
+    scrollFrame = window.requestAnimationFrame(autoScroll);
   }
 }

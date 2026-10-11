@@ -1,6 +1,8 @@
 import { App, setIcon } from "obsidian";
 import { formatDateKey, type DashboardStore } from "../core/DashboardStore";
-import type { DashboardPage, DashboardPageDefinition, Task, TaskStatus } from "../types/dashboard";
+import type { DashboardPage, DashboardPageDefinition, DashboardSectionConfig, Task, TaskStatus } from "../types/dashboard";
+import { DashboardGrid } from "../components/DashboardGrid";
+import { isLayoutEditing } from "../core/LayoutEditState";
 import {
   openTaskFilterModal,
   openTaskModal,
@@ -32,16 +34,24 @@ export class TasksPage {
     void this.store.generateDueRecurringTasks();
     const pageEl = container.createDiv({ cls: "cow-page cow-module-page cow-page-tasks cow-tasks-page" });
     this.renderHeader(pageEl);
-    this.renderQuickAdd(pageEl);
-    const topGrid = pageEl.createDiv({ cls: "cow-tasks-top-grid" });
-    this.renderTodayTasks(topGrid);
-    this.renderInbox(topGrid);
-    this.renderStats(topGrid);
-    this.renderWeekPlan(pageEl);
-    this.renderBoard(pageEl);
-    const bottomGrid = pageEl.createDiv({ cls: "cow-tasks-bottom-grid" });
-    this.renderProjects(bottomGrid);
-    this.renderRecurring(bottomGrid);
+    new DashboardGrid(this.app, this.store, this.page, this.onDataChanged,
+      (grid, section) => this.renderLayoutSection(grid, section)).render(pageEl);
+  }
+
+  private renderLayoutSection(grid: HTMLElement, section: DashboardSectionConfig): HTMLElement {
+    const host = grid.createDiv({ cls: "cow-section cow-task-layout-section" });
+    if (isLayoutEditing(this.page)) host.createDiv({ cls: "cow-section-header cow-task-layout-edit-header", text: section.title });
+    switch (section.type) {
+      case "task-quick-add": this.renderQuickAdd(host); break;
+      case "task-today": this.renderTodayTasks(host); break;
+      case "task-inbox": this.renderInbox(host); break;
+      case "task-stats": this.renderStats(host); break;
+      case "task-week": this.renderWeekPlan(host); break;
+      case "task-board": this.renderBoard(host); break;
+      case "task-projects": this.renderProjects(host); break;
+      case "task-recurring": this.renderRecurring(host); break;
+    }
+    return host;
   }
 
   private renderHeader(container: HTMLElement): void {

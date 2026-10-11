@@ -23,7 +23,350 @@ __export(main_exports, {
   default: () => CuteObsidianWorkbenchPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian86 = require("obsidian");
+var import_obsidian87 = require("obsidian");
+
+// src/core/DashboardLayoutEngine.ts
+var GRID_CONFIG = { columns: 12, rowHeight: 40, gap: 16 };
+var TASK_LAYOUT_SECTIONS = [
+  ["task-quick-add", "\u5FEB\u901F\u6DFB\u52A0\u4EFB\u52A1", 10, "full"],
+  ["task-today", "\u4ECA\u65E5\u4EFB\u52A1", 20, "lg"],
+  ["task-inbox", "\u4EFB\u52A1\u6536\u96C6\u7BB1", 30, "sm"],
+  ["task-stats", "\u4EFB\u52A1\u7EDF\u8BA1", 40, "sm"],
+  ["task-week", "\u672C\u5468\u8BA1\u5212", 50, "full"],
+  ["task-board", "\u4EFB\u52A1\u770B\u677F", 60, "full"],
+  ["task-projects", "\u9879\u76EE\u4E0E\u4EFB\u52A1\u7EC4", 70, "lg"],
+  ["task-recurring", "\u5468\u671F\u4EFB\u52A1", 80, "md"]
+].map(([type, title, order, width]) => ({
+  id: String(type),
+  page: "tasks",
+  type: String(type),
+  title: String(title),
+  order: Number(order),
+  enabled: true,
+  width,
+  height: "md"
+}));
+var SUMMARY_TYPES = /* @__PURE__ */ new Set(["weekly-completion", "pending-tasks", "today-focus-stat", "checkin-streak", "enabled-modules-overview"]);
+var WIDE_TYPES = /* @__PURE__ */ new Set(["monthly-calendar", "month-calendar", "habit-overview", "reading-queue", "bookshelf", "reading-heatmap", "fitness-stats", "income-expense-trend", "priority-matrix", "home-layout-manager", "section-manager", "research-checkin", "reading-checkin", "fitness-checkin", "finance-checkin", "goals-checkin"]);
+var FULL_TYPES = /* @__PURE__ */ new Set(["contribution-heatmap"]);
+var DEFAULT_GEOMETRY = {
+  overview: {
+    "weekly-completion": [0, 0, 3, 5],
+    "pending-tasks": [3, 0, 3, 5],
+    "today-focus-stat": [6, 0, 3, 5],
+    "checkin-streak": [9, 0, 3, 5],
+    "monthly-calendar": [0, 5, 6, 10],
+    "today-focus": [6, 5, 6, 10],
+    "habit-overview": [0, 15, 6, 10],
+    "monthly-progress": [6, 15, 6, 10],
+    "recent-notes": [0, 25, 6, 8],
+    "quick-actions": [6, 25, 6, 8],
+    "contribution-heatmap": [0, 33, 12, 6]
+  },
+  research: {
+    "reading-queue": [0, 0, 8, 12],
+    "research-projects": [8, 0, 4, 12],
+    "paper-field-manager": [0, 12, 6, 8],
+    "research-checkin": [6, 12, 6, 8],
+    "experiment-plan": [0, 20, 4, 10],
+    "experiment-records": [4, 20, 4, 10],
+    "literature-notes": [8, 20, 4, 10],
+    "research-timeline": [0, 30, 6, 10],
+    "data-analysis-tasks": [6, 30, 6, 10],
+    "research-memo": [0, 40, 12, 7]
+  },
+  reading: {
+    "bookshelf": [0, 0, 12, 10],
+    "current-reading": [0, 10, 6, 9],
+    "reading-plan": [6, 10, 6, 9],
+    "reading-notes": [0, 19, 6, 9],
+    "reading-quotes": [6, 19, 6, 9],
+    "wishlist-books": [0, 28, 6, 8],
+    "reading-tag-manager": [6, 28, 6, 8],
+    "reading-checkin": [0, 36, 6, 8],
+    "finished-books": [6, 36, 6, 8],
+    "reading-stats": [0, 44, 6, 9],
+    "reading-heatmap": [6, 44, 6, 9],
+    "ai-reading-review": [0, 53, 12, 7]
+  },
+  fitness: {
+    "body-measurements": [0, 0, 4, 9],
+    "fitness-stats": [4, 0, 8, 9],
+    "fitness-goals": [0, 9, 6, 9],
+    "workout-plan": [6, 9, 6, 9],
+    "workout-log": [0, 18, 8, 10],
+    "today-workout": [8, 18, 4, 10],
+    "fitness-checkin": [0, 28, 6, 8],
+    "water-sleep-habits": [6, 28, 6, 8],
+    "cardio-strength-plan": [0, 36, 6, 8],
+    "health-reminders": [6, 36, 6, 8],
+    "fitness-heatmap": [0, 44, 12, 8]
+  },
+  finance: {
+    "monthly-budget": [0, 0, 4, 8],
+    "account-overview": [4, 0, 4, 8],
+    "expense-categories": [8, 0, 4, 8],
+    "income-expense-trend": [0, 8, 8, 10],
+    "investment-watch": [8, 8, 4, 10],
+    "finance-ledger": [0, 18, 8, 11],
+    "finance-todos": [8, 18, 4, 11],
+    "saving-goals": [0, 29, 6, 8],
+    "bill-reminders": [6, 29, 6, 8],
+    "finance-checkin": [0, 37, 6, 8],
+    "expense-heatmap": [6, 37, 6, 8]
+  },
+  tasks: {
+    "task-quick-add": [0, 0, 12, 4],
+    "task-today": [0, 4, 6, 9],
+    "task-inbox": [6, 4, 3, 9],
+    "task-stats": [9, 4, 3, 9],
+    "task-week": [0, 13, 12, 9],
+    "task-board": [0, 22, 12, 10],
+    "task-projects": [0, 32, 6, 9],
+    "task-recurring": [6, 32, 6, 9]
+  },
+  goals: {
+    "yearly-goals": [0, 0, 8, 10],
+    "long-term-progress": [8, 0, 4, 10],
+    "quarterly-okr": [0, 10, 6, 9],
+    "monthly-key-results": [6, 10, 6, 9],
+    "goal-breakdown": [0, 19, 8, 11],
+    "milestone-timeline": [8, 19, 4, 11],
+    "priority-matrix": [0, 30, 8, 10],
+    "goals-checkin": [8, 30, 4, 10],
+    "review-checklist": [0, 40, 6, 8],
+    "risks-blockers": [6, 40, 6, 8]
+  },
+  modules: {
+    "enabled-modules-overview": [0, 0, 4, 8],
+    "home-layout-manager": [4, 0, 8, 8],
+    "section-manager": [0, 8, 8, 11],
+    "banner-background-settings": [8, 8, 4, 11],
+    "calendar-widget-settings": [0, 19, 6, 8],
+    "apex-habit-settings": [6, 19, 6, 8],
+    "quick-action-settings": [0, 27, 6, 8],
+    "theme-color-settings": [6, 27, 6, 8],
+    "data-source-status": [0, 35, 12, 7]
+  }
+};
+var SECTION_MINIMUMS = {
+  "reading-queue": { w: 6, h: 7 },
+  "research-projects": { w: 4, h: 6 },
+  "paper-field-manager": { w: 6, h: 5 },
+  "data-analysis-tasks": { w: 6, h: 5 },
+  "research-timeline": { w: 6, h: 5 },
+  "bookshelf": { w: 8, h: 6 },
+  "current-reading": { w: 6, h: 5 },
+  "reading-plan": { w: 6, h: 5 },
+  "reading-notes": { w: 6, h: 5 },
+  "reading-quotes": { w: 6, h: 5 },
+  "wishlist-books": { w: 6, h: 5 },
+  "reading-tag-manager": { w: 6, h: 5 },
+  "finished-books": { w: 6, h: 5 },
+  "reading-stats": { w: 6, h: 6 },
+  "body-measurements": { w: 4, h: 5 },
+  "fitness-stats": { w: 6, h: 6 },
+  "fitness-goals": { w: 6, h: 5 },
+  "workout-plan": { w: 6, h: 5 },
+  "workout-log": { w: 6, h: 6 },
+  "income-expense-trend": { w: 6, h: 6 },
+  "finance-ledger": { w: 6, h: 6 },
+  "monthly-budget": { w: 4, h: 5 },
+  "account-overview": { w: 4, h: 5 },
+  "expense-categories": { w: 4, h: 5 },
+  "yearly-goals": { w: 6, h: 6 },
+  "quarterly-okr": { w: 6, h: 5 },
+  "monthly-key-results": { w: 6, h: 5 },
+  "goal-breakdown": { w: 6, h: 6 },
+  "milestone-timeline": { w: 4, h: 6 },
+  "priority-matrix": { w: 6, h: 6 },
+  "goals-checkin": { w: 4, h: 5 },
+  "home-layout-manager": { w: 6, h: 6 },
+  "section-manager": { w: 6, h: 6 },
+  "task-quick-add": { w: 6, h: 3 },
+  "task-today": { w: 6, h: 5 },
+  "task-week": { w: 8, h: 6 },
+  "task-board": { w: 8, h: 6 },
+  "task-projects": { w: 6, h: 5 },
+  "task-recurring": { w: 6, h: 5 },
+  "today-focus": { w: 6, h: 5 },
+  "monthly-progress": { w: 6, h: 5 }
+};
+function sectionMinimum(section) {
+  if (SECTION_MINIMUMS[section.type]) return SECTION_MINIMUMS[section.type];
+  if (section.type.startsWith("task-")) return { w: 3, h: 4 };
+  if (SUMMARY_TYPES.has(section.type)) return { w: 3, h: 3 };
+  if (WIDE_TYPES.has(section.type) || section.type.includes("calendar") || section.type.includes("heatmap")) return { w: 6, h: 6 };
+  if (section.type === "today-focus" || section.type === "monthly-progress") return { w: 3, h: 4 };
+  return { w: 4, h: 4 };
+}
+function finiteInteger(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.round(number) : fallback;
+}
+function defaultWidth(section, page) {
+  const taskWidths = {
+    "task-quick-add": 12,
+    "task-today": 6,
+    "task-inbox": 3,
+    "task-stats": 3,
+    "task-week": 12,
+    "task-board": 12,
+    "task-projects": 6,
+    "task-recurring": 6
+  };
+  if (taskWidths[section.type]) return taskWidths[section.type];
+  if (SUMMARY_TYPES.has(section.type)) return page === "overview" ? 3 : 4;
+  if (FULL_TYPES.has(section.type) || section.type === "bookshelf") return 12;
+  if (section.type === "monthly-calendar") return 6;
+  if (section.type === "today-focus" || section.type === "monthly-progress") return 3;
+  if (WIDE_TYPES.has(section.type)) return 6;
+  if (section.width === "full") return 12;
+  if (section.width === "lg") return 8;
+  return 4;
+}
+function defaultHeight(section) {
+  if (section.type === "task-quick-add") return 4;
+  return SUMMARY_TYPES.has(section.type) ? 5 : section.type.includes("calendar") ? 10 : 12;
+}
+function sanitizeItem(section, value) {
+  const minimum = sectionMinimum(section);
+  const w = Math.max(minimum.w, Math.min(GRID_CONFIG.columns, finiteInteger(value.w, defaultWidth(section, section.page))));
+  const h = Math.max(minimum.h, Math.min(32, finiteInteger(value.h, defaultHeight(section))));
+  const x = Math.max(0, Math.min(GRID_CONFIG.columns - w, finiteInteger(value.x, 0)));
+  return { sectionId: section.id, x, y: Math.max(0, Math.min(512, finiteInteger(value.y, 0))), w, h };
+}
+function collides(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+function findSpace(item, placed, columns) {
+  for (let y = Math.max(0, item.y); y < 1e4; y += 1) {
+    const starts = y === item.y ? [item.x, ...Array.from({ length: columns - item.w + 1 }, (_, x) => x)] : Array.from({ length: columns - item.w + 1 }, (_, x) => x);
+    for (const x of starts) {
+      if (x + item.w > columns) continue;
+      const candidate = { ...item, x, y };
+      if (placed.every((other) => !collides(candidate, other))) return candidate;
+    }
+  }
+  return { ...item, x: 0, y: placed.reduce((bottom, other) => Math.max(bottom, other.y + other.h), 0) };
+}
+function compactLayout(items, anchoredId, columns = GRID_CONFIG.columns) {
+  const sorted = [...items].sort((a, b) => a.y - b.y || a.x - b.x || a.sectionId.localeCompare(b.sectionId));
+  if (anchoredId) {
+    const index = sorted.findIndex((item) => item.sectionId === anchoredId);
+    if (index > 0) sorted.unshift(...sorted.splice(index, 1));
+  }
+  const placed = [];
+  for (const item of sorted) placed.push(findSpace({ ...item, w: Math.min(columns, item.w), x: Math.min(item.x, columns - Math.min(columns, item.w)) }, placed, columns));
+  for (const item of placed) {
+    if (item.sectionId === anchoredId) continue;
+    while (item.y > 0 && placed.every((other) => other === item || !collides({ ...item, y: item.y - 1 }, other))) item.y -= 1;
+  }
+  return placed.sort((a, b) => a.y - b.y || a.x - b.x || a.sectionId.localeCompare(b.sectionId));
+}
+function sanitizeLayout(sections, values) {
+  const byId = new Map(values.filter((value) => value && typeof value.sectionId === "string").map((value) => [value.sectionId, value]));
+  let nextY = values.reduce((bottom, value) => Number.isFinite(value == null ? void 0 : value.y) && Number.isFinite(value == null ? void 0 : value.h) ? Math.max(bottom, value.y + value.h) : bottom, 0);
+  const items = sections.map((section) => {
+    const saved = byId.get(section.id);
+    if (saved) return sanitizeItem(section, saved);
+    const item = sanitizeItem(section, { x: 0, y: nextY });
+    nextY += item.h;
+    return item;
+  });
+  return compactLayout(items);
+}
+function createDefaultLayout(page, sections, mode = "default") {
+  var _a;
+  const ordered = [...sections].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+  if (mode === "default") {
+    const geometry = (_a = DEFAULT_GEOMETRY[page]) != null ? _a : {};
+    const planned = ordered.filter((section) => geometry[section.type]);
+    const extras = ordered.filter((section) => !geometry[section.type]);
+    const items2 = planned.map((section) => {
+      const [x, y, w, h] = geometry[section.type];
+      return sanitizeItem(section, { x, y, w, h });
+    });
+    let nextY = items2.reduce((bottom, item) => Math.max(bottom, item.y + item.h), 0);
+    for (const section of extras) {
+      const item = sanitizeItem(section, { x: 0, y: nextY });
+      items2.push(item);
+      nextY += item.h;
+    }
+    return compactLayout(items2);
+  }
+  const overviewOrder = ["weekly-completion", "pending-tasks", "today-focus-stat", "checkin-streak", "monthly-calendar", "today-focus", "monthly-progress", "habit-overview", "recent-notes", "quick-actions"];
+  if (page === "overview") ordered.sort((a, b) => {
+    const left = overviewOrder.indexOf(a.type);
+    const right = overviewOrder.indexOf(b.type);
+    return (left < 0 ? 100 + a.order : left) - (right < 0 ? 100 + b.order : right);
+  });
+  let cursorX = 0;
+  let cursorY = 0;
+  let rowHeight = 0;
+  const items = [];
+  for (const section of ordered) {
+    const w = mode === "minimal" ? 12 : mode === "compact" ? Math.max(sectionMinimum(section).w, Math.min(12, defaultWidth(section, page) - 1)) : defaultWidth(section, page);
+    const h = defaultHeight(section);
+    if (cursorX + w > 12) {
+      cursorY += rowHeight;
+      cursorX = 0;
+      rowHeight = 0;
+    }
+    items.push({ sectionId: section.id, x: cursorX, y: cursorY, w, h });
+    cursorX += w;
+    rowHeight = Math.max(rowHeight, h);
+  }
+  return items;
+}
+function migrateLegacyLayout(sections, legacy) {
+  const ordered = [...sections].sort((a, b) => {
+    var _a, _b, _c, _d, _e, _f;
+    return ((_c = (_b = (_a = legacy.sections) == null ? void 0 : _a[a.id]) == null ? void 0 : _b.order) != null ? _c : a.order) - ((_f = (_e = (_d = legacy.sections) == null ? void 0 : _d[b.id]) == null ? void 0 : _e.order) != null ? _f : b.order);
+  });
+  let x = 0;
+  let y = 0;
+  let rowHeight = 0;
+  return ordered.map((section) => {
+    var _a;
+    const old = (_a = legacy.sections) == null ? void 0 : _a[section.id];
+    const w = Math.max(sectionMinimum(section).w, Math.min(12, finiteInteger(old == null ? void 0 : old.colSpan, defaultWidth(section, section.page))));
+    const h = (old == null ? void 0 : old.rowSpan) && old.rowSpan > 1 ? Math.max(sectionMinimum(section).h, finiteInteger(old.rowSpan, defaultHeight(section))) : defaultHeight(section);
+    if (x + w > 12) {
+      y += rowHeight;
+      x = 0;
+      rowHeight = 0;
+    }
+    const item = sanitizeItem(section, { x, y, w, h });
+    x += w;
+    rowHeight = Math.max(rowHeight, h);
+    return item;
+  });
+}
+function resolveModuleLayout(page, sections, layout, viewportWidth, draft, naturalRows) {
+  var _a;
+  const desktop = sanitizeLayout(sections, draft != null ? draft : layout.mode === "custom" ? (_a = layout.items) != null ? _a : [] : createDefaultLayout(page, sections, layout.mode));
+  const withNaturalHeight = (items, columns) => ({
+    columns,
+    items: naturalRows ? compactLayout(items.map((item) => {
+      var _a2;
+      return { ...item, h: Math.min(item.h, (_a2 = naturalRows.get(item.sectionId)) != null ? _a2 : item.h) };
+    }), void 0, columns) : items
+  });
+  if (viewportWidth >= 1260) return withNaturalHeight(desktop, 12);
+  if (viewportWidth < 720) {
+    return withNaturalHeight(compactLayout(desktop.map((item) => ({ ...item, x: 0, w: 1 })), void 0, 1), 1);
+  }
+  return withNaturalHeight(compactLayout(desktop.map((item) => ({ ...item, x: Math.min(5, Math.floor(item.x / 2)), w: Math.min(6, Math.max(3, Math.ceil(item.w / 2))) })).map((item) => ({ ...item, x: Math.min(item.x, 6 - item.w) })), void 0, 6), 6);
+}
+function moveLayoutItem(items, sectionId, x, y) {
+  const next = items.map((item) => item.sectionId === sectionId ? { ...item, x, y } : { ...item });
+  return compactLayout(next, sectionId);
+}
+function resizeLayoutItem(items, section, w, h) {
+  const next = items.map((item) => item.sectionId === section.id ? sanitizeItem(section, { ...item, w, h }) : { ...item });
+  return compactLayout(next, section.id);
+}
 
 // src/core/DashboardStore.ts
 var DASHBOARD_PAGES = [
@@ -966,9 +1309,17 @@ var DashboardStore = class {
       return left.page.localeCompare(right.page);
     });
   }
+  getLayoutSections(page) {
+    return page === "tasks" ? [...TASK_LAYOUT_SECTIONS] : this.data.sections.filter((section) => section.page === page);
+  }
   getSectionsForPage(page) {
+    var _a;
     const layout = this.getModuleLayout(page);
-    return this.data.sections.filter((section) => section.page === page && section.enabled).sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout));
+    const positions = new Map(layout.mode === "custom" ? ((_a = layout.items) != null ? _a : []).map((item, index) => [item.sectionId, index]) : []);
+    return this.data.sections.filter((section) => section.page === page && section.enabled).sort((left, right) => {
+      var _a2, _b;
+      return ((_a2 = positions.get(left.id)) != null ? _a2 : left.order) - ((_b = positions.get(right.id)) != null ? _b : right.order);
+    });
   }
   getModuleLayout(page) {
     var _a;
@@ -1029,6 +1380,8 @@ var DashboardStore = class {
     this.data.sections = this.data.sections.filter((section2) => section2.id !== sectionId);
     if (section) {
       (_b = (_a = this.data.moduleLayouts[section.page]) == null ? void 0 : _a.sections) == null ? true : delete _b[sectionId];
+      const layout = this.data.moduleLayouts[section.page];
+      if (layout == null ? void 0 : layout.items) layout.items = layout.items.filter((item) => item.sectionId !== sectionId);
     }
     await this.save();
   }
@@ -1064,6 +1417,7 @@ var DashboardStore = class {
     await this.save();
   }
   async reorderSections(page, orderedIds) {
+    var _a;
     const pageSections = this.data.sections.filter((section) => section.page === page);
     const sectionById = new Map(pageSections.map((section) => [section.id, section]));
     const suppliedIds = [...new Set(orderedIds)].filter((id) => sectionById.has(id));
@@ -1074,58 +1428,92 @@ var DashboardStore = class {
       console.warn(`[Cute Workbench] Normalizing duplicate section order values for ${page}.`);
     }
     normalizedIds.forEach((sectionId, index) => {
-      var _a;
       const section = sectionById.get(sectionId);
       if (!section) return;
       const order = (index + 1) * 10;
       section.order = order;
-      this.ensureSectionLayout(page, section.id, order);
-      const sectionLayout = (_a = this.data.moduleLayouts[page].sections) == null ? void 0 : _a[section.id];
-      if (sectionLayout) sectionLayout.order = order;
     });
+    const existing = new Map(((_a = layout.items) != null ? _a : []).map((item) => [item.sectionId, item]));
+    const ordered = normalizedIds.map((id) => existing.get(id)).filter((item) => Boolean(item));
+    const remaining = normalizedIds.filter((id) => !existing.has(id));
+    const sections = normalizedIds.map((id) => sectionById.get(id)).filter((section) => Boolean(section));
+    const source = [...ordered, ...createDefaultLayout(page, sections.filter((section) => remaining.includes(section.id)))];
+    let x = 0;
+    let y = 0;
+    let rowHeight = 0;
+    const items = normalizedIds.map((id) => {
+      var _a2, _b;
+      const prior = source.find((item) => item.sectionId === id);
+      const w = (_a2 = prior == null ? void 0 : prior.w) != null ? _a2 : 4;
+      const h = (_b = prior == null ? void 0 : prior.h) != null ? _b : 8;
+      if (x + w > 12) {
+        x = 0;
+        y += rowHeight;
+        rowHeight = 0;
+      }
+      const next = { sectionId: id, x, y, w, h };
+      x += w;
+      rowHeight = Math.max(rowHeight, h);
+      return next;
+    });
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({ ...layout, mode: "custom", items }, page);
     await this.save();
   }
   async setOverviewLayout(layout) {
     this.data.userSettings.overviewLayout = layout;
-    this.data.moduleLayouts.overview = this.normalizeModuleLayout({ ...this.data.moduleLayouts.overview, mode: layout });
+    this.data.moduleLayouts.overview = this.normalizeModuleLayout({ ...this.data.moduleLayouts.overview, mode: layout }, "overview");
     await this.save();
   }
   async setModuleLayoutMode(page, mode) {
+    var _a;
     this.data.moduleLayouts[page] = this.normalizeModuleLayout({
       ...this.getModuleLayout(page),
-      mode
-    });
+      mode,
+      items: mode === "custom" && !((_a = this.getModuleLayout(page).items) == null ? void 0 : _a.length) ? createDefaultLayout(page, this.getLayoutSections(page)) : this.getModuleLayout(page).items
+    }, page);
     if (page === "overview" && mode !== "custom") {
       this.data.userSettings.overviewLayout = mode;
     }
     await this.save();
   }
   async updateModuleLayout(page, updates) {
+    var _a, _b;
+    const legacyItems = updates.sections ? migrateLegacyLayout(this.data.sections.filter((section) => section.page === page), { ...this.getModuleLayout(page), ...updates }) : void 0;
     this.data.moduleLayouts[page] = this.normalizeModuleLayout({
       ...this.getModuleLayout(page),
-      ...updates
-    });
+      ...updates,
+      items: (_b = (_a = updates.items) != null ? _a : legacyItems) != null ? _b : this.getModuleLayout(page).items
+    }, page);
     await this.save();
   }
   async updateSectionLayout(page, sectionId, updates) {
-    var _a;
-    const section = this.data.sections.find((item) => item.id === sectionId && item.page === page);
+    var _a, _b, _c;
+    const section = this.getLayoutSections(page).find((item) => item.id === sectionId);
     if (!section) return;
-    this.ensureSectionLayout(page, sectionId, section.order);
-    const layout = this.data.moduleLayouts[page];
-    const sectionLayout = (_a = layout.sections) == null ? void 0 : _a[sectionId];
-    if (!sectionLayout) return;
-    Object.assign(sectionLayout, updates);
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout(layout);
+    const layout = this.getModuleLayout(page);
+    const source = layout.mode === "custom" && ((_a = layout.items) == null ? void 0 : _a.length) ? layout.items : createDefaultLayout(page, this.getLayoutSections(page), layout.mode);
+    const current = source.find((item) => item.sectionId === sectionId);
+    if (!current) return;
+    const items = resizeLayoutItem(source, section, (_b = updates.colSpan) != null ? _b : current.w, (_c = updates.rowSpan) != null ? _c : current.h);
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({ ...layout, mode: "custom", items }, page);
     await this.save();
   }
   async applySectionSize(page, sectionId, colSpan, rowSpan) {
-    await this.ensureCustomModuleLayout(page);
     await this.updateSectionLayout(page, sectionId, { colSpan, rowSpan });
   }
   async reorderSectionLayout(page, orderedIds) {
-    await this.ensureCustomModuleLayout(page);
     await this.reorderSections(page, orderedIds);
+  }
+  async commitModuleLayout(page, items, additions = []) {
+    for (const section of additions) {
+      if (section.page === page && !this.data.sections.some((item) => item.id === section.id)) this.data.sections.push(section);
+    }
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({ ...this.getModuleLayout(page), mode: "custom", items }, page);
+    await this.save();
+  }
+  async resetModuleLayout(page) {
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout({ ...this.getModuleLayout(page), mode: "default", items: void 0 }, page);
+    await this.save();
   }
   getSectionSizePresets(page) {
     var _a;
@@ -1145,19 +1533,21 @@ var DashboardStore = class {
     this.data.moduleLayouts[page] = this.normalizeModuleLayout({
       ...layout,
       sizePresets: [...(_b = layout.sizePresets) != null ? _b : [], nextPreset]
-    });
+    }, page);
     await this.save();
   }
   async moveSectionLayout(page, sectionId, direction) {
-    await this.ensureCustomModuleLayout(page);
-    const layout = this.data.moduleLayouts[page];
-    const pageSections = this.data.sections.filter((section) => section.page === page).sort((left, right) => this.getSectionLayoutOrder(left, layout) - this.getSectionLayoutOrder(right, layout));
-    const currentIndex = pageSections.findIndex((section) => section.id === sectionId);
+    var _a;
+    const layout = this.getModuleLayout(page);
+    const items = layout.mode === "custom" && ((_a = layout.items) == null ? void 0 : _a.length) ? [...layout.items] : createDefaultLayout(page, this.getLayoutSections(page), layout.mode);
+    const currentIndex = items.findIndex((item) => item.sectionId === sectionId);
     const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= pageSections.length) return;
-    const orderedIds = pageSections.map((section) => section.id);
-    [orderedIds[currentIndex], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[currentIndex]];
-    await this.reorderSections(page, orderedIds);
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= items.length) return;
+    const first = items[currentIndex];
+    const second = items[targetIndex];
+    [first.x, second.x] = [second.x, first.x];
+    [first.y, second.y] = [second.y, first.y];
+    await this.commitModuleLayout(page, compactLayout(items, sectionId));
   }
   async updateUserSettings(settings) {
     this.data.userSettings = {
@@ -3059,7 +3449,7 @@ var DashboardStore = class {
         ...partial.userSettings
       },
       sections,
-      moduleLayouts: this.migrateModuleLayouts(partial),
+      moduleLayouts: this.migrateModuleLayouts(partial, sections),
       habits: (_a = partial.habits) != null ? _a : {},
       todayFocusTasks: Array.isArray(partial.todayFocusTasks) ? partial.todayFocusTasks : structuredClone(DEFAULT_DATA.todayFocusTasks),
       researchProjects: Array.isArray(partial.researchProjects) ? partial.researchProjects.map((project) => this.normalizeResearchProject(project)) : structuredClone(DEFAULT_DATA.researchProjects).map((project) => this.normalizeResearchProject(project)),
@@ -4173,93 +4563,55 @@ var DashboardStore = class {
     }
     return this.withRequiredSections(migrated);
   }
-  migrateModuleLayouts(partial) {
+  migrateModuleLayouts(partial, sections) {
     var _a, _b, _c;
     const legacy = partial;
     const fallbackMode = (_c = (_b = legacy.layoutMode) != null ? _b : (_a = partial.userSettings) == null ? void 0 : _a.overviewLayout) != null ? _c : DEFAULT_DATA.userSettings.overviewLayout;
     const layouts = structuredClone(DEFAULT_MODULE_LAYOUTS);
     Object.keys(layouts).forEach((page) => {
-      var _a2;
+      var _a2, _b2, _c2;
       const saved = (_a2 = partial.moduleLayouts) == null ? void 0 : _a2[page];
-      layouts[page] = this.normalizeModuleLayout(saved != null ? saved : { ...layouts[page], mode: fallbackMode });
+      const pageSections = page === "tasks" ? TASK_LAYOUT_SECTIONS : sections.filter((section) => section.page === page);
+      const items = Array.isArray(saved == null ? void 0 : saved.items) && saved.items.length ? saved.items : (saved == null ? void 0 : saved.mode) === "custom" && saved.sections && Object.keys(saved.sections).length ? migrateLegacyLayout(pageSections, saved) : createDefaultLayout(page, pageSections, (_b2 = saved == null ? void 0 : saved.mode) != null ? _b2 : fallbackMode);
+      layouts[page] = this.normalizeModuleLayout({ ...saved, mode: (_c2 = saved == null ? void 0 : saved.mode) != null ? _c2 : fallbackMode, items }, page, sections);
     });
     return layouts;
   }
-  normalizeModuleLayout(layout) {
-    var _a, _b;
+  normalizeModuleLayout(layout, page, allSections = this.data.sections) {
+    var _a;
     const mode = (layout == null ? void 0 : layout.mode) === "compact" || (layout == null ? void 0 : layout.mode) === "minimal" || (layout == null ? void 0 : layout.mode) === "custom" ? layout.mode : "default";
-    const requestedColumns = Number(layout == null ? void 0 : layout.columns) || this.columnsForLayoutMode(mode);
-    const columns = mode === "minimal" ? 1 : mode === "default" ? 12 : mode === "compact" ? 16 : Math.max(2, Math.min(12, requestedColumns));
-    const sections = {};
-    Object.entries((_a = layout == null ? void 0 : layout.sections) != null ? _a : {}).forEach(([sectionId, sectionLayout]) => {
-      sections[sectionId] = {
-        order: sectionLayout.order,
-        colSpan: sectionLayout.colSpan === void 0 ? void 0 : Math.max(1, Math.min(columns, Number(sectionLayout.colSpan) || 1)),
-        rowSpan: sectionLayout.rowSpan === void 0 ? void 0 : Math.max(1, Math.min(12, Number(sectionLayout.rowSpan) || 1))
-      };
-    });
-    const sizePresets = ((_b = layout == null ? void 0 : layout.sizePresets) != null ? _b : []).filter((preset) => Boolean(preset && typeof preset.name === "string" && preset.name.trim())).map((preset) => ({
+    const sizePresets = ((_a = layout == null ? void 0 : layout.sizePresets) != null ? _a : []).filter((preset) => Boolean(preset && typeof preset.name === "string" && preset.name.trim())).map((preset) => ({
       id: typeof preset.id === "string" && preset.id ? preset.id : `size-${Date.now()}`,
       name: preset.name.trim().slice(0, 48),
-      colSpan: Math.max(1, Math.min(columns, Number(preset.colSpan) || 1)),
+      colSpan: Math.max(1, Math.min(12, Number(preset.colSpan) || 1)),
       rowSpan: Math.max(1, Math.min(12, Number(preset.rowSpan) || 1)),
       createdAt: typeof preset.createdAt === "string" ? preset.createdAt : (/* @__PURE__ */ new Date()).toISOString()
     }));
     return {
       mode,
-      columns,
+      columns: 12,
       templateId: typeof (layout == null ? void 0 : layout.templateId) === "string" ? layout.templateId : void 0,
-      sections,
+      items: sanitizeLayout(page === "tasks" ? TASK_LAYOUT_SECTIONS : allSections.filter((section) => section.page === page), Array.isArray(layout == null ? void 0 : layout.items) ? layout.items : []),
       sizePresets
     };
   }
-  async ensureCustomModuleLayout(page) {
-    const current = this.getModuleLayout(page);
-    if (current.mode === "custom") return;
-    const sections = {};
-    this.data.sections.filter((section) => section.page === page).forEach((section) => {
-      var _a, _b, _c, _d;
-      const saved = (_a = current.sections) == null ? void 0 : _a[section.id];
-      sections[section.id] = {
-        order: (_b = saved == null ? void 0 : saved.order) != null ? _b : section.order,
-        colSpan: (_c = saved == null ? void 0 : saved.colSpan) != null ? _c : this.defaultColSpan(section),
-        rowSpan: (_d = saved == null ? void 0 : saved.rowSpan) != null ? _d : 1
-      };
-    });
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout({
-      ...current,
-      mode: "custom",
-      columns: 12,
-      sections
-    });
-    await this.save();
-  }
-  defaultColSpan(section) {
-    if (section.width === "full") return 12;
-    if (section.width === "lg") return 8;
-    if (section.width === "sm") return 3;
-    return 4;
-  }
   ensureSectionLayout(page, sectionId, fallbackOrder) {
-    var _a, _b;
+    var _a, _b, _c, _d;
     const layout = (_a = this.data.moduleLayouts[page]) != null ? _a : structuredClone(DEFAULT_MODULE_LAYOUTS[page]);
-    layout.sections = (_b = layout.sections) != null ? _b : {};
-    layout.sections[sectionId] = {
-      order: fallbackOrder,
-      colSpan: 1,
-      rowSpan: 1,
-      ...layout.sections[sectionId]
-    };
-    this.data.moduleLayouts[page] = this.normalizeModuleLayout(layout);
+    if (!((_b = layout.items) == null ? void 0 : _b.some((item) => item.sectionId === sectionId))) {
+      const section = this.data.sections.find((item) => item.id === sectionId);
+      if (section) {
+        const minimum = sectionMinimum(section);
+        const bottom = ((_c = layout.items) != null ? _c : []).reduce((max, item) => Math.max(max, item.y + item.h), 0);
+        layout.items = [...(_d = layout.items) != null ? _d : [], { sectionId, x: 0, y: bottom, w: Math.max(minimum.w, 4), h: Math.max(minimum.h, 8) }];
+      }
+    }
+    this.data.moduleLayouts[page] = this.normalizeModuleLayout(layout, page);
   }
   getSectionLayoutOrder(section, layout) {
-    var _a, _b, _c;
-    return (_c = (_b = (_a = layout.sections) == null ? void 0 : _a[section.id]) == null ? void 0 : _b.order) != null ? _c : section.order;
-  }
-  columnsForLayoutMode(mode) {
-    if (mode === "compact") return 16;
-    if (mode === "minimal") return 1;
-    return 12;
+    var _a, _b;
+    const index = (_b = (_a = layout.items) == null ? void 0 : _a.findIndex((item) => item.sectionId === section.id)) != null ? _b : -1;
+    return index >= 0 ? (index + 1) * 10 : section.order;
   }
   normalizeFocusRecord(record) {
     var _a, _b, _c, _d, _e, _f, _g;
@@ -4417,7 +4769,7 @@ var HealthReminderService = class {
 };
 
 // src/views/WorkbenchView.ts
-var import_obsidian85 = require("obsidian");
+var import_obsidian86 = require("obsidian");
 
 // src/core/DashboardRouter.ts
 var ROUTE_CHANGED_EVENT = "route-changed";
@@ -4700,35 +5052,11 @@ var PageHeader = class {
   }
 };
 
+// src/components/DashboardGrid.ts
+var import_obsidian78 = require("obsidian");
+
 // src/components/DashboardSection.ts
 var import_obsidian76 = require("obsidian");
-
-// src/core/SectionLayoutResolver.ts
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, Number(value) || min));
-}
-function defaultColSpan(section) {
-  if (section.width === "full") return 12;
-  if (section.width === "lg") return 8;
-  if (section.width === "sm") return 3;
-  return 4;
-}
-function resolveSectionLayout(section, layout) {
-  var _a, _b, _c, _d;
-  const columns = Math.max(1, Number(layout.columns) || 12);
-  const config = (_a = layout.sections) == null ? void 0 : _a[section.id];
-  const colSpan = clamp((_b = config == null ? void 0 : config.colSpan) != null ? _b : defaultColSpan(section), 1, columns);
-  const rowSpan = clamp((_c = config == null ? void 0 : config.rowSpan) != null ? _c : 1, 1, 12);
-  const order = Number((_d = config == null ? void 0 : config.order) != null ? _d : section.order) || section.order;
-  return {
-    order,
-    colSpan,
-    rowSpan,
-    columns,
-    gridColumn: `span ${colSpan}`,
-    gridRow: `span ${rowSpan}`
-  };
-}
 
 // src/components/SectionActionMenu.ts
 var import_obsidian24 = require("obsidian");
@@ -9355,6 +9683,47 @@ function statusOptions(values) {
   return values.map((value) => ({ value, label: value }));
 }
 
+// src/core/LayoutEditState.ts
+var session;
+function isLayoutEditing(page) {
+  return (session == null ? void 0 : session.page) === page;
+}
+function beginLayoutEditing(page, items) {
+  session = { page, draft: structuredClone(items), additions: [] };
+}
+function getDraftLayout(page) {
+  return (session == null ? void 0 : session.page) === page ? session.draft : void 0;
+}
+function updateDraftLayout(page, items) {
+  if ((session == null ? void 0 : session.page) === page) session.draft = structuredClone(items);
+}
+function resetDraftLayout(page, items) {
+  if ((session == null ? void 0 : session.page) !== page) return;
+  session.draft = structuredClone(items);
+  session.additions = [];
+}
+function getDraftSections(page) {
+  return (session == null ? void 0 : session.page) === page ? session.additions : [];
+}
+function addDraftSection(page, section) {
+  if ((session == null ? void 0 : session.page) !== page) return;
+  const minimum = sectionMinimum(section);
+  const bottom = session.draft.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+  session.additions.push(section);
+  session.draft.push({ sectionId: section.id, x: 0, y: bottom, w: Math.max(minimum.w, 4), h: Math.max(minimum.h, 8) });
+}
+function removeDraftSection(page, sectionId) {
+  if ((session == null ? void 0 : session.page) !== page) return false;
+  const before = session.additions.length;
+  session.additions = session.additions.filter((section) => section.id !== sectionId);
+  if (before === session.additions.length) return false;
+  session.draft = session.draft.filter((item) => item.sectionId !== sectionId);
+  return true;
+}
+function stopLayoutEditing() {
+  session = void 0;
+}
+
 // src/components/SectionActionMenu.ts
 var CARD_COLORS = [
   { id: "default", label: "\u9ED8\u8BA4" },
@@ -9365,13 +9734,13 @@ var CARD_COLORS = [
   { id: "lavender", label: "\u6DE1\u7D2B" }
 ];
 var SectionActionMenu = class {
-  constructor(app, store, section, onRemove, onDataChanged, defaultColSpan2) {
+  constructor(app, store, section, onRemove, onDataChanged, defaultColSpan) {
     this.app = app;
     this.store = store;
     this.section = section;
     this.onRemove = onRemove;
     this.onDataChanged = onDataChanged;
-    this.defaultColSpan = defaultColSpan2;
+    this.defaultColSpan = defaultColSpan;
   }
   show(event) {
     const menu = new import_obsidian24.Menu();
@@ -9396,7 +9765,15 @@ var SectionActionMenu = class {
     openAddContentModal(this.app, this.store, this.section, this.onDataChanged);
   }
   async move(direction) {
-    await this.store.moveSectionLayout(this.section.page, this.section.id, direction);
+    const draft = getDraftLayout(this.section.page);
+    if (draft) {
+      const ordered = [...draft].sort((a, b) => a.y - b.y || a.x - b.x);
+      const index = ordered.findIndex((item) => item.sectionId === this.section.id);
+      const target = ordered[index + (direction === "up" ? -1 : 1)];
+      if (target) updateDraftLayout(this.section.page, moveLayoutItem(draft, this.section.id, target.x, target.y));
+    } else {
+      await this.store.moveSectionLayout(this.section.page, this.section.id, direction);
+    }
     this.onDataChanged();
   }
   async hide() {
@@ -9453,15 +9830,15 @@ var SectionColorModal = class extends import_obsidian24.Modal {
   }
 };
 var SectionSizeModal = class extends import_obsidian24.Modal {
-  constructor(app, store, section, onDataChanged, defaultColSpan2) {
+  constructor(app, store, section, onDataChanged, defaultColSpan) {
     super(app);
     this.store = store;
     this.section = section;
     this.onDataChanged = onDataChanged;
-    this.defaultColSpan = defaultColSpan2;
+    this.defaultColSpan = defaultColSpan;
   }
   onOpen() {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c;
     applyResizableModal(this, {
       className: "cute-section-size-modal",
       width: "min(720px, 92vw)",
@@ -9476,16 +9853,21 @@ var SectionSizeModal = class extends import_obsidian24.Modal {
     this.contentEl.createEl("h2", { text: "\u4FEE\u6539\u5BBD\u9AD8" });
     this.contentEl.createEl("p", { text: `\u6B63\u5728\u8C03\u6574\u201C${this.section.title}\u201D\u3002\u6570\u503C\u5BF9\u5E94\u5F53\u524D\u5DE5\u4F5C\u53F0\u7684\u903B\u8F91\u5217\u5BBD\u4E0E\u884C\u9AD8\u3002` });
     const layout = this.store.getModuleLayout(this.section.page);
-    const columns = layout.mode === "custom" ? (_a = layout.columns) != null ? _a : 12 : 12;
-    const saved = (_b = layout.sections) == null ? void 0 : _b[this.section.id];
-    const defaultWidth = (_c = this.defaultColSpan) != null ? _c : this.defaultWidth();
+    const columns = 12;
+    const saved = resolveModuleLayout(
+      this.section.page,
+      this.store.getAllSections().filter((item) => item.page === this.section.page),
+      layout,
+      1260
+    ).items.find((item) => item.sectionId === this.section.id);
+    const defaultWidth2 = (_a = this.defaultColSpan) != null ? _a : this.defaultWidth();
     const form = this.contentEl.createDiv({ cls: "cow-form-grid cow-section-size-form" });
     const widthField = form.createDiv({ cls: "cow-form-row" });
     widthField.createEl("label", { text: `\u5BBD\u5EA6\uFF081-${columns} \u5217\uFF09` });
-    const widthInput = widthField.createEl("input", { type: "number", value: String((_d = saved == null ? void 0 : saved.colSpan) != null ? _d : defaultWidth), attr: { min: "1", max: String(columns), step: "1" } });
+    const widthInput = widthField.createEl("input", { type: "number", value: String((_b = saved == null ? void 0 : saved.w) != null ? _b : defaultWidth2), attr: { min: String(sectionMinimum(this.section).w), max: String(columns), step: "1" } });
     const heightField = form.createDiv({ cls: "cow-form-row" });
     heightField.createEl("label", { text: "\u9AD8\u5EA6\uFF081-12 \u884C\uFF09" });
-    const heightInput = heightField.createEl("input", { type: "number", value: String((_e = saved == null ? void 0 : saved.rowSpan) != null ? _e : 1), attr: { min: "1", max: "12", step: "1" } });
+    const heightInput = heightField.createEl("input", { type: "number", value: String((_c = saved == null ? void 0 : saved.h) != null ? _c : 8), attr: { min: String(sectionMinimum(this.section).h), max: "12", step: "1" } });
     const presetToggle = this.contentEl.createEl("label", { cls: "cow-section-size-preset-toggle" });
     const savePreset = presetToggle.createEl("input", { type: "checkbox" });
     presetToggle.createSpan({ text: "\u5C06\u8FD9\u7EC4\u5C3A\u5BF8\u4FDD\u5B58\u4E3A\u6807\u51C6" });
@@ -9535,7 +9917,12 @@ var SectionSizeModal = class extends import_obsidian24.Modal {
         error.hidden = false;
         return;
       }
-      await this.store.applySectionSize(this.section.page, this.section.id, colSpan, rowSpan);
+      if (isLayoutEditing(this.section.page)) {
+        const draft = getDraftLayout(this.section.page);
+        if (draft) updateDraftLayout(this.section.page, resizeLayoutItem(draft, this.section, colSpan, rowSpan));
+      } else {
+        await this.store.applySectionSize(this.section.page, this.section.id, colSpan, rowSpan);
+      }
       if (savePreset.checked) {
         await this.store.saveSectionSizePreset(this.section.page, { name: presetName.value, colSpan, rowSpan });
       }
@@ -14157,6 +14544,7 @@ var EnabledModulesOverviewSection = class {
   }
 };
 var MANAGED_PAGES = ["overview", "research", "reading", "fitness", "finance", "goals"];
+var LAYOUT_PAGES = [...MANAGED_PAGES, "tasks", "modules"];
 var LAYOUT_TEMPLATES = [
   { id: "two-columns", label: "\u5747\u5300\u53CC\u5217", description: "\u4E24\u4E2A\u7B49\u5BBD\u5217\uFF0C\u9002\u5408\u901A\u7528\u4FE1\u606F\u6D41\u3002", columns: 2 },
   { id: "three-columns", label: "\u5747\u5300\u4E09\u5217", description: "\u4E09\u5217\u5E76\u6392\uFF0C\u9002\u5408\u8F7B\u91CF\u5361\u7247\u3002", columns: 3 },
@@ -14170,16 +14558,15 @@ var HomeLayoutManagerSection = class {
     this.store = store;
     this.onDataChanged = onDataChanged;
     const currentPage = this.store.getData().currentPage;
-    this.selectedPage = MANAGED_PAGES.includes(currentPage) ? currentPage : "overview";
+    this.selectedPage = LAYOUT_PAGES.includes(currentPage) ? currentPage : "overview";
   }
   render(container) {
-    var _a;
     this.host = container;
     container.empty();
     const header = container.createDiv({ cls: "cow-layout-manager-header" });
     header.createSpan({ text: "\u5F53\u524D\u6A21\u5757" });
     const select = header.createEl("select", { attr: { "aria-label": "\u9009\u62E9\u8981\u8BBE\u7F6E\u5E03\u5C40\u7684\u6A21\u5757" } });
-    MANAGED_PAGES.forEach((page) => select.createEl("option", { value: page, text: PAGE_LABELS[page] }));
+    LAYOUT_PAGES.forEach((page) => select.createEl("option", { value: page, text: PAGE_LABELS[page] }));
     select.value = this.selectedPage;
     select.addEventListener("change", () => {
       this.selectedPage = select.value;
@@ -14204,7 +14591,7 @@ var HomeLayoutManagerSection = class {
       });
     });
     const note = container.createDiv({ cls: "cow-meta-line" });
-    note.createSpan({ text: `${PAGE_LABELS[this.selectedPage]} \u5F53\u524D\u5217\u6570\uFF1A${(_a = layout.columns) != null ? _a : 12}\u3002\u81EA\u5B9A\u4E49\u5E03\u5C40\u4F1A\u4FDD\u5B58 columns / colSpan / rowSpan\uFF0C\u5E76\u53EA\u4F5C\u7528\u4E8E\u5F53\u524D\u6A21\u5757\u3002` });
+    note.createSpan({ text: `${PAGE_LABELS[this.selectedPage]} \u4F7F\u7528 12 \u5217\u7F51\u683C\u3002\u81EA\u5B9A\u4E49\u5E03\u5C40\u72EC\u7ACB\u4FDD\u5B58\u4F4D\u7F6E\u4E0E\u5BBD\u9AD8\u3002` });
     if (layout.mode === "custom") {
       this.renderCustomLayoutEditor(container, layout);
     }
@@ -14223,9 +14610,8 @@ var HomeLayoutManagerSection = class {
         const sections = this.getManagedSections();
         await this.store.updateModuleLayout(this.selectedPage, {
           mode: "custom",
-          columns: template.columns,
           templateId: template.id,
-          sections: this.createTemplateSectionLayouts(template, sections)
+          items: this.createTemplateSectionLayouts(template, sections)
         });
         this.rerender();
       });
@@ -14242,12 +14628,14 @@ var HomeLayoutManagerSection = class {
     });
   }
   renderPreview(container, layout) {
-    var _a;
     const sections = this.getManagedSections().filter((section) => section.enabled);
     const preview = container.createDiv({ cls: "cow-layout-preview" });
-    preview.style.setProperty("--preview-columns", String((_a = layout.columns) != null ? _a : 12));
-    sections.forEach((section) => {
-      const sectionLayout = this.getSectionLayout(layout, section);
+    preview.style.setProperty("--preview-columns", String(GRID_CONFIG.columns));
+    const resolved = resolveModuleLayout(this.selectedPage, sections, layout, 1260);
+    preview.style.setProperty("--preview-row-height", "18px");
+    resolved.items.forEach((sectionLayout) => {
+      const section = sections.find((item) => item.id === sectionLayout.sectionId);
+      if (!section) return;
       const tile = preview.createEl("button", {
         cls: [
           "cow-layout-preview-tile",
@@ -14256,10 +14644,10 @@ var HomeLayoutManagerSection = class {
         ].filter(Boolean).join(" "),
         attr: { type: "button" }
       });
-      tile.style.gridColumn = sectionLayout.gridColumn;
-      tile.style.gridRow = sectionLayout.gridRow;
+      tile.style.gridColumn = `${sectionLayout.x + 1} / span ${sectionLayout.w}`;
+      tile.style.gridRow = `${sectionLayout.y + 1} / span ${sectionLayout.h}`;
       tile.createEl("strong", { text: section.title });
-      tile.createSpan({ text: `${sectionLayout.colSpan}\xD7${sectionLayout.rowSpan}${section.enabled ? "" : " \xB7 \u5DF2\u9690\u85CF"}` });
+      tile.createSpan({ text: `${sectionLayout.w}\xD7${sectionLayout.h}` });
       tile.addEventListener("click", () => {
         this.selectedSectionId = section.id;
         this.rerender();
@@ -14267,7 +14655,7 @@ var HomeLayoutManagerSection = class {
     });
   }
   renderSectionEditor(container, layout) {
-    var _a, _b, _c, _d;
+    var _a;
     const sections = this.getManagedSections();
     const selected = (_a = sections.find((section) => section.id === this.selectedSectionId)) != null ? _a : sections[0];
     if (selected && !this.selectedSectionId) this.selectedSectionId = selected.id;
@@ -14308,55 +14696,88 @@ var HomeLayoutManagerSection = class {
     panel.createEl("strong", { text: `\u5F53\u524D\u9009\u4E2D\uFF1A${selected.title}` });
     panel.createDiv({ cls: "cow-meta-line", text: selected.enabled ? "\u4FEE\u6539\u5BBD\u5EA6 / \u9AD8\u5EA6\u8DE8\u5EA6\u540E\u4F1A\u7ACB\u5373\u5E94\u7528\u5230\u5F53\u524D\u6A21\u5757\u3002" : "\u8BE5 Section \u5DF2\u9690\u85CF\uFF0C\u5E03\u5C40\u8BBE\u7F6E\u4F1A\u4FDD\u7559\u5230\u6062\u590D\u663E\u793A\u540E\u7EE7\u7EED\u751F\u6548\u3002" });
     const controls = panel.createDiv({ cls: "cow-layout-span-controls" });
-    this.renderSpanButtons(controls, "\u5BBD\u5EA6", (_b = layout.columns) != null ? _b : 4, (_c = selectedLayout.colSpan) != null ? _c : 1, async (value) => {
+    this.renderSpanButtons(controls, "\u5BBD\u5EA6", GRID_CONFIG.columns, selectedLayout.w, async (value) => {
       await this.store.updateSectionLayout(this.selectedPage, selected.id, { colSpan: value });
       this.selectedSectionId = selected.id;
       this.rerender();
-    });
-    this.renderSpanButtons(controls, "\u9AD8\u5EA6", 3, (_d = selectedLayout.rowSpan) != null ? _d : 1, async (value) => {
+    }, sectionMinimum(selected).w);
+    this.renderSpanButtons(controls, "\u9AD8\u5EA6", 12, selectedLayout.h, async (value) => {
       await this.store.updateSectionLayout(this.selectedPage, selected.id, { rowSpan: value });
       this.selectedSectionId = selected.id;
       this.rerender();
-    });
+    }, sectionMinimum(selected).h);
   }
-  renderSpanButtons(container, label, max, current, onPick) {
+  renderSpanButtons(container, label, max, current, onPick, min = 1) {
     const group = container.createDiv({ cls: "cow-layout-span-group" });
     group.createSpan({ text: label });
-    for (let value = 1; value <= max; value += 1) {
+    for (let value = min; value <= max; value += 1) {
       const button = group.createEl("button", { cls: current === value ? "is-active" : "", text: String(value), attr: { type: "button" } });
       button.addEventListener("click", () => void onPick(value));
     }
   }
   createTemplateSectionLayouts(template, sections) {
-    const layouts = {};
-    sections.forEach((section, index) => {
-      layouts[section.id] = {
-        order: (index + 1) * 10,
-        colSpan: this.templateColSpan(template.id, index),
-        rowSpan: this.templateRowSpan(template.id, index)
-      };
+    const items = sections.map((section, index) => {
+      let x = 0;
+      let y = 0;
+      let w = 6;
+      let h = 8;
+      if (template.id === "three-columns") {
+        x = index % 3 * 4;
+        y = Math.floor(index / 3) * 8;
+        w = 4;
+      } else if (template.id === "top-full") {
+        if (index === 0) w = 12;
+        else {
+          x = (index - 1) % 2 * 6;
+          y = 8 + Math.floor((index - 1) / 2) * 8;
+        }
+      } else if (template.id === "left-large" || template.id === "left-feature") {
+        if (index === 0) {
+          w = 8;
+          h = 16;
+        } else if (index < 3) {
+          x = 8;
+          y = (index - 1) * 8;
+          w = 4;
+        } else {
+          x = (index - 3) % 2 * 6;
+          y = 16 + Math.floor((index - 3) / 2) * 8;
+        }
+      } else if (template.id === "right-large") {
+        if (index === 0) {
+          x = 4;
+          w = 8;
+          h = 16;
+        } else if (index < 3) {
+          x = 0;
+          y = (index - 1) * 8;
+          w = 4;
+        } else {
+          x = (index - 3) % 2 * 6;
+          y = 16 + Math.floor((index - 3) / 2) * 8;
+        }
+      } else {
+        x = index % 2 * 6;
+        y = Math.floor(index / 2) * 8;
+      }
+      w = Math.max(w, sectionMinimum(section).w);
+      x = Math.min(x, 12 - w);
+      return { sectionId: section.id, x, y, w, h };
     });
-    return layouts;
-  }
-  templateColSpan(template, index) {
-    if (template === "two-columns") return 1;
-    if (template === "three-columns") return 1;
-    if (template === "top-full" && index === 0) return 4;
-    if (template === "top-full") return 2;
-    if (template === "left-feature") return index === 0 ? 2 : 1;
-    return 2;
-  }
-  templateRowSpan(template, index) {
-    if ((template === "left-large" || template === "left-feature") && index === 0) return 2;
-    if (template === "right-large" && index === 1) return 2;
-    return 1;
+    return compactLayout(items);
   }
   getManagedSections() {
+    var _a;
     const layout = this.store.getModuleLayout(this.selectedPage);
-    return this.store.getAllSections().filter((section) => section.page === this.selectedPage).sort((left, right) => this.getSectionLayout(layout, left).order - this.getSectionLayout(layout, right).order);
+    const positions = new Map(((_a = layout.items) != null ? _a : []).map((item, index) => [item.sectionId, index]));
+    return this.store.getLayoutSections(this.selectedPage).sort((left, right) => {
+      var _a2, _b;
+      return ((_a2 = positions.get(left.id)) != null ? _a2 : left.order) - ((_b = positions.get(right.id)) != null ? _b : right.order);
+    });
   }
   getSectionLayout(layout, section) {
-    return resolveSectionLayout(section, layout);
+    var _a, _b, _c;
+    return (_c = (_b = (_a = layout.items) == null ? void 0 : _a.find((item) => item.sectionId === section.id)) != null ? _b : resolveModuleLayout(this.selectedPage, this.getManagedSections(), layout, 1260).items.find((item) => item.sectionId === section.id)) != null ? _c : { sectionId: section.id, x: 0, y: 0, w: sectionMinimum(section).w, h: sectionMinimum(section).h };
   }
   clamp(value, min, max) {
     return Math.max(min, Math.min(max, Number(value) || min));
@@ -14421,7 +14842,7 @@ var FunctionalSectionManagerSection = class {
     const panel = container.createDiv({ cls: "cow-section-manager-panel" });
     panel.createEl("h4", { text: "\u5F53\u524D\u542F\u7528\u6A21\u5757" });
     const list = panel.createDiv({ cls: "cow-module-sort-list" });
-    const sections = this.store.getAllSections().filter((section) => section.page === this.selectedPage && section.enabled);
+    const sections = this.store.getSectionsForPage(this.selectedPage);
     if (sections.length === 0) {
       list.createEl("p", { cls: "cow-empty-state", text: "\u6682\u65E0\u542F\u7528\u6A21\u5757\u3002" });
     }
@@ -14500,14 +14921,17 @@ var FunctionalSectionManagerSection = class {
       row.addEventListener("dragover", (event) => {
         event.preventDefault();
         if (!this.draggingId || this.draggingId === section.id) return;
-        const draggingEl = list.querySelector(`[data-id="${this.draggingId}"]`);
-        if (draggingEl) list.insertBefore(draggingEl, row);
+        row.addClass("is-drop-target");
       });
+      row.addEventListener("dragleave", () => row.removeClass("is-drop-target"));
       row.addEventListener("drop", async () => {
-        const ids = Array.from(list.querySelectorAll(".cow-section-manager-row")).map((item) => {
-          var _a;
-          return (_a = item.dataset.id) != null ? _a : "";
-        });
+        var _a;
+        row.removeClass("is-drop-target");
+        const ids = this.store.getSectionsForPage(this.selectedPage).map((item) => item.id);
+        const from = ids.indexOf((_a = this.draggingId) != null ? _a : "");
+        const to = ids.indexOf(section.id);
+        if (from < 0 || to < 0 || from === to) return;
+        ids.splice(to, 0, ids.splice(from, 1)[0]);
         await this.store.reorderSections(this.selectedPage, ids);
         this.rerender();
       });
@@ -14527,9 +14951,17 @@ var FunctionalSectionManagerSection = class {
     var _a;
     const select = container.createEl("select", { attr: { "aria-label": "\u4FEE\u6539\u5BBD\u5EA6" } });
     WIDTHS.forEach((width) => select.createEl("option", { value: width.id, text: width.label }));
-    select.value = (_a = section.width) != null ? _a : "md";
+    const item = resolveModuleLayout(
+      section.page,
+      this.store.getAllSections().filter((entry) => entry.page === section.page),
+      this.store.getModuleLayout(section.page),
+      1260
+    ).items.find((entry) => entry.sectionId === section.id);
+    const current = (_a = item == null ? void 0 : item.w) != null ? _a : 4;
+    select.value = current >= 12 ? "full" : current >= 8 ? "lg" : current <= 3 ? "sm" : "md";
     select.addEventListener("change", async () => {
-      await this.store.updateSection(section.id, { width: select.value });
+      const width = select.value === "full" ? 12 : select.value === "lg" ? 8 : select.value === "sm" ? 3 : 4;
+      await this.store.updateSectionLayout(section.page, section.id, { colSpan: width });
       this.rerender();
     });
   }
@@ -19065,20 +19497,13 @@ var DashboardSection = class {
     this.onDataChanged = onDataChanged;
   }
   render(container) {
-    var _a, _b, _c;
+    var _a, _b;
     const cardColor = typeof ((_a = this.section.config) == null ? void 0 : _a.cardColor) === "string" ? this.section.config.cardColor : "default";
     const layoutMeta = this.getLayoutMeta();
     const sectionEl = container.createDiv({
-      cls: `cow-section cow-section-${(_b = this.section.width) != null ? _b : "md"} cow-section-height-${(_c = this.section.height) != null ? _c : "sm"} cow-section-type-${this.section.type} wb-layout-${layoutMeta.role} wb-span-${layoutMeta.span} cow-card-color-${cardColor}`
+      cls: `cow-section cow-section-height-${(_b = this.section.height) != null ? _b : "sm"} cow-section-type-${this.section.type} wb-layout-${layoutMeta.role} cow-card-color-${cardColor}`
     });
     sectionEl.dataset.sectionId = this.section.id;
-    const moduleLayout = this.store.getModuleLayout(this.section.page);
-    if (moduleLayout.mode === "custom") {
-      const layout = resolveSectionLayout(this.section, moduleLayout);
-      sectionEl.style.gridColumn = layout.gridColumn;
-      sectionEl.style.gridRow = layout.gridRow;
-      sectionEl.dataset.rowSpan = String(layout.rowSpan);
-    }
     const header = sectionEl.createDiv({ cls: "cow-section-header" });
     const title = header.createDiv({ cls: "cow-section-title" });
     (0, import_obsidian76.setIcon)(title.createSpan(), this.getIcon());
@@ -19786,7 +20211,7 @@ var AddSectionModal = class extends import_obsidian77.Modal {
     this.contentEl.empty();
     this.contentEl.addClass("cow-modal");
     this.contentEl.createEl("h2", { text: "\u6DFB\u52A0\u529F\u80FD\u5206\u533A" });
-    this.contentEl.createEl("p", { text: "\u9009\u62E9\u4E00\u4E2A\u6A21\u5757\u540E\u4F1A\u7ACB\u5373\u52A0\u5165\u5F53\u524D\u9875\u9762\u5E76\u4FDD\u5B58\u5E03\u5C40\u3002" });
+    this.contentEl.createEl("p", { text: "\u9009\u62E9\u8981\u52A0\u5165\u5F53\u524D\u9875\u9762\u7684\u529F\u80FD\u5206\u533A\u3002" });
     const grid = this.contentEl.createDiv({ cls: "cow-add-module-grid" });
     this.modules.forEach((module2) => {
       const button = grid.createEl("button", {
@@ -19827,140 +20252,252 @@ var AddSectionButton = class {
   }
 };
 
-// src/core/LayoutEditState.ts
-var editingPage = null;
-var listeners = /* @__PURE__ */ new Set();
-function isLayoutEditing(page) {
-  return editingPage === page;
-}
-function toggleLayoutEditing(page) {
-  editingPage = editingPage === page ? null : page;
-  listeners.forEach((listener) => listener());
-}
-
 // src/components/DashboardGrid.ts
 var DashboardGrid = class {
-  constructor(app, store, page, onDataChanged) {
+  constructor(app, store, page, onDataChanged, renderCustomSection) {
     this.app = app;
     this.store = store;
     this.page = page;
     this.onDataChanged = onDataChanged;
+    this.renderCustomSection = renderCustomSection;
   }
   render(container) {
     var _a;
     const layout = this.store.getModuleLayout(this.page);
-    const grid = container.createDiv({ cls: `cow-dashboard-grid cow-dashboard-page-${this.page} cow-module-layout-${layout.mode}` });
-    grid.style.setProperty("--layout-columns", String((_a = layout.columns) != null ? _a : 12));
-    const sections = this.store.getSectionsForPage(this.page);
+    const sections = [...this.renderCustomSection ? this.store.getLayoutSections(this.page) : this.store.getSectionsForPage(this.page), ...getDraftSections(this.page)];
     const editing = isLayoutEditing(this.page);
     if (editing) {
       const toolbar = container.createDiv({ cls: "cow-layout-edit-toolbar" });
       toolbar.createEl("strong", { text: "\u7F16\u8F91\u5E03\u5C40" });
-      toolbar.createEl("span", { text: "\u62D6\u52A8\u6807\u9898\u533A\u57DF\u8C03\u6574\u987A\u5E8F\uFF0C\u53F3\u4E0B\u89D2\u8C03\u6574\u7F51\u683C\u5C3A\u5BF8\u3002" });
+      toolbar.createEl("span", { text: "\u62D6\u52A8\u6807\u9898\u79FB\u52A8\u677F\u5757\uFF0C\u62D6\u52A8\u53F3\u4E0B\u89D2\u8C03\u6574\u5C3A\u5BF8\u3002" });
+      if (!this.renderCustomSection) toolbar.createEl("button", { text: "\u6DFB\u52A0\u677F\u5757", attr: { type: "button" } }).addEventListener("click", () => {
+        new AddSectionModal(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
+          var _a2, _b, _c;
+          const definition = this.store.getAvailableModules(this.page).find((item) => item.type === moduleType);
+          const order = Math.max(0, ...this.store.getAllSections().filter((item) => item.page === this.page).map((item) => item.order)) + 10;
+          addDraftSection(this.page, {
+            id: `${this.page}-${moduleType}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            page: this.page,
+            type: moduleType,
+            title: (_a2 = definition == null ? void 0 : definition.title) != null ? _a2 : moduleType,
+            order,
+            enabled: true,
+            width: (_b = definition == null ? void 0 : definition.defaultWidth) != null ? _b : "md",
+            height: (_c = definition == null ? void 0 : definition.defaultHeight) != null ? _c : "sm",
+            config: {}
+          });
+          this.onDataChanged();
+        }).open();
+      });
       const reset = toolbar.createEl("button", { text: "\u91CD\u7F6E\u5E03\u5C40", attr: { type: "button" } });
-      reset.addEventListener("click", () => void this.store.setModuleLayoutMode(this.page, "default").then(this.onDataChanged));
+      reset.addEventListener("click", () => this.confirmReset());
+      toolbar.createEl("button", { text: "\u53D6\u6D88", attr: { type: "button" } }).addEventListener("click", () => {
+        stopLayoutEditing();
+        this.onDataChanged();
+      });
+      toolbar.createEl("button", { text: "\u5B8C\u6210\u5E03\u5C40", cls: "mod-cta", attr: { type: "button" } }).addEventListener("click", () => void this.finish());
     }
+    const grid = container.createDiv({ cls: `cow-dashboard-grid cow-layout-engine cow-dashboard-page-${this.page} cow-module-layout-${layout.mode}` });
+    if (editing) grid.addClass("is-layout-editing");
+    const elements = /* @__PURE__ */ new Map();
     sections.forEach((section) => {
-      const sectionEl = new DashboardSection(this.app, this.store, section, async (removedSection) => {
-        await this.store.removeSection(removedSection.id);
+      const sectionEl = this.renderCustomSection ? this.renderCustomSection(grid, section) : new DashboardSection(this.app, this.store, section, async (removedSection) => {
+        if (!removeDraftSection(this.page, removedSection.id)) await this.store.removeSection(removedSection.id);
         this.onDataChanged();
       }, this.onDataChanged).render(grid);
-      if (editing) this.decorateEditableSection(grid, sectionEl, section.id);
+      sectionEl.dataset.sectionId = section.id;
+      elements.set(section.id, sectionEl);
+      if (editing) this.decorateEditableSection(grid, sectionEl, section, sections, elements);
     });
-    new AddSectionButton(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
+    const apply = (draft) => {
+      const resolved = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth, draft != null ? draft : getDraftLayout(this.page));
+      grid.style.gridTemplateColumns = `repeat(${resolved.columns}, minmax(0, 1fr))`;
+      grid.style.gridAutoRows = `${GRID_CONFIG.rowHeight}px`;
+      grid.style.gap = `${GRID_CONFIG.gap}px`;
+      grid.dataset.columns = String(resolved.columns);
+      for (const item of resolved.items) {
+        const element = elements.get(item.sectionId);
+        if (!element) continue;
+        element.style.gridColumn = `${item.x + 1} / span ${item.w}`;
+        element.style.gridRow = `${item.y + 1} / span ${item.h}`;
+        element.style.order = "0";
+        const height = item.h * GRID_CONFIG.rowHeight + (item.h - 1) * GRID_CONFIG.gap;
+        element.style.maxHeight = `min(${height}px, var(--wb-section-max-height, 66.6667vh))`;
+      }
+    };
+    this.paint = apply;
+    apply();
+    let lastWidth = grid.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (!grid.isConnected || grid.clientWidth === lastWidth) return;
+      lastWidth = grid.clientWidth;
+      apply();
+      if (!editing) window.requestAnimationFrame(() => this.fitNaturalHeights(grid, sections, elements));
+    });
+    observer.observe((_a = grid.parentElement) != null ? _a : grid);
+    grid.addEventListener("cow-layout-destroy", () => observer.disconnect(), { once: true });
+    if (!editing) window.requestAnimationFrame(() => this.fitNaturalHeights(grid, sections, elements));
+    if (!editing && !this.renderCustomSection) new AddSectionButton(this.app, this.page, this.store.getAvailableModules(this.page), async (moduleType) => {
       await this.store.addSection(this.page, moduleType);
       this.onDataChanged();
     }).render(container);
   }
-  decorateEditableSection(grid, sectionEl, sectionId) {
+  fitNaturalHeights(grid, sections, elements) {
+    if (!grid.isConnected || isLayoutEditing(this.page)) return;
+    const source = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth);
+    const naturalRows = /* @__PURE__ */ new Map();
+    source.items.forEach((item) => {
+      var _a;
+      const element = elements.get(item.sectionId);
+      if (!element) return;
+      const header = element.querySelector(".cow-section-header");
+      const body = element.querySelector(".cow-section-content");
+      const natural = body ? ((_a = header == null ? void 0 : header.offsetHeight) != null ? _a : 0) + body.scrollHeight + 48 : element.scrollHeight;
+      const rows = Math.max(1, Math.ceil((natural + GRID_CONFIG.gap) / (GRID_CONFIG.rowHeight + GRID_CONFIG.gap)));
+      naturalRows.set(item.sectionId, rows);
+    });
+    const placed = resolveModuleLayout(this.page, sections, this.store.getModuleLayout(this.page), grid.clientWidth, void 0, naturalRows).items;
+    for (const item of placed) {
+      const element = elements.get(item.sectionId);
+      if (element) {
+        element.style.gridColumn = `${item.x + 1} / span ${item.w}`;
+        element.style.gridRow = `${item.y + 1} / span ${item.h}`;
+      }
+    }
+  }
+  async finish() {
+    const draft = getDraftLayout(this.page);
+    if (draft) await this.store.commitModuleLayout(this.page, draft, getDraftSections(this.page));
+    stopLayoutEditing();
+    this.onDataChanged();
+  }
+  confirmReset() {
+    const modal = new import_obsidian78.Modal(this.app);
+    modal.contentEl.createEl("h2", { text: "\u91CD\u7F6E\u4E3A\u65B0\u7248\u9ED8\u8BA4\u5E03\u5C40\uFF1F" });
+    modal.contentEl.createEl("p", { text: "\u5F53\u524D\u7F16\u8F91\u4E2D\u7684\u5E03\u5C40\u4F1A\u88AB\u66FF\u6362\u3002\u70B9\u51FB\u5B8C\u6210\u5E03\u5C40\u540E\u624D\u4F1A\u4FDD\u5B58\u3002" });
+    const actions = modal.contentEl.createDiv({ cls: "cow-modal-actions" });
+    actions.createEl("button", { text: "\u53D6\u6D88" }).addEventListener("click", () => modal.close());
+    actions.createEl("button", { text: "\u91CD\u7F6E\u5E03\u5C40", cls: "mod-warning" }).addEventListener("click", () => {
+      const sections = this.store.getLayoutSections(this.page);
+      resetDraftLayout(this.page, createDefaultLayout(this.page, sections));
+      modal.close();
+      this.onDataChanged();
+    });
+    modal.open();
+  }
+  decorateEditableSection(grid, sectionEl, section, sections, elements) {
     sectionEl.addClass("is-layout-editing");
-    sectionEl.draggable = true;
     const header = sectionEl.querySelector(".cow-section-header");
     if (!header) return;
-    const grip = document.createElement("span");
+    const grip = document.createElement("button");
+    grip.type = "button";
     grip.className = "cow-layout-grip";
-    grip.setAttribute("title", "\u62D6\u52A8\u8C03\u6574\u4F4D\u7F6E");
+    grip.title = "\u62D6\u52A8\u8C03\u6574\u4F4D\u7F6E";
     grip.setAttribute("aria-label", "\u62D6\u52A8\u8C03\u6574\u4F4D\u7F6E");
     grip.textContent = "\u22EE\u22EE";
     header.prepend(grip);
-    const resize = document.createElement("span");
+    const resize = document.createElement("button");
+    resize.type = "button";
     resize.className = "cow-layout-resize-handle";
-    resize.setAttribute("title", "\u8C03\u6574\u7F51\u683C\u5C3A\u5BF8");
+    resize.title = "\u8C03\u6574\u7F51\u683C\u5C3A\u5BF8";
     resize.setAttribute("aria-label", "\u8C03\u6574\u7F51\u683C\u5C3A\u5BF8");
     sectionEl.append(resize);
-    sectionEl.addEventListener("dragstart", (event) => {
-      var _a;
-      if (!(event.target instanceof HTMLElement) || !event.target.closest(".cow-layout-grip")) {
-        event.preventDefault();
-        return;
+    grip.addEventListener("pointerdown", (event) => this.startPointerOperation(event, "move", grid, sectionEl, section, sections, elements));
+    resize.addEventListener("pointerdown", (event) => this.startPointerOperation(event, "resize", grid, sectionEl, section, sections, elements));
+  }
+  startPointerOperation(event, kind, grid, sectionEl, section, sections, elements) {
+    var _a, _b;
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const original = structuredClone((_a = getDraftLayout(this.page)) != null ? _a : []);
+    const start = original.find((item) => item.sectionId === section.id);
+    if (!start) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const columns = Number(grid.dataset.columns) || 12;
+    const columnUnit = (grid.clientWidth + GRID_CONFIG.gap) / columns;
+    const rowUnit = GRID_CONFIG.rowHeight + GRID_CONFIG.gap;
+    const scale = GRID_CONFIG.columns / columns;
+    const placeholder = grid.createDiv({ cls: "cow-layout-placeholder" });
+    const badge = sectionEl.createSpan({ cls: "cow-layout-size-badge" });
+    const scrollHost = grid.closest(".cow-page-host");
+    let latest = original;
+    let cancelled = false;
+    let lastPointer = event;
+    let scrollFrame = 0;
+    sectionEl.addClass("is-layout-dragging");
+    const paintPlaceholder = (item) => {
+      const resolved = resolveModuleLayout(this.page, sections, { ...this.store.getModuleLayout(this.page), mode: "custom", items: latest }, grid.clientWidth);
+      const target = resolved.items.find((entry) => entry.sectionId === item.sectionId);
+      if (!target) return;
+      placeholder.style.gridColumn = `${target.x + 1} / span ${target.w}`;
+      placeholder.style.gridRow = `${target.y + 1} / span ${target.h}`;
+      badge.textContent = `${item.w} \xD7 ${item.h}`;
+    };
+    const onMove = (move) => {
+      var _a2, _b2, _c, _d, _e;
+      lastPointer = move;
+      if (kind === "move") {
+        const x = Math.max(0, Math.min(12 - start.w, start.x + Math.round((move.clientX - startX) / columnUnit * scale)));
+        const y = Math.max(0, start.y + Math.round((move.clientY - startY + ((_a2 = scrollHost == null ? void 0 : scrollHost.scrollTop) != null ? _a2 : 0) - scrollStart) / rowUnit));
+        latest = moveLayoutItem(original, section.id, x, y);
+      } else {
+        const min = sectionMinimum(section);
+        const ceiling = Number.parseFloat(getComputedStyle(grid).getPropertyValue("--wb-section-max-height")) || ((_c = (_b2 = grid.closest(".cow-page-host")) == null ? void 0 : _b2.clientHeight) != null ? _c : 900) * 2 / 3;
+        const maxH = Math.max(min.h, Math.floor((ceiling + GRID_CONFIG.gap) / rowUnit));
+        const w = Math.max(min.w, Math.min(12 - start.x, start.w + Math.round((move.clientX - startX) / columnUnit * scale)));
+        const h = Math.max(min.h, Math.min(maxH, start.h + Math.round((move.clientY - startY) / rowUnit)));
+        latest = resizeLayoutItem(original, section, w, h);
       }
-      (_a = event.dataTransfer) == null ? void 0 : _a.setData("text/plain", sectionId);
-      sectionEl.addClass("is-layout-dragging");
-      grid.addClass("is-layout-dragging");
-    });
-    sectionEl.addEventListener("dragend", () => {
+      (_d = this.paint) == null ? void 0 : _d.call(this, latest);
+      paintPlaceholder((_e = latest.find((item) => item.sectionId === section.id)) != null ? _e : start);
+    };
+    const scrollStart = (_b = scrollHost == null ? void 0 : scrollHost.scrollTop) != null ? _b : 0;
+    const autoScroll = () => {
+      if (scrollHost) {
+        const box = scrollHost.getBoundingClientRect();
+        const amount = lastPointer.clientY < box.top + 36 ? -8 : lastPointer.clientY > box.bottom - 36 ? 8 : 0;
+        if (amount) {
+          const before = scrollHost.scrollTop;
+          scrollHost.scrollTop += amount;
+          if (scrollHost.scrollTop !== before) onMove(lastPointer);
+        }
+      }
+      scrollFrame = window.requestAnimationFrame(autoScroll);
+    };
+    const cleanup = () => {
+      var _a2;
+      window.cancelAnimationFrame(scrollFrame);
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onEnd);
+      document.removeEventListener("keydown", onKey);
+      grid.removeEventListener("cow-layout-destroy", onDestroy);
       sectionEl.removeClass("is-layout-dragging");
-      grid.removeClass("is-layout-dragging");
-      grid.querySelectorAll(".is-layout-drop-target").forEach((item) => item.removeClass("is-layout-drop-target"));
-    });
-    sectionEl.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      sectionEl.addClass("is-layout-drop-target");
-    });
-    sectionEl.addEventListener("dragleave", () => sectionEl.removeClass("is-layout-drop-target"));
-    sectionEl.addEventListener("drop", (event) => {
-      var _a;
-      event.preventDefault();
-      const sourceId = (_a = event.dataTransfer) == null ? void 0 : _a.getData("text/plain");
-      if (!sourceId || sourceId === sectionId) return;
-      const ordered = Array.from(grid.querySelectorAll(".cow-section[data-section-id]")).map((item) => {
-        var _a2;
-        return (_a2 = item.dataset.sectionId) != null ? _a2 : "";
-      }).filter(Boolean);
-      const sourceIndex = ordered.indexOf(sourceId);
-      const targetIndex = ordered.indexOf(sectionId);
-      if (sourceIndex < 0 || targetIndex < 0) return;
-      ordered.splice(sourceIndex, 1);
-      ordered.splice(targetIndex, 0, sourceId);
-      void this.store.reorderSectionLayout(this.page, ordered).then(this.onDataChanged);
-    });
-    resize.addEventListener("pointerdown", (event) => {
-      var _a, _b, _c, _d, _e, _f, _g;
-      event.preventDefault();
-      event.stopPropagation();
-      const startX = event.clientX;
-      const startY = event.clientY;
-      const startWidth = (_c = (_b = (_a = this.store.getModuleLayout(this.page).sections) == null ? void 0 : _a[sectionId]) == null ? void 0 : _b.colSpan) != null ? _c : 4;
-      const startHeight = (_f = (_e = (_d = this.store.getModuleLayout(this.page).sections) == null ? void 0 : _d[sectionId]) == null ? void 0 : _e.rowSpan) != null ? _f : 1;
-      const columns = (_g = this.store.getModuleLayout(this.page).columns) != null ? _g : 12;
-      const gridWidth = Math.max(1, grid.getBoundingClientRect().width);
-      const columnWidth = gridWidth / columns;
-      const badge = document.createElement("span");
-      badge.className = "cow-layout-size-badge";
-      sectionEl.append(badge);
-      const move = (moveEvent) => {
-        const colSpan = Math.max(1, Math.min(columns, startWidth + Math.round((moveEvent.clientX - startX) / columnWidth)));
-        const rowSpan = Math.max(1, Math.min(12, startHeight + Math.round((moveEvent.clientY - startY) / 40)));
-        badge.textContent = `${colSpan} \xD7 ${rowSpan}`;
-        sectionEl.style.gridColumn = `span ${colSpan}`;
-        sectionEl.style.gridRow = `span ${rowSpan}`;
-        sectionEl.dataset.draftColSpan = String(colSpan);
-        sectionEl.dataset.draftRowSpan = String(rowSpan);
-      };
-      const end = () => {
-        var _a2, _b2;
-        document.removeEventListener("pointermove", move);
-        document.removeEventListener("pointerup", end);
-        const colSpan = Number((_a2 = sectionEl.dataset.draftColSpan) != null ? _a2 : startWidth);
-        const rowSpan = Number((_b2 = sectionEl.dataset.draftRowSpan) != null ? _b2 : startHeight);
-        badge.remove();
-        delete sectionEl.dataset.draftColSpan;
-        delete sectionEl.dataset.draftRowSpan;
-        void this.store.applySectionSize(this.page, sectionId, colSpan, rowSpan).then(this.onDataChanged);
-      };
-      document.addEventListener("pointermove", move);
-      document.addEventListener("pointerup", end, { once: true });
-    });
+      placeholder.remove();
+      badge.remove();
+      if (cancelled) (_a2 = this.paint) == null ? void 0 : _a2.call(this, original);
+    };
+    const onEnd = () => {
+      if (!cancelled) updateDraftLayout(this.page, latest);
+      cleanup();
+    };
+    const onKey = (key) => {
+      if (key.key !== "Escape") return;
+      key.preventDefault();
+      cancelled = true;
+      cleanup();
+    };
+    const onDestroy = () => {
+      cancelled = true;
+      cleanup();
+    };
+    paintPlaceholder(start);
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onEnd);
+    document.addEventListener("keydown", onKey);
+    grid.addEventListener("cow-layout-destroy", onDestroy, { once: true });
+    scrollFrame = window.requestAnimationFrame(autoScroll);
   }
 };
 
@@ -19999,7 +20536,7 @@ var FinancePage = class extends BaseDashboardPage {
 };
 
 // src/pages/TasksPage.ts
-var import_obsidian78 = require("obsidian");
+var import_obsidian79 = require("obsidian");
 var BOARD_COLUMNS = [
   ["todo", "\u5F85\u529E"],
   ["doing", "\u8FDB\u884C\u4E2D"],
@@ -20018,16 +20555,44 @@ var TasksPage = class {
     void this.store.generateDueRecurringTasks();
     const pageEl = container.createDiv({ cls: "cow-page cow-module-page cow-page-tasks cow-tasks-page" });
     this.renderHeader(pageEl);
-    this.renderQuickAdd(pageEl);
-    const topGrid = pageEl.createDiv({ cls: "cow-tasks-top-grid" });
-    this.renderTodayTasks(topGrid);
-    this.renderInbox(topGrid);
-    this.renderStats(topGrid);
-    this.renderWeekPlan(pageEl);
-    this.renderBoard(pageEl);
-    const bottomGrid = pageEl.createDiv({ cls: "cow-tasks-bottom-grid" });
-    this.renderProjects(bottomGrid);
-    this.renderRecurring(bottomGrid);
+    new DashboardGrid(
+      this.app,
+      this.store,
+      this.page,
+      this.onDataChanged,
+      (grid, section) => this.renderLayoutSection(grid, section)
+    ).render(pageEl);
+  }
+  renderLayoutSection(grid, section) {
+    const host = grid.createDiv({ cls: "cow-section cow-task-layout-section" });
+    if (isLayoutEditing(this.page)) host.createDiv({ cls: "cow-section-header cow-task-layout-edit-header", text: section.title });
+    switch (section.type) {
+      case "task-quick-add":
+        this.renderQuickAdd(host);
+        break;
+      case "task-today":
+        this.renderTodayTasks(host);
+        break;
+      case "task-inbox":
+        this.renderInbox(host);
+        break;
+      case "task-stats":
+        this.renderStats(host);
+        break;
+      case "task-week":
+        this.renderWeekPlan(host);
+        break;
+      case "task-board":
+        this.renderBoard(host);
+        break;
+      case "task-projects":
+        this.renderProjects(host);
+        break;
+      case "task-recurring":
+        this.renderRecurring(host);
+        break;
+    }
+    return host;
   }
   renderHeader(container) {
     const actions = container.createDiv({ cls: "cow-config-actions cow-page-local-actions" });
@@ -20267,13 +20832,13 @@ var TasksPage = class {
   }
   iconButton(container, icon, label, onClick) {
     const button = container.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian78.setIcon)(button.createSpan(), icon);
+    (0, import_obsidian79.setIcon)(button.createSpan(), icon);
     button.createSpan({ text: label });
     button.addEventListener("click", onClick);
   }
   smallIcon(container, icon, label, onClick) {
     const button = container.createEl("button", { attr: { type: "button", "aria-label": label } });
-    (0, import_obsidian78.setIcon)(button, icon);
+    (0, import_obsidian79.setIcon)(button, icon);
     button.addEventListener("click", (event) => {
       event.stopPropagation();
       onClick();
@@ -20286,8 +20851,8 @@ var GoalsPage = class extends BaseDashboardPage {
 };
 
 // src/pages/ModulesPage.ts
-var import_obsidian79 = require("obsidian");
-var ResetDefaultsModal = class extends import_obsidian79.Modal {
+var import_obsidian80 = require("obsidian");
+var ResetDefaultsModal = class extends import_obsidian80.Modal {
   constructor(app, onConfirm) {
     super(app);
     this.onConfirm = onConfirm;
@@ -20322,7 +20887,7 @@ var ModulesPage = class {
     const importInput = actions.createEl("input", { type: "file", attr: { accept: "application/json" } });
     importInput.addClass("cow-hidden-input");
     const importButton = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian79.setIcon)(importButton.createSpan(), "upload");
+    (0, import_obsidian80.setIcon)(importButton.createSpan(), "upload");
     importButton.createSpan({ text: "\u5BFC\u5165\u914D\u7F6E" });
     importButton.addEventListener("click", () => importInput.click());
     importInput.addEventListener("change", () => {
@@ -20331,18 +20896,18 @@ var ModulesPage = class {
       if (!file) return;
       readJsonFile(file, async (data) => {
         await this.store.importData(data);
-        new import_obsidian79.Notice("\u914D\u7F6E\u5DF2\u5BFC\u5165\u3002");
+        new import_obsidian80.Notice("\u914D\u7F6E\u5DF2\u5BFC\u5165\u3002");
         this.onDataChanged();
       });
     });
     const exportButton = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian79.setIcon)(exportButton.createSpan(), "download");
+    (0, import_obsidian80.setIcon)(exportButton.createSpan(), "download");
     exportButton.createSpan({ text: "\u5BFC\u51FA\u914D\u7F6E" });
     exportButton.addEventListener("click", () => {
       downloadJson("cute-obsidian-workbench-config.json", this.store.exportData());
     });
     const resetButton = actions.createEl("button", { cls: "mod-warning", attr: { type: "button" } });
-    (0, import_obsidian79.setIcon)(resetButton.createSpan(), "rotate-ccw");
+    (0, import_obsidian80.setIcon)(resetButton.createSpan(), "rotate-ccw");
     resetButton.createSpan({ text: "\u6062\u590D\u9ED8\u8BA4" });
     resetButton.addEventListener("click", () => {
       new ResetDefaultsModal(this.app, async () => {
@@ -20354,8 +20919,8 @@ var ModulesPage = class {
 };
 
 // src/components/QuickCreateModal.ts
-var import_obsidian80 = require("obsidian");
-var QuickCreateModal = class extends import_obsidian80.Modal {
+var import_obsidian81 = require("obsidian");
+var QuickCreateModal = class extends import_obsidian81.Modal {
   constructor(app, store, getCurrentPage, onDataChanged) {
     super(app);
     this.store = store;
@@ -20378,12 +20943,12 @@ var QuickCreateModal = class extends import_obsidian80.Modal {
     this.renderAction(grid, "\u6DFB\u52A0\u4EFB\u52A1", "list-plus", async () => {
       await this.store.addTodayFocusTask("\u65B0\u7684\u5F85\u529E\u4EFB\u52A1");
       this.onDataChanged();
-      new import_obsidian80.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
+      new import_obsidian81.Notice("\u5DF2\u6DFB\u52A0\u5230\u4ECA\u65E5\u7126\u70B9\u3002");
     });
     this.renderAction(grid, "\u6DFB\u52A0\u6253\u5361\u9879\u76EE", "badge-plus", async () => {
       await this.store.addCustomHabit("\u65B0\u7684\u6253\u5361");
       this.onDataChanged();
-      new import_obsidian80.Notice("\u5DF2\u6DFB\u52A0\u6253\u5361\u9879\u76EE\uFF0C\u53EF\u5728\u6A21\u5757\u7BA1\u7406\u4E2D\u7F16\u8F91\u3002");
+      new import_obsidian81.Notice("\u5DF2\u6DFB\u52A0\u6253\u5361\u9879\u76EE\uFF0C\u53EF\u5728\u6A21\u5757\u7BA1\u7406\u4E2D\u7F16\u8F91\u3002");
     });
     this.renderAction(grid, "\u6DFB\u52A0\u529F\u80FD\u5206\u533A", "layout-grid", async () => {
       this.close();
@@ -20392,7 +20957,7 @@ var QuickCreateModal = class extends import_obsidian80.Modal {
   }
   renderAction(container, label, icon, action, closeAfter = true) {
     const button = container.createEl("button", { cls: "cow-quick-create-card", attr: { type: "button" } });
-    (0, import_obsidian80.setIcon)(button.createSpan(), icon);
+    (0, import_obsidian81.setIcon)(button.createSpan(), icon);
     button.createSpan({ text: label });
     button.addEventListener("click", async () => {
       await action();
@@ -20409,8 +20974,8 @@ var QuickCreateModal = class extends import_obsidian80.Modal {
 };
 
 // src/components/WorkbenchCustomizeModal.ts
-var import_obsidian81 = require("obsidian");
-var WorkbenchCustomizeModal = class extends import_obsidian81.Modal {
+var import_obsidian82 = require("obsidian");
+var WorkbenchCustomizeModal = class extends import_obsidian82.Modal {
   constructor(app, store, getCurrentPage, onDataChanged) {
     var _a;
     super(app);
@@ -20437,7 +21002,7 @@ var WorkbenchCustomizeModal = class extends import_obsidian81.Modal {
         cls: this.store.getData().banner.background === background.id ? "is-active" : "",
         attr: { type: "button" }
       });
-      (0, import_obsidian81.setIcon)(button.createSpan(), "image");
+      (0, import_obsidian82.setIcon)(button.createSpan(), "image");
       button.createSpan({ text: background.label });
       button.addEventListener("click", async () => {
         await this.store.updateBanner({ background: background.id, imageDataUrl: void 0 });
@@ -20461,30 +21026,30 @@ var WorkbenchCustomizeModal = class extends import_obsidian81.Modal {
       };
       reader.readAsDataURL(file);
     });
-    new import_obsidian81.Setting(this.contentEl).setName("\u672C\u5730\u56FE\u7247").setDesc("\u4FDD\u5B58\u4E3A data URL\uFF0CBRAT \u5B89\u88C5\u540E\u4E0D\u4F9D\u8D56\u989D\u5916\u8D44\u6E90\u8DEF\u5F84\u3002").addButton((button) => button.setButtonText("\u9009\u62E9\u56FE\u7247").onClick(() => fileInput.click()));
-    new import_obsidian81.Setting(this.contentEl).setName("\u5DE6\u4FA7\u5934\u50CF").setDesc("\u9009\u62E9\u9884\u8BBE\u56FE\u6807\u6216\u4E0A\u4F20\u56FE\u7247\uFF0C\u5237\u65B0\u540E\u4ECD\u4FDD\u7559\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF").onClick(() => {
+    new import_obsidian82.Setting(this.contentEl).setName("\u672C\u5730\u56FE\u7247").setDesc("\u4FDD\u5B58\u4E3A data URL\uFF0CBRAT \u5B89\u88C5\u540E\u4E0D\u4F9D\u8D56\u989D\u5916\u8D44\u6E90\u8DEF\u5F84\u3002").addButton((button) => button.setButtonText("\u9009\u62E9\u56FE\u7247").onClick(() => fileInput.click()));
+    new import_obsidian82.Setting(this.contentEl).setName("\u5DE6\u4FA7\u5934\u50CF").setDesc("\u9009\u62E9\u9884\u8BBE\u56FE\u6807\u6216\u4E0A\u4F20\u56FE\u7247\uFF0C\u5237\u65B0\u540E\u4ECD\u4FDD\u7559\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF").onClick(() => {
       const current = this.store.getData().banner.sidebarAvatar;
       new AvatarPickerModal(this.app, "\u4FEE\u6539\u5DE6\u4FA7\u5934\u50CF", current, async (avatar) => {
         await this.store.updateSidebarAvatar(avatar);
         this.onDataChanged();
       }).open();
     }));
-    new import_obsidian81.Setting(this.contentEl).setName("Banner \u56FE\u6807").setDesc("\u9009\u62E9 Banner \u5DE6\u4FA7\u663E\u793A\u7684\u53EF\u7231\u56FE\u6807\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539 Banner \u56FE\u6807").onClick(() => {
+    new import_obsidian82.Setting(this.contentEl).setName("Banner \u56FE\u6807").setDesc("\u9009\u62E9 Banner \u5DE6\u4FA7\u663E\u793A\u7684\u53EF\u7231\u56FE\u6807\u3002").addButton((button) => button.setButtonText("\u4FEE\u6539 Banner \u56FE\u6807").onClick(() => {
       const current = this.store.getData().banner.bannerAvatar;
       new AvatarPickerModal(this.app, "\u4FEE\u6539 Banner \u56FE\u6807", current, async (avatar) => {
         await this.store.updateBannerAvatar(avatar);
         this.onDataChanged();
       }).open();
     }));
-    new import_obsidian81.Setting(this.contentEl).setName("Banner \u4E3B\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
+    new import_obsidian82.Setting(this.contentEl).setName("Banner \u4E3B\u6807\u9898").addText((text) => text.setValue(this.titleValue).onChange((value) => {
       this.titleValue = value;
     }));
-    new import_obsidian81.Setting(this.contentEl).setName("Banner \u526F\u6807\u9898").addText((text) => text.setValue(this.subtitleValue).onChange((value) => {
+    new import_obsidian82.Setting(this.contentEl).setName("Banner \u526F\u6807\u9898").addText((text) => text.setValue(this.subtitleValue).onChange((value) => {
       this.subtitleValue = value;
     }));
     const actions = this.contentEl.createDiv({ cls: "cow-modal-actions" });
     const addSection = actions.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian81.setIcon)(addSection.createSpan(), "plus");
+    (0, import_obsidian82.setIcon)(addSection.createSpan(), "plus");
     addSection.createSpan({ text: "\u6DFB\u52A0\u5F53\u524D\u9875\u9762\u529F\u80FD\u5206\u533A" });
     addSection.addEventListener("click", () => {
       this.close();
@@ -20497,7 +21062,7 @@ var WorkbenchCustomizeModal = class extends import_obsidian81.Modal {
         subtitle: this.subtitleValue.trim() || "\u628A\u60F3\u6CD5\u53D8\u6210\u884C\u52A8\uFF0C\u8BA9\u6BCF\u4E00\u5929\u90FD\u66F4\u9760\u8FD1\u7406\u60F3\u7684\u81EA\u5DF1\u3002"
       });
       this.onDataChanged();
-      new import_obsidian81.Notice("Banner \u6587\u6848\u5DF2\u4FDD\u5B58\u3002");
+      new import_obsidian82.Notice("Banner \u6587\u6848\u5DF2\u4FDD\u5B58\u3002");
       this.close();
     });
   }
@@ -20511,8 +21076,8 @@ var WorkbenchCustomizeModal = class extends import_obsidian81.Modal {
 };
 
 // src/components/DayDetailModal.ts
-var import_obsidian82 = require("obsidian");
-var DayDetailModal = class extends import_obsidian82.Modal {
+var import_obsidian83 = require("obsidian");
+var DayDetailModal = class extends import_obsidian83.Modal {
   constructor(app, store, date) {
     super(app);
     this.store = store;
@@ -20546,7 +21111,7 @@ var DayDetailModal = class extends import_obsidian82.Modal {
     const noteRow = this.contentEl.createDiv({ cls: "cow-day-note-row" });
     noteRow.createSpan({ text: dailyNote ? dailyNote.path : "\u8FD8\u6CA1\u6709\u6BCF\u65E5\u7B14\u8BB0\u3002" });
     const button = noteRow.createEl("button", { attr: { type: "button" } });
-    (0, import_obsidian82.setIcon)(button.createSpan(), dailyNote ? "file-text" : "file-plus");
+    (0, import_obsidian83.setIcon)(button.createSpan(), dailyNote ? "file-text" : "file-plus");
     button.createSpan({ text: dailyNote ? "\u6253\u5F00\u6BCF\u65E5\u7B14\u8BB0" : "\u521B\u5EFA\u6BCF\u65E5\u7B14\u8BB0" });
     button.addEventListener("click", async () => {
       await this.notes.openOrCreateDailyNote(this.date);
@@ -20556,8 +21121,8 @@ var DayDetailModal = class extends import_obsidian82.Modal {
 };
 
 // src/components/NotesManagerModal.ts
-var import_obsidian83 = require("obsidian");
-var NotesManagerModal = class extends import_obsidian83.Modal {
+var import_obsidian84 = require("obsidian");
+var NotesManagerModal = class extends import_obsidian84.Modal {
   constructor(app) {
     super(app);
     this.searchValue = "";
@@ -20608,8 +21173,8 @@ var NotesManagerModal = class extends import_obsidian83.Modal {
 };
 
 // src/components/WorkbenchReminderModal.ts
-var import_obsidian84 = require("obsidian");
-var WorkbenchReminderModal = class extends import_obsidian84.Modal {
+var import_obsidian85 = require("obsidian");
+var WorkbenchReminderModal = class extends import_obsidian85.Modal {
   constructor(app, store) {
     super(app);
     this.store = store;
@@ -20619,7 +21184,7 @@ var WorkbenchReminderModal = class extends import_obsidian84.Modal {
     this.contentEl.addClass("cow-modal", "cow-reminder-modal");
     const header = this.contentEl.createDiv({ cls: "cow-modal-header" });
     const title = header.createDiv({ cls: "cow-modal-title" });
-    (0, import_obsidian84.setIcon)(title.createSpan(), "bell");
+    (0, import_obsidian85.setIcon)(title.createSpan(), "bell");
     title.createEl("h2", { text: "\u63D0\u9192" });
     const entries = new DailyFocusService(this.store).getEntriesForDate(formatDateKey(/* @__PURE__ */ new Date())).filter((entry) => entry.status !== "completed").slice(0, 30);
     const body = this.contentEl.createDiv({ cls: "cow-reminder-list" });
@@ -20629,7 +21194,7 @@ var WorkbenchReminderModal = class extends import_obsidian84.Modal {
     }
     entries.forEach((entry) => {
       const row = body.createDiv({ cls: "cow-reminder-row" });
-      (0, import_obsidian84.setIcon)(row.createSpan({ cls: "cow-reminder-icon" }), entry.status === "overdue" ? "alert-circle" : "bell-ring");
+      (0, import_obsidian85.setIcon)(row.createSpan({ cls: "cow-reminder-icon" }), entry.status === "overdue" ? "alert-circle" : "bell-ring");
       const text = row.createDiv({ cls: "cow-reminder-text" });
       text.createEl("strong", { text: entry.title });
       text.createEl("span", { text: [entry.subtitle, entry.dueDate ? `\u622A\u6B62 ${entry.dueDate}` : ""].filter(Boolean).join(" \xB7 ") });
@@ -20639,7 +21204,7 @@ var WorkbenchReminderModal = class extends import_obsidian84.Modal {
 
 // src/views/WorkbenchView.ts
 var WORKBENCH_VIEW_TYPE = "cute-obsidian-workbench-view";
-var WorkbenchView = class extends import_obsidian85.ItemView {
+var WorkbenchView = class extends import_obsidian86.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -20665,25 +21230,28 @@ var WorkbenchView = class extends import_obsidian85.ItemView {
     this.render();
   }
   async onClose() {
-    var _a, _b;
+    var _a, _b, _c;
+    (_a = this.pageHost) == null ? void 0 : _a.querySelectorAll(".cow-dashboard-grid").forEach((grid) => grid.dispatchEvent(new Event("cow-layout-destroy")));
+    stopLayoutEditing();
     if (this.dateWatcher) {
       window.clearInterval(this.dateWatcher);
       this.dateWatcher = void 0;
     }
-    (_a = this.sectionHeightObserver) == null ? void 0 : _a.disconnect();
+    (_b = this.sectionHeightObserver) == null ? void 0 : _b.disconnect();
     this.sectionHeightObserver = void 0;
-    (_b = this.sidebar) == null ? void 0 : _b.destroy();
+    (_c = this.sidebar) == null ? void 0 : _c.destroy();
     this.eventBus.clear();
   }
   render() {
-    var _a, _b;
+    var _a, _b, _c;
     const container = this.containerEl.children[1];
-    (_a = this.sectionHeightObserver) == null ? void 0 : _a.disconnect();
+    (_a = this.pageHost) == null ? void 0 : _a.querySelectorAll(".cow-dashboard-grid").forEach((grid) => grid.dispatchEvent(new Event("cow-layout-destroy")));
+    (_b = this.sectionHeightObserver) == null ? void 0 : _b.disconnect();
     this.sectionHeightObserver = void 0;
     container.empty();
     container.addClass("cute-obsidian-workbench");
     this.applyTheme(container);
-    (_b = this.sidebar) == null ? void 0 : _b.destroy();
+    (_c = this.sidebar) == null ? void 0 : _c.destroy();
     const shell = container.createDiv({ cls: "cow-shell" });
     this.sidebar = new Sidebar(this.app, this.router.getCurrentPage(), [
       { label: "\u603B\u89C8", icon: "home", page: "overview", group: "", onClick: () => this.router.navigate("overview") },
@@ -20713,16 +21281,27 @@ var WorkbenchView = class extends import_obsidian85.ItemView {
         onReminder: () => new WorkbenchReminderModal(this.app, this.plugin.store).open(),
         onSettings: () => this.openSettings(),
         onCustomize: () => new WorkbenchCustomizeModal(this.app, this.plugin.store, () => this.router.getCurrentPage(), () => this.render()).open(),
-        onEditLayout: () => {
-          toggleLayoutEditing(this.router.getCurrentPage());
-          this.renderPreservingScroll();
-        },
+        onEditLayout: () => void this.toggleLayoutMode(),
         isLayoutEditing: isLayoutEditing(this.router.getCurrentPage())
       }).render(pageHost);
     }
     const pageContent = pageHost.createDiv({ cls: "cow-page-content" });
     this.renderPage(pageContent, this.router.getCurrentPage());
     this.observeSectionHeight(container, pageHost);
+  }
+  async toggleLayoutMode() {
+    var _a;
+    const page = this.router.getCurrentPage();
+    if (isLayoutEditing(page)) {
+      const draft = getDraftLayout(page);
+      if (draft) await this.plugin.store.commitModuleLayout(page, draft, getDraftSections(page));
+      stopLayoutEditing();
+    } else {
+      const sections = this.plugin.store.getLayoutSections(page);
+      const layout = this.plugin.store.getModuleLayout(page);
+      beginLayoutEditing(page, sanitizeLayout(sections, layout.mode === "custom" && ((_a = layout.items) == null ? void 0 : _a.length) ? layout.items : createDefaultLayout(page, sections, layout.mode)));
+    }
+    this.renderPreservingScroll();
   }
   observeSectionHeight(root, pageHost) {
     const update = () => {
@@ -20774,13 +21353,13 @@ var WorkbenchView = class extends import_obsidian85.ItemView {
     var _a;
     const didRun = (_a = this.app.commands) == null ? void 0 : _a.executeCommandById("file-explorer:open");
     if (!didRun) {
-      new import_obsidian85.Notice("\u672A\u80FD\u6FC0\u6D3B Obsidian \u6587\u4EF6\u7BA1\u7406\u5668\u3002");
+      new import_obsidian86.Notice("\u672A\u80FD\u6FC0\u6D3B Obsidian \u6587\u4EF6\u7BA1\u7406\u5668\u3002");
     }
   }
   openSettings() {
     var _a;
     const didRun = (_a = this.app.commands) == null ? void 0 : _a.executeCommandById("app:open-settings");
-    if (!didRun) new import_obsidian85.Notice("\u65E0\u6CD5\u6253\u5F00 Obsidian \u8BBE\u7F6E\u3002\u8BF7\u4ECE\u5DE6\u4E0B\u89D2\u8BBE\u7F6E\u5165\u53E3\u6253\u5F00\u3002 ");
+    if (!didRun) new import_obsidian86.Notice("\u65E0\u6CD5\u6253\u5F00 Obsidian \u8BBE\u7F6E\u3002\u8BF7\u4ECE\u5DE6\u4E0B\u89D2\u8BBE\u7F6E\u5165\u53E3\u6253\u5F00\u3002 ");
   }
   openAvatarPicker(target) {
     const banner = this.plugin.store.getData().banner;
@@ -20816,7 +21395,7 @@ var WorkbenchView = class extends import_obsidian85.ItemView {
 };
 
 // src/main.ts
-var CuteObsidianWorkbenchPlugin = class extends import_obsidian86.Plugin {
+var CuteObsidianWorkbenchPlugin = class extends import_obsidian87.Plugin {
   async onload() {
     this.store = new DashboardStore(
       () => this.loadData(),
